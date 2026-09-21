@@ -19,6 +19,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Connexion admin</title>
+<link rel="icon" href="logo.svg">
 <style>
 .ajout{max-width:420px;margin:120px auto 40px;padding:30px;background:var(--panel);border:1px solid var(--border);border-radius:14px;text-align:center;opacity:0;animation:apparait .6s ease forwards;transition:border-color .3s,box-shadow .3s;}
 .ajout:hover{border-color:var(--border-strong);box-shadow:0 0 24px var(--glow);}

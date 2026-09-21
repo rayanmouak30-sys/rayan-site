@@ -43,6 +43,7 @@ if (is_dir($dossier)) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Admin — <?= $titre ?></title>
+<link rel="icon" href="logo.svg">
 <style>
 .ajout{max-width:520px;margin:0 auto 40px;padding:25px;background:var(--panel);border:1px solid var(--border);border-radius:14px;text-align:center;transition:border-color .3s,box-shadow .3s;}
 .ajout:hover{border-color:var(--border-strong);box-shadow:0 0 24px var(--glow);}

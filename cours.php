@@ -17,6 +17,7 @@ if (is_dir($dossier)) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= $titre ?> — Mon classeur numérique</title>
+<link rel="icon" href="logo.svg">
 </head>
 <body>
 <div id="veil" aria-hidden="true"></div>
