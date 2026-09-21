@@ -6,7 +6,7 @@
   canvases.forEach(function (canvas) {
     var ctx = canvas.getContext("2d");
     var w, h, dpr, t = 0;
-    var clouds = [], rain = [], bolts = [], flash = 0, nextStrike = 40;
+    var clouds = [], rain = [], bolts = [], flash = 0, nextStrike = 10;
 
     function resize() {
       dpr = Math.min(window.devicePixelRatio || 1, 1.75);
@@ -32,9 +32,9 @@
 
     function buildRain() {
       rain = [];
-      var count = Math.floor(w / 14);
+      var count = Math.floor(w / 5);
       for (var i = 0; i < count; i++) {
-        rain.push({ x: Math.random() * w, y: Math.random() * h, len: 14 + Math.random() * 16, speed: 9 + Math.random() * 7 });
+        rain.push({ x: Math.random() * w, y: Math.random() * h, len: 16 + Math.random() * 20, speed: 11 + Math.random() * 9 });
       }
     }
 
@@ -127,7 +127,8 @@
         nextStrike -= 1;
         if (nextStrike <= 0) {
           spawnStrike();
-          nextStrike = 70 + Math.random() * 160;
+          if (Math.random() < 0.35) { spawnStrike(); }
+          nextStrike = 12 + Math.random() * 28;
         }
       }
 
@@ -157,8 +158,8 @@
       }
 
       ctx.save();
-      ctx.strokeStyle = "rgba(150,190,255,0.22)";
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = "rgba(150,190,255,0.32)";
+      ctx.lineWidth = 1.3;
       rain.forEach(function (r) {
         ctx.beginPath();
         ctx.moveTo(r.x, r.y);
