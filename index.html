@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mon classeur numérique</title>
+  <link rel="icon" href="logo.svg">
+</head>
+<body>
+  <div id="veil" aria-hidden="true"></div>
+  <script src="transitions.js"></script>
+  <nav>
+    <h1><a href="index.html">Mon classeur numérique</a></h1>
+    <div class="ligne">
+      <ul>
+        <li><a href="documents.php">Documents</a></li>
+        <li><a href="cours.php">Cours</a></li>
+        <li><a href="tp.php">Évaluations</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <section class="premier-plan">
+    <h2>Bienvenue</h2>
+    <p>Systèmes d'information et numérique</p>
+  </section>
+
+  <section id="prestation">
+    <h2>STI2D</h2>
+    <div class="cartes">
+      <a class="carte reveal" href="documents.php"><h3>Documents</h3><p>Consulter mes documents.</p></a>
+      <a class="carte reveal" href="cours.php"><h3>Cours</h3><p>Consulter mes cours.</p></a>
+      <a class="carte reveal" href="tp.php"><h3>Évaluations</h3><p>Consulter mes évaluations.</p></a>
+    </div>
+  </section>
+
+  <section class="a-propos" id="apropos">
+    <h2>À propos</h2>
+    <p>Ce site regroupe mes ressources de SIN (Systèmes d'Information et Numérique).</p>
+  </section>
+
+  <footer class="bas-de-page">
+    <div><a href="#">GitHub</a><a href="#">LinkedIn</a></div>
+    <div><a href="#">Mentions légales</a></div>
+  </footer>
+</body>
+</html>
