@@ -127,8 +127,8 @@
         nextStrike -= 1;
         if (nextStrike <= 0) {
           spawnStrike();
-          if (Math.random() < 0.35) { spawnStrike(); }
-          nextStrike = 12 + Math.random() * 28;
+          if (Math.random() < 0.5) { spawnStrike(); }
+          nextStrike = 90 + Math.random() * 30;
         }
       }
 
