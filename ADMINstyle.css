@@ -97,7 +97,7 @@ nav .ligne li a::after {
 nav .ligne li a:hover { color: var(--accent); }
 nav .ligne li a:hover::after { width: 100%; }
 
-/* ===== Hero avec étoiles + étoiles filantes ===== */
+/* ===== Hero avec éclairs animés (canvas) ===== */
 .premier-plan {
     height: 500px;
     display: flex;
@@ -107,75 +107,22 @@ nav .ligne li a:hover::after { width: 100%; }
     text-align: center;
     position: relative;
     overflow: hidden;
-    background-color: var(--bg);
-    background-image:
-        radial-gradient(2.5px 2.5px at 20px 30px, #ffffff, transparent),
-        radial-gradient(2.5px 2.5px at 120px 80px, #bfe0ff, transparent),
-        radial-gradient(2px 2px at 200px 40px, #ffffff, transparent),
-        radial-gradient(2.5px 2.5px at 300px 150px, #ffffff, transparent),
-        radial-gradient(2px 2px at 400px 90px, #8ec8ff, transparent),
-        radial-gradient(2.5px 2.5px at 500px 200px, #ffffff, transparent),
-        radial-gradient(2px 2px at 600px 50px, #ffffff, transparent),
-        radial-gradient(2.5px 2.5px at 700px 180px, #bfe0ff, transparent),
-        radial-gradient(2px 2px at 150px 250px, #ffffff, transparent),
-        radial-gradient(2.5px 2.5px at 350px 300px, #ffffff, transparent),
-        radial-gradient(2px 2px at 550px 350px, #8ec8ff, transparent),
-        radial-gradient(2.5px 2.5px at 750px 280px, #ffffff, transparent),
-        radial-gradient(2px 2px at 80px 370px, #ffffff, transparent),
-        radial-gradient(2.5px 2.5px at 460px 20px, #ffffff, transparent),
-        radial-gradient(circle at 30% 30%, var(--nebula), var(--bg) 70%);
-    background-repeat: repeat;
-    background-size: 800px 400px, 800px 400px, 800px 400px, 800px 400px,
-                     800px 400px, 800px 400px, 800px 400px, 800px 400px,
-                     800px 400px, 800px 400px, 800px 400px, 800px 400px,
-                     800px 400px, 800px 400px, 100% 100%;
-    animation: scintille 3s ease-in-out infinite alternate;
+    background: var(--bg);
 }
 
-@keyframes scintille {
-    from { opacity: 1; }
-    to { opacity: 0.7; }
-}
-
-/* Les deux étoiles filantes */
-.premier-plan::before,
-.premier-plan::after {
-    content: "";
+.lightning-canvas {
     position: absolute;
-    top: -10%;
-    left: -10%;
-    width: 130px;
-    height: 2px;
-    background: linear-gradient(90deg, #ffffff, rgba(255, 255, 255, 0));
-    border-radius: 2px;
-    filter: drop-shadow(0 0 6px #ffffff);
-    transform: rotate(35deg);
-    opacity: 0;
-    animation: filante 6s linear infinite;
-}
-
-.premier-plan::after {
-    width: 90px;
-    animation-delay: 3s;
-}
-
-@keyframes filante {
-    0%   { transform: translate(0, 0) rotate(35deg); opacity: 0; }
-    10%  { opacity: 1; }
-    40%  { opacity: 1; }
-    60%  { transform: translate(700px, 500px) rotate(35deg); opacity: 0; }
-    100% { transform: translate(700px, 500px) rotate(35deg); opacity: 0; }
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
 }
 
 .premier-plan h2 {
     font-family: 'Orbitron', sans-serif;
     font-size: 55px;
-    background: linear-gradient(90deg, var(--accent-dim), var(--accent-soft), var(--accent-dim));
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: brille 5s linear infinite;
+    color: #f2f6ff;
+    text-shadow: 0 0 22px var(--glow), 0 0 60px rgba(47, 143, 255, .35);
     position: relative;
     z-index: 2;
 }
@@ -184,13 +131,13 @@ nav .ligne li a:hover::after { width: 100%; }
     margin-top: 15px;
     font-size: 20px;
     color: var(--text-muted);
+    text-shadow: 0 2px 10px rgba(2, 4, 10, .8);
     position: relative;
     z-index: 2;
     opacity: 0;
     animation: montee .8s ease .3s forwards;
 }
 
-@keyframes brille { to { background-position: 200% center; } }
 @keyframes montee { to { opacity: 1; transform: translateY(0); } from { transform: translateY(12px); } }
 
 /* ===== Section STI2D ===== */

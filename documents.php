@@ -22,6 +22,7 @@ if (is_dir($dossier)) {
 <body>
 <div id="veil" aria-hidden="true"></div>
 <script src="transitions.js"></script>
+<script src="lightning.js" defer></script>
 <nav>
   <h1><a href="index.html">Mon classeur numérique</a></h1>
   <div class="ligne">
@@ -34,6 +35,7 @@ if (is_dir($dossier)) {
 </nav>
 
 <section class="premier-plan">
+  <canvas class="lightning-canvas" aria-hidden="true"></canvas>
   <h2><?= $titre ?></h2>
   <p>Systèmes d'information et numérique</p>
 </section>
