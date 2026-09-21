@@ -1,7 +1,6 @@
 (function () {
   var canvases = document.querySelectorAll(".lightning-canvas");
   if (!canvases.length) return;
-  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   canvases.forEach(function (canvas) {
     var ctx = canvas.getContext("2d");
@@ -123,13 +122,11 @@
       });
       ctx.restore();
 
-      if (!reduceMotion) {
-        nextStrike -= 1;
-        if (nextStrike <= 0) {
-          spawnStrike();
-          if (Math.random() < 0.5) { spawnStrike(); }
-          nextStrike = 90 + Math.random() * 30;
-        }
+      nextStrike -= 1;
+      if (nextStrike <= 0) {
+        spawnStrike();
+        if (Math.random() < 0.6) { spawnStrike(); }
+        nextStrike = 35 + Math.random() * 35;
       }
 
       bolts = bolts.filter(function (b) { return b.life > 0.02; });
@@ -165,11 +162,9 @@
         ctx.moveTo(r.x, r.y);
         ctx.lineTo(r.x - 3, r.y + r.len);
         ctx.stroke();
-        if (!reduceMotion) {
-          r.y += r.speed;
-          r.x -= r.speed * 0.25;
-          if (r.y > h) { r.y = -r.len; r.x = Math.random() * w; }
-        }
+        r.y += r.speed;
+        r.x -= r.speed * 0.25;
+        if (r.y > h) { r.y = -r.len; r.x = Math.random() * w; }
       });
       ctx.restore();
 
