@@ -3,12 +3,6 @@
 $titre   = "Documents";
 $dossier = "uploads_documents/";
 // ==============================
-$fichiers = [];
-if (is_dir($dossier)) {
-    foreach (scandir($dossier) as $f) {
-        if (strtolower(pathinfo($f, PATHINFO_EXTENSION)) === "pdf") { $fichiers[] = $f; }
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -23,6 +17,7 @@ if (is_dir($dossier)) {
 <div id="veil" aria-hidden="true"></div>
 <script src="transitions.js"></script>
 <script src="lightning.js" defer></script>
+<script src="filtre.js" defer></script>
 <nav>
   <h1><a href="index.html">Mon classeur numérique</a></h1>
   <div class="ligne">
@@ -40,16 +35,7 @@ if (is_dir($dossier)) {
   <p>Systèmes d'information et numérique</p>
 </section>
 
-<section id="prestation">
-  <h2>Consulter les fichiers</h2>
-  <div class="cartes">
-    <?php if (empty($fichiers)): ?>
-      <p style="color:#a99fc4;text-align:center;width:100%;">Rien pour l'instant.</p>
-    <?php else: foreach ($fichiers as $f): ?>
-      <a class="carte reveal" href="<?= $dossier . rawurlencode($f) ?>" target="_blank"><h3><?= htmlspecialchars(str_replace(['_','.pdf'],[' ',''],$f)) ?></h3></a>
-    <?php endforeach; endif; ?>
-  </div>
-</section>
+<?php include __DIR__ . "/partiel_liste_publique.php"; ?>
 
 <footer class="bas-de-page">
   <div><a href="index.html">Accueil</a></div>

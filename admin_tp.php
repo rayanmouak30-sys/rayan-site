@@ -5,36 +5,6 @@ if (empty($_SESSION["admin"])) { header("Location: connexion.php"); exit; }
 $titre   = "Évaluations";
 $dossier = "uploads_evaluations/";
 // ==============================
-$tailleMax = 10 * 1024 * 1024;
-$message = "";
-
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    if (!isset($_FILES["fichier"]) || $_FILES["fichier"]["error"] !== 0) {
-        $message = "Aucun fichier recu.";
-    } elseif ($_FILES["fichier"]["size"] > $tailleMax) {
-        $message = "Fichier trop lourd (10 Mo max).";
-    } else {
-        $nom = basename($_FILES["fichier"]["name"]);
-        $ext = strtolower(pathinfo($nom, PATHINFO_EXTENSION));
-        if ($ext !== "pdf") {
-            $message = "Seuls les PDF sont autorises.";
-        } else {
-            $nomPropre = preg_replace('/[^A-Za-z0-9._-]/', '_', $nom);
-            if (!is_dir($dossier)) { mkdir($dossier, 0755, true); }
-            if (move_uploaded_file($_FILES["fichier"]["tmp_name"], $dossier . $nomPropre)) {
-                $message = "Fichier ajoute !";
-            } else {
-                $message = "Erreur lors de l'enregistrement.";
-            }
-        }
-    }
-}
-$fichiers = [];
-if (is_dir($dossier)) {
-    foreach (scandir($dossier) as $f) {
-        if (strtolower(pathinfo($f, PATHINFO_EXTENSION)) === "pdf") { $fichiers[] = $f; }
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -79,26 +49,7 @@ if (is_dir($dossier)) {
   <p>Espace réservé : ajout de fichiers</p>
 </section>
 
-<section id="prestation">
-  <p class="badge">🔒 Espace administrateur</p>
-  <?php if ($message): ?><p class="message"><?= htmlspecialchars($message) ?></p><?php endif; ?>
-
-  <div class="ajout">
-    <h3>Ajouter un fichier</h3>
-    <form method="post" enctype="multipart/form-data">
-      <input type="file" name="fichier" accept="application/pdf" required>
-      <button type="submit">Envoyer le PDF</button>
-    </form>
-  </div>
-
-  <div class="cartes">
-    <?php if (empty($fichiers)): ?>
-      <p style="color:#a99fc4;text-align:center;width:100%;">Rien pour l'instant.</p>
-    <?php else: foreach ($fichiers as $f): ?>
-      <a class="carte" href="<?= $dossier . rawurlencode($f) ?>" target="_blank"><h3><?= htmlspecialchars(str_replace(['_','.pdf'],[' ',''],$f)) ?></h3></a>
-    <?php endforeach; endif; ?>
-  </div>
-</section>
+<?php include __DIR__ . "/partiel_admin.php"; ?>
 
 <footer class="bas-de-page">
   <div><a href="index.html">← Voir le site public</a></div>
