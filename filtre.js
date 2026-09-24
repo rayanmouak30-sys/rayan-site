@@ -4,6 +4,7 @@
     var recherche = zone.querySelector(".recherche");
     var cases = zone.querySelectorAll(".filtre-themes input[type=checkbox]");
     var vide = zone.querySelector(".vide");
+    var reinitialiser = zone.querySelector(".reinitialiser");
 
     function appliquer() {
       var texte = (recherche ? recherche.value : "").toLowerCase().trim();
@@ -22,9 +23,27 @@
       });
 
       if (vide) { vide.style.display = visibles === 0 ? "block" : "none"; }
+      if (reinitialiser) { reinitialiser.style.display = (texte || themesCoches.length) ? "inline-block" : "none"; }
     }
 
     if (recherche) { recherche.addEventListener("input", appliquer); }
-    cases.forEach(function (c) { c.addEventListener("change", appliquer); });
+    cases.forEach(function (c) {
+      c.addEventListener("change", function () {
+        var puce = c.closest(".puce");
+        if (puce) { puce.classList.toggle("actif", c.checked); }
+        appliquer();
+      });
+    });
+    if (reinitialiser) {
+      reinitialiser.addEventListener("click", function () {
+        if (recherche) { recherche.value = ""; }
+        cases.forEach(function (c) {
+          c.checked = false;
+          var puce = c.closest(".puce");
+          if (puce) { puce.classList.remove("actif"); }
+        });
+        appliquer();
+      });
+    }
   });
 })();

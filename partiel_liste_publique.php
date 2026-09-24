@@ -9,17 +9,21 @@ $themes = themesDisponibles($fichiers);
 
   <div class="barre-filtre" data-filtre>
     <div class="barre-outils">
-      <input type="search" class="recherche" placeholder="Rechercher un titre...">
+      <div class="recherche-zone">
+        <span class="icone" aria-hidden="true">⌕</span>
+        <input type="search" class="recherche" placeholder="Rechercher un titre...">
+      </div>
       <?php if ($themes): ?>
       <details class="filtre-themes">
-        <summary>Filtrer par thème ▾</summary>
+        <summary>Filtrer par thème <span class="fleche" aria-hidden="true">▾</span></summary>
         <div class="options">
           <?php foreach ($themes as $t): ?>
-            <label><input type="checkbox" value="<?= htmlspecialchars($t) ?>"> <?= htmlspecialchars($t) ?></label>
+            <label class="puce"><input type="checkbox" value="<?= htmlspecialchars($t) ?>"><span><?= htmlspecialchars($t) ?></span></label>
           <?php endforeach; ?>
         </div>
       </details>
       <?php endif; ?>
+      <button type="button" class="reinitialiser" style="display:none;">✕ Réinitialiser</button>
     </div>
 
     <div class="cartes">
