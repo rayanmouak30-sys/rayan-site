@@ -310,6 +310,56 @@ nav .ligne li a:hover::after { width: 100%; }
     color: var(--text-muted);
 }
 
+/* ===== Actions admin (renommer / supprimer un fichier) ===== */
+.carte-admin { display: flex; flex-direction: column; }
+.carte-admin .lien-titre { text-decoration: none; color: inherit; }
+
+.actions-fichier {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.actions-fichier .form-renommer {
+    display: flex;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.actions-fichier .form-supprimer { display: flex; }
+
+.actions-fichier input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    transition: border-color .3s, box-shadow .3s;
+}
+.actions-fichier input[type="text"]:focus { outline: none; border-color: var(--border-strong); box-shadow: 0 0 8px var(--glow); }
+
+.actions-fichier button {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--accent-soft);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    transition: border-color .25s, box-shadow .25s, color .25s;
+}
+.actions-fichier button:hover { border-color: var(--border-strong); box-shadow: 0 0 10px var(--glow); }
+.actions-fichier .bouton-danger { color: var(--error); }
+.actions-fichier .bouton-danger:hover { border-color: var(--error); box-shadow: 0 0 10px rgba(255, 138, 138, .3); }
+
 .vide { color: #a99fc4; text-align: center; width: 100%; margin-top: 10px; }
 
 /* ===== Section STI2D ===== */

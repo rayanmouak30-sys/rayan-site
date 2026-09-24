@@ -4,7 +4,35 @@ require __DIR__ . "/fichiers.php";
 $tailleMax = 10 * 1024 * 1024;
 $message = "";
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["action"])) {
+    $sousDossier = $_POST["sous_dossier"] ?? "";
+    $chemin = resoudreCheminFichier($dossier, $sousDossier, $_POST["nom"] ?? "");
+
+    if ($chemin === null || !is_file($chemin)) {
+        $message = "Fichier introuvable.";
+    } elseif ($_POST["action"] === "supprimer") {
+        if (unlink($chemin)) {
+            nettoyerDossierVide($dossier, themeVersDossier($sousDossier));
+            $message = "Fichier supprimé.";
+        } else {
+            $message = "Erreur lors de la suppression.";
+        }
+    } elseif ($_POST["action"] === "renommer") {
+        $nouveauNom = nomFichierPropre($_POST["nouveau_nom"] ?? "");
+        if ($nouveauNom === "") {
+            $message = "Nom invalide.";
+        } else {
+            $cibleDossier = dirname($chemin) . "/";
+            if (is_file($cibleDossier . $nouveauNom)) {
+                $message = "Un fichier porte déjà ce nom.";
+            } elseif (rename($chemin, $cibleDossier . $nouveauNom)) {
+                $message = "Fichier renommé.";
+            } else {
+                $message = "Erreur lors du renommage.";
+            }
+        }
+    }
+} elseif ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (!isset($_FILES["fichier"]) || $_FILES["fichier"]["error"] !== 0) {
         $message = "Aucun fichier recu.";
     } elseif ($_FILES["fichier"]["size"] > $tailleMax) {
@@ -53,11 +81,26 @@ $themes = themesDisponibles($fichiers);
     <?php if (empty($fichiers)): ?>
       <p style="color:#a99fc4;text-align:center;width:100%;">Rien pour l'instant.</p>
     <?php else: foreach ($fichiers as $f): ?>
-      <a class="carte" href="<?= $f["url"] ?>" target="_blank">
+      <div class="carte carte-admin">
         <span class="etiquette-theme"><?= htmlspecialchars($f["theme"]) ?></span>
-        <h3><?= htmlspecialchars(nomAffiche($f["nom"])) ?></h3>
+        <a class="lien-titre" href="<?= $f["url"] ?>" target="_blank"><h3><?= htmlspecialchars(nomAffiche($f["nom"])) ?></h3></a>
         <p class="date">Ajouté le <?= date("d/m/Y", $f["date"]) ?></p>
-      </a>
+        <div class="actions-fichier">
+          <form method="post" class="form-renommer">
+            <input type="hidden" name="action" value="renommer">
+            <input type="hidden" name="sous_dossier" value="<?= htmlspecialchars($f["sousDossier"]) ?>">
+            <input type="hidden" name="nom" value="<?= htmlspecialchars($f["nom"]) ?>">
+            <input type="text" name="nouveau_nom" value="<?= htmlspecialchars(nomAffiche($f["nom"])) ?>" required>
+            <button type="submit" title="Renommer">✎</button>
+          </form>
+          <form method="post" class="form-supprimer" onsubmit="return confirm('Supprimer « <?= htmlspecialchars(nomAffiche($f["nom"])) ?> » ?');">
+            <input type="hidden" name="action" value="supprimer">
+            <input type="hidden" name="sous_dossier" value="<?= htmlspecialchars($f["sousDossier"]) ?>">
+            <input type="hidden" name="nom" value="<?= htmlspecialchars($f["nom"]) ?>">
+            <button type="submit" class="bouton-danger" title="Supprimer">🗑</button>
+          </form>
+        </div>
+      </div>
     <?php endforeach; endif; ?>
   </div>
 </section>
