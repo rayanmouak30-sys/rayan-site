@@ -1,6 +1,7 @@
 <?php
 session_start();
 require __DIR__ . "/config.php";
+require __DIR__ . "/verification_fonctions.php";
 
 if (empty($_SESSION["code_verification"])) {
     header("Location: connexion.php");
@@ -8,16 +9,24 @@ if (empty($_SESSION["code_verification"])) {
 }
 
 $erreur = "";
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+$info = "";
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["renvoyer"])) {
+    if (time() - ($_SESSION["code_envoye_a"] ?? 0) < 30) {
+        $erreur = "Attends quelques secondes avant de redemander un code.";
+    } else {
+        envoyerCodeVerification($emailProprietaire);
+        $info = "Nouveau code envoyé.";
+    }
+} elseif ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (time() > ($_SESSION["code_expire"] ?? 0)) {
-        unset($_SESSION["code_verification"], $_SESSION["code_expire"], $_SESSION["code_essais"]);
+        unset($_SESSION["code_verification"], $_SESSION["code_expire"], $_SESSION["code_essais"], $_SESSION["code_envoye_a"]);
         $erreur = "Code expiré, redemande une connexion.";
     } elseif (($_SESSION["code_essais"] ?? 0) >= 5) {
-        unset($_SESSION["code_verification"], $_SESSION["code_expire"], $_SESSION["code_essais"]);
+        unset($_SESSION["code_verification"], $_SESSION["code_expire"], $_SESSION["code_essais"], $_SESSION["code_envoye_a"]);
         $erreur = "Trop de tentatives, redemande une connexion.";
     } elseif (($_POST["code"] ?? "") === $_SESSION["code_verification"]) {
         $_SESSION["admin"] = true;
-        unset($_SESSION["code_verification"], $_SESSION["code_expire"], $_SESSION["code_essais"]);
+        unset($_SESSION["code_verification"], $_SESSION["code_expire"], $_SESSION["code_essais"], $_SESSION["code_envoye_a"]);
         header("Location: admin_documents.php");
         exit;
     } else {
@@ -45,7 +54,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 .ajout button:hover{background:var(--border-strong);color:var(--bg);box-shadow:0 0 18px var(--glow);transform:translateY(-2px);}
 .ajout button:active{transform:translateY(0);}
 .message{text-align:center;color:var(--error);margin-bottom:15px;}
+.succes{text-align:center;color:var(--accent-soft);margin-bottom:15px;}
 .retour{display:block;margin-top:16px;color:var(--text-muted);font-size:14px;}
+.renvoyer{margin-top:14px;}
+.renvoyer button{background:transparent;border:none;color:var(--text-muted);font-family:'Rajdhani',sans-serif;font-size:14px;text-decoration:underline;cursor:pointer;padding:0;transition:color .3s;}
+.renvoyer button:hover{color:var(--accent-soft);background:transparent;box-shadow:none;transform:none;}
 </style>
 </head>
 <body>
@@ -57,11 +70,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 <div class="ajout">
   <h3>📩 Code de vérification</h3>
-  <p class="info">Un code a été envoyé par email au propriétaire du site. Il doit te le communiquer pour valider la connexion (valable 10 minutes).</p>
+  <p class="info">Un code a été envoyé par email au propriétaire du site. Il doit te le communiquer pour valider la connexion (valable 2 minutes).</p>
   <?php if ($erreur): ?><p class="message"><?= htmlspecialchars($erreur) ?></p><?php endif; ?>
+  <?php if ($info): ?><p class="succes"><?= htmlspecialchars($info) ?></p><?php endif; ?>
   <form method="post">
     <input type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="------" required autofocus>
     <button type="submit">Valider</button>
+  </form>
+  <form method="post" class="renvoyer">
+    <input type="hidden" name="renvoyer" value="1">
+    <button type="submit">Renvoyer un nouveau code</button>
   </form>
   <a class="retour" href="connexion.php">← Revenir à la connexion</a>
 </div>

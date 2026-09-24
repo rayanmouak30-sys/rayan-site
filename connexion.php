@@ -1,29 +1,17 @@
 <?php
 session_start();
 require __DIR__ . "/config.php";
+require __DIR__ . "/verification_fonctions.php";
 $erreur = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $mdp = $_POST["mdp"] ?? "";
     if ($mdp === $motDePasseAdmin) {
         $_SESSION["admin"] = true;
-        unset($_SESSION["code_verification"], $_SESSION["code_expire"], $_SESSION["code_essais"]);
+        unset($_SESSION["code_verification"], $_SESSION["code_expire"], $_SESSION["code_essais"], $_SESSION["code_envoye_a"]);
         header("Location: admin_documents.php");
         exit;
     } elseif ($mdp === $motDePasseProf) {
-        $code = str_pad((string) random_int(0, 999999), 6, "0", STR_PAD_LEFT);
-        $_SESSION["code_verification"] = $code;
-        $_SESSION["code_expire"] = time() + 600;
-        $_SESSION["code_essais"] = 0;
-
-        $sujet = "Code de verification - connexion prof";
-        $message = "Une connexion admin a ete demandee avec le mot de passe prof.\n\n"
-                  . "Code a communiquer pour valider : $code\n"
-                  . "Valable 10 minutes.\n\n"
-                  . "Si tu ne veux pas valider cette connexion, ne communique pas le code : il expirera tout seul.";
-        $domaine = $_SERVER["SERVER_NAME"] ?? "mou.alwaysdata.net";
-        $entetes = "From: Mon classeur numerique <no-reply@" . $domaine . ">";
-        @mail($emailProprietaire, $sujet, $message, $entetes);
-
+        envoyerCodeVerification($emailProprietaire);
         header("Location: verification.php");
         exit;
     } else {
