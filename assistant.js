@@ -58,7 +58,9 @@
           ajouterMessage("assistant", data.reponse);
           historique.push({ role: "assistant", contenu: data.reponse });
         } else {
-          ajouterMessage("assistant", data.erreur || "Erreur inconnue.");
+          var texteErreur = data.erreur || "Erreur inconnue.";
+          if (data.detail) { texteErreur += "\n\nDétail technique : " + data.detail; }
+          ajouterMessage("assistant", texteErreur);
         }
       })
       .catch(function () {

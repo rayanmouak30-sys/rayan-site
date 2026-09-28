@@ -45,36 +45,36 @@ if (mb_strlen($message) > 500) {
     repondreJson(["erreur" => "Message trop long (500 caractères max)."], 400);
 }
 
-// ----- Construction de la conversation pour l'API Gemini -----
+// ----- Construction de la conversation pour l'API Mistral (compatible format OpenAI) -----
 $instructionSysteme = "Tu es l'assistant du site portfolio de Rayan, élève en STI2D spécialité SIN "
     . "(Systèmes d'Information et Numérique). Le site s'appelle 'Mon classeur numérique' et présente "
     . "ses documents, cours et évaluations. Réponds toujours en français, de façon simple et concise "
     . "(quelques phrases maximum). Tu peux aider à naviguer sur le site (pages Documents, Cours, "
     . "Évaluations) et répondre à des questions générales sur le STI2D/SIN.";
 
-$contenus = [];
+$messagesEnvoyes = [["role" => "system", "content" => $instructionSysteme]];
 foreach (array_slice($historique, -6) as $m) {
     if (!isset($m["role"], $m["contenu"])) { continue; }
-    $role = $m["role"] === "assistant" ? "model" : "user";
-    $contenus[] = ["role" => $role, "parts" => [["text" => (string) $m["contenu"]]]];
+    $role = $m["role"] === "assistant" ? "assistant" : "user";
+    $messagesEnvoyes[] = ["role" => $role, "content" => (string) $m["contenu"]];
 }
-$contenus[] = ["role" => "user", "parts" => [["text" => $message]]];
+$messagesEnvoyes[] = ["role" => "user", "content" => $message];
 
+$modele = $modeleIA ?? "mistral-small-latest";
 $payload = [
-    "systemInstruction" => ["parts" => [["text" => $instructionSysteme]]],
-    "contents" => $contenus,
-    "generationConfig" => ["maxOutputTokens" => 300],
+    "model" => $modele,
+    "messages" => $messagesEnvoyes,
+    "max_tokens" => 300,
 ];
 
-$modele = $modeleIA ?? "gemini-2.0-flash";
-$url = "https://generativelanguage.googleapis.com/v1beta/models/" . rawurlencode($modele)
-     . ":generateContent?key=" . urlencode($cleApiIA);
-
-$ch = curl_init($url);
+$ch = curl_init("https://api.mistral.ai/v1/chat/completions");
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
     CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_HTTPHEADER => ["Content-Type: application/json"],
+    CURLOPT_HTTPHEADER => [
+        "Content-Type: application/json",
+        "Authorization: Bearer " . $cleApiIA,
+    ],
     CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
     CURLOPT_TIMEOUT => 20,
 ]);
@@ -88,7 +88,7 @@ if ($reponseBrute === false || $erreurCurl !== "") {
 }
 
 $reponse = json_decode($reponseBrute, true);
-$texte = $reponse["candidates"][0]["content"]["parts"][0]["text"] ?? null;
+$texte = $reponse["choices"][0]["message"]["content"] ?? null;
 
 if ($codeHttp !== 200 || $texte === null) {
     repondreJson([
