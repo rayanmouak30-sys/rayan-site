@@ -43,6 +43,7 @@ $dossier = "uploads_evaluations/";
       <li><a href="admin_documents.php">Documents</a></li>
       <li><a href="admin_cours.php">Cours</a></li>
       <li><a href="admin_tp.php">Évaluations</a></li>
+      <li><a href="admin_messages.php">Messages</a></li>
       <li><a href="deconnexion.php">Déconnexion</a></li>
     </ul>
   </div>

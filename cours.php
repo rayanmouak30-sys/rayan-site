@@ -30,6 +30,7 @@ $dossier = "uploads_cours/";
       <li><a href="documents.php">Documents</a></li>
       <li><a href="cours.php">Cours</a></li>
       <li><a href="tp.php">Évaluations</a></li>
+      <li><a href="contact.php">Contact</a></li>
     </ul>
   </div>
 </nav>
