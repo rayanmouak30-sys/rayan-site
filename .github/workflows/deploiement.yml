@@ -1,7 +1,7 @@
-# Met le site en ligne sur AlwaysData (FTP) a chaque envoi sur la branche principale.
+# Met le site en ligne sur AlwaysData (FTP chiffre) a chaque envoi sur la branche principale.
 # Les identifiants FTP sont dans les "secrets" du depot GitHub, jamais dans le code.
-# Ne touche jamais aux fichiers qui n'existent que sur le serveur : config.php,
-# uploads_*/ (PDF) et donnees/ (comptes et messages).
+# N'efface jamais rien sur le serveur et ne touche pas aux fichiers qui n'y existent que
+# la-bas : config.php, uploads_*/ (PDF) et donnees/ (comptes et messages).
 name: Mise en ligne sur AlwaysData
 
 on:
@@ -34,23 +34,32 @@ jobs:
         if: steps.secrets.outputs.ok == 'true'
         uses: actions/checkout@v4
 
-      - name: Envoyer les fichiers modifies par FTP
+      - name: Installer lftp
         if: steps.secrets.outputs.ok == 'true'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          server-dir: /www/
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/.github/**
-            **/node_modules/**
-            config.php
-            config.example.php
-            uploads_documents/**
-            uploads_cours/**
-            uploads_evaluations/**
-            donnees/**
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      # lftp gere la reprise de session TLS exigee par le FTP d'AlwaysData sur le canal de donnees.
+      # mirror --reverse sans --delete : envoie les fichiers, ne supprime jamais rien sur le serveur.
+      - name: Envoyer les fichiers sur le serveur
+        if: steps.secrets.outputs.ok == 'true'
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 3;
+            set net:timeout 30;
+            open --env-password -u \"$FTP_USERNAME\" \"$FTP_SERVER\";
+            mirror --reverse --verbose --no-perms --parallel=4 \
+              -x '^\.git' \
+              -x '^\.claude/' \
+              -x '^config\.php$' \
+              -x '^config\.example\.php$' \
+              -x '^uploads_' \
+              -x '^donnees/' \
+              ./ /www/
+          "
