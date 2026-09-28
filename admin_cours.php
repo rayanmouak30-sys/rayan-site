@@ -31,6 +31,7 @@ $dossier = "uploads_cours/";
 <div id="veil" aria-hidden="true"></div>
 <script src="transitions.js"></script>
 <script src="lightning.js" defer></script>
+<script src="curseur.js" defer></script>
 <nav>
   <h1><a href="index.html">Mon classeur numérique</a></h1>
   <div class="ligne">
