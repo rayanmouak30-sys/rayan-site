@@ -41,7 +41,5 @@ $dossier = "uploads_cours/";
   <div><a href="index.html">Accueil</a></div>
   <div><a href="#">Mentions légales</a></div>
 </footer>
-
-<?php include __DIR__ . "/partiel_assistant.php"; ?>
 </body>
 </html>
