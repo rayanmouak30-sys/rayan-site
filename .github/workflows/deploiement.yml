@@ -1,0 +1,56 @@
+# Met le site en ligne sur AlwaysData (FTP) a chaque envoi sur la branche principale.
+# Les identifiants FTP sont dans les "secrets" du depot GitHub, jamais dans le code.
+# Ne touche jamais aux fichiers qui n'existent que sur le serveur : config.php,
+# uploads_*/ (PDF) et donnees/ (comptes et messages).
+name: Mise en ligne sur AlwaysData
+
+on:
+  push:
+    branches:
+      - claude/recover-last-conversation-info-ttntx5
+  workflow_dispatch:
+
+concurrency:
+  group: deploiement
+  cancel-in-progress: false
+
+jobs:
+  deploiement:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verifier que les identifiants FTP sont configures
+        id: secrets
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+        run: |
+          if [ -z "$FTP_SERVER" ]; then
+            echo "Secrets FTP absents : ajoute FTP_SERVER, FTP_USERNAME et FTP_PASSWORD dans Settings > Secrets and variables > Actions."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Recuperer le code
+        if: steps.secrets.outputs.ok == 'true'
+        uses: actions/checkout@v4
+
+      - name: Envoyer les fichiers modifies par FTP
+        if: steps.secrets.outputs.ok == 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          server-dir: /www/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            **/node_modules/**
+            config.php
+            config.example.php
+            uploads_documents/**
+            uploads_cours/**
+            uploads_evaluations/**
+            donnees/**
