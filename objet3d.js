@@ -1,4 +1,8 @@
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@latest/build/three.module.js";
+import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 (function () {
   if (window.innerWidth < 700) { return; }
@@ -14,6 +18,25 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@latest/build/three.mo
     }
   });
 
+  function chemin(depart, arrivee, deplacement, segments) {
+    var pts = [depart];
+    for (var i = 1; i < segments; i++) {
+      var pt = depart.clone().lerp(arrivee, i / segments);
+      var chaos = deplacement * (1 - Math.abs(i / segments - 0.5) * 1.3);
+      pt.x += (Math.random() - 0.5) * chaos;
+      pt.y += (Math.random() - 0.5) * chaos;
+      pt.z += (Math.random() - 0.5) * chaos;
+      pts.push(pt);
+    }
+    pts.push(arrivee);
+    return pts;
+  }
+
+  function creerTube(pts, rayon) {
+    var courbe = new THREE.CatmullRomCurve3(pts);
+    return new THREE.TubeGeometry(courbe, pts.length * 2, rayon, 5, false);
+  }
+
   function demarrerScene(hero) {
     var canvas = document.createElement("canvas");
     canvas.className = "objet-3d-canvas";
@@ -28,83 +51,81 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@latest/build/three.mo
 
     var renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.toneMapping = THREE.ReinhardToneMapping;
 
     var scene = new THREE.Scene();
     var camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
     camera.position.set(0, 0, 6.5);
 
+    var composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    var bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.9, 0.45, 0.32);
+    composer.addPass(bloom);
+    composer.addPass(new OutputPass());
+
     var racine = new THREE.Group();
     scene.add(racine);
 
-    // ----- Noyau (orbe de foudre) -----
-    var rayonNoyau = 0.8;
+    // ----- Noyau -----
+    var rayonNoyau = 0.75;
     var noyau = new THREE.Mesh(
       new THREE.SphereGeometry(rayonNoyau, 32, 24),
-      new THREE.MeshStandardMaterial({
-        color: 0x0a1830, emissive: 0x2f8fff, emissiveIntensity: 0.85,
-        metalness: 0.4, roughness: 0.15, transparent: true, opacity: 0.8,
-      })
+      new THREE.MeshBasicMaterial({ color: 0x2f8fff })
     );
     racine.add(noyau);
 
-    var lumiereNoyau = new THREE.PointLight(0x7cc4ff, 2.5, 8);
+    var lumiereNoyau = new THREE.PointLight(0x7cc4ff, 3, 10);
     racine.add(lumiereNoyau);
 
-    // ----- Anneau orbital -----
-    var anneau = new THREE.Mesh(
-      new THREE.TorusGeometry(1.7, 0.012, 8, 80),
-      new THREE.MeshBasicMaterial({ color: 0x3fa8ff, transparent: true, opacity: 0.35 })
-    );
-    anneau.rotation.x = 1.3;
-    racine.add(anneau);
-
-    // ----- Eclairs en tubes 3D qui jaillissent du noyau -----
-    var matEclair = new THREE.MeshBasicMaterial({ color: 0xeaf5ff, transparent: true, opacity: 1, toneMapped: false });
+    // ----- Eclairs : forme chaotique, branches, flash -----
+    var matEclair = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    var matGlow = new THREE.MeshBasicMaterial({ color: 0x5fb4ff, transparent: true, opacity: 0.4 });
 
     function creerEclair() {
       var depart = new THREE.Vector3().randomDirection().multiplyScalar(rayonNoyau * 1.02);
       var direction = depart.clone().normalize();
-      var longueur = 1.5 + Math.random() * 1.4;
+      var longueur = 1.8 + Math.random() * 1.6;
       var arrivee = direction.clone().multiplyScalar(rayonNoyau + longueur);
 
-      var pts = [depart];
-      var segments = 6;
-      for (var i = 1; i < segments; i++) {
-        var pt = depart.clone().lerp(arrivee, i / segments);
-        var ecart = (1 - Math.abs(i / segments - 0.5) * 2) * 0.32;
-        pt.x += (Math.random() - 0.5) * ecart;
-        pt.y += (Math.random() - 0.5) * ecart;
-        pt.z += (Math.random() - 0.5) * ecart;
-        pts.push(pt);
-      }
-      pts.push(arrivee);
-
-      var courbe = new THREE.CatmullRomCurve3(pts);
-      var geoCoeur = new THREE.TubeGeometry(courbe, 16, 0.028, 6, false);
-      var geoGlow = new THREE.TubeGeometry(courbe, 16, 0.07, 6, false);
-
       var groupe = new THREE.Group();
-      var coeur = new THREE.Mesh(geoCoeur, matEclair.clone());
-      var glow = new THREE.Mesh(geoGlow, new THREE.MeshBasicMaterial({
-        color: 0x3fa8ff, transparent: true, opacity: 0.35, toneMapped: false,
-      }));
+      var pointsPrincipal = chemin(depart, arrivee, 0.4, 8);
+
+      var coeur = new THREE.Mesh(creerTube(pointsPrincipal, 0.022), matEclair.clone());
+      var glow = new THREE.Mesh(creerTube(pointsPrincipal, 0.06), matGlow.clone());
+      glow.userData.estGlow = true;
       groupe.add(glow);
       groupe.add(coeur);
-      groupe.userData = { vie: 1, decroissance: 0.83 + Math.random() * 0.06, coeur: coeur, glow: glow };
+
+      var nbBranches = Math.random() < 0.7 ? 1 : 2;
+      for (var b = 0; b < nbBranches; b++) {
+        var idx = 2 + Math.floor(Math.random() * (pointsPrincipal.length - 4));
+        var origine = pointsPrincipal[idx];
+        var extremiteBranche = origine.clone().add(new THREE.Vector3(
+          (Math.random() - 0.5) * 1.2,
+          (Math.random() - 0.5) * 1.2 - 0.3,
+          (Math.random() - 0.5) * 1.2
+        ));
+        var pointsBranche = chemin(origine, extremiteBranche, 0.25, 5);
+        var brancheCoeur = new THREE.Mesh(creerTube(pointsBranche, 0.013), matEclair.clone());
+        var brancheGlow = new THREE.Mesh(creerTube(pointsBranche, 0.035), matGlow.clone());
+        brancheGlow.userData.estGlow = true;
+        groupe.add(brancheGlow);
+        groupe.add(brancheCoeur);
+      }
+
+      groupe.userData = { vie: 1, decroissance: 0.78 + Math.random() * 0.08 };
       racine.add(groupe);
       return groupe;
     }
 
     var eclairs = [];
     var prochainEclair = 0;
+    var flashAmbiant = 0;
 
-    scene.add(new THREE.AmbientLight(0x2a4a7a, 0.9));
-    var lum1 = new THREE.PointLight(0x7cc4ff, 1.6, 20);
+    scene.add(new THREE.AmbientLight(0x1a2f52, 0.6));
+    var lum1 = new THREE.PointLight(0x3fa8ff, 0.8, 20);
     lum1.position.set(3, 2, 4);
     scene.add(lum1);
-    var lum2 = new THREE.PointLight(0x3fa8ff, 1, 20);
-    lum2.position.set(-3, -1, 3);
-    scene.add(lum2);
 
     var sourisX = 0;
     var sourisY = 0;
@@ -118,6 +139,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@latest/build/three.mo
       var w = hero.clientWidth || 1;
       var h = hero.clientHeight || 1;
       renderer.setSize(w, h, false);
+      composer.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     }
@@ -128,29 +150,33 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@latest/build/three.mo
     function animer() {
       var t = horloge.getElapsedTime();
 
-      racine.rotation.y += 0.003;
-      racine.rotation.x += (sourisY * 0.2 - racine.rotation.x) * 0.04;
-      racine.rotation.z += (-sourisX * 0.12 - racine.rotation.z) * 0.04;
+      racine.rotation.y += 0.0025;
+      racine.rotation.x += (sourisY * 0.15 - racine.rotation.x) * 0.04;
+      racine.rotation.z += (-sourisX * 0.1 - racine.rotation.z) * 0.04;
 
-      noyau.material.emissiveIntensity = 0.7 + Math.sin(t * 3) * 0.25;
-      lumiereNoyau.intensity = 2 + Math.sin(t * 5) * 1;
-      anneau.rotation.z += 0.005;
+      noyau.material.color.setHSL(0.58, 1, 0.55 + Math.sin(t * 3) * 0.08);
+      lumiereNoyau.intensity = 2.5 + Math.sin(t * 5) * 1.2;
 
       prochainEclair -= 1;
       if (prochainEclair <= 0) {
         eclairs.push(creerEclair());
-        if (Math.random() < 0.6) { eclairs.push(creerEclair()); }
-        prochainEclair = 4 + Math.random() * 6;
+        flashAmbiant = 1;
+        prochainEclair = 10 + Math.random() * 20;
       }
-      eclairs = eclairs.filter(function (e) {
-        e.userData.vie *= e.userData.decroissance;
-        e.userData.coeur.material.opacity = e.userData.vie;
-        e.userData.glow.material.opacity = e.userData.vie * 0.35;
-        if (e.userData.vie < 0.04) { racine.remove(e); return false; }
+      flashAmbiant *= 0.85;
+      bloom.strength = 0.9 + flashAmbiant * 0.9;
+
+      eclairs = eclairs.filter(function (grp) {
+        grp.userData.vie *= grp.userData.decroissance;
+        grp.children.forEach(function (mesh) {
+          mesh.material.transparent = true;
+          mesh.material.opacity = grp.userData.vie * (mesh.userData.estGlow ? 0.4 : 1);
+        });
+        if (grp.userData.vie < 0.04) { racine.remove(grp); return false; }
         return true;
       });
 
-      renderer.render(scene, camera);
+      composer.render();
       requestAnimationFrame(animer);
     }
     animer();
