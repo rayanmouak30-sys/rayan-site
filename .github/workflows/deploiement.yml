@@ -63,3 +63,33 @@ jobs:
               -x '^donnees/' \
               ./ /www/
           "
+
+      # Controle apres mise en ligne : pages accessibles, pas d'erreur PHP, secrets non lisibles.
+      - name: Verifier le site en ligne
+        if: steps.secrets.outputs.ok == 'true'
+        run: |
+          SITE="https://mou.alwaysdata.net"
+          echec=0
+          for page in index.html documents.php cours.php tp.php contact.php inscription.php compte.php connexion.php; do
+            code=$(curl -s -o page.html -w "%{http_code}" "$SITE/$page")
+            if [ "$code" != "200" ]; then
+              echo "::error::$page repond $code"; echec=1
+            elif grep -qiE "Warning|Avertissement|Fatal error|Parse error" page.html; then
+              echo "::error::$page affiche une erreur PHP"; grep -iE "Warning|Avertissement|Fatal error|Parse error" page.html | head -3; echec=1
+            else
+              echo "OK  $page"
+            fi
+          done
+          if curl -s "$SITE/config.php" | grep -q "motDePasse"; then
+            echo "::error::config.php est lisible depuis internet"; echec=1
+          else
+            echo "OK  config.php n'expose rien"
+          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$SITE/donnees/utilisateurs.json")
+          if [ "$code" = "200" ]; then
+            echo "::error::donnees/utilisateurs.json est lisible depuis internet"; echec=1
+          else
+            echo "OK  donnees/ protege (code $code)"
+          fi
+          rm -f page.html
+          exit $echec
