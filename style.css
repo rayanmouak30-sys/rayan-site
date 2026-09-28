@@ -25,28 +25,30 @@ body {
     color: var(--text);
     padding-top: 70px;
     line-height: 1.6;
-    perspective: 1400px;
 }
 
 /* ===== Rideau de transition entre les pages (bascule 3D) ===== */
+/* La perspective est dans le transform du rideau (et pas sur body) : sinon body devient
+   le bloc conteneur des elements fixes et le rideau bascule agrandit toute la page. */
 #veil {
     position: fixed;
     inset: 0;
     z-index: 9999;
     background: linear-gradient(135deg, #020409 0%, #08182f 55%, #020409 100%);
-    transform: rotateX(0deg);
+    transform: perspective(1400px) rotateX(0deg);
     transform-origin: bottom;
-    transform-style: preserve-3d;
     backface-visibility: hidden;
-    transition: transform .55s cubic-bezier(.76,0,.24,1);
+    transition: transform .55s cubic-bezier(.76,0,.24,1), visibility 0s linear 0s;
     pointer-events: none;
 }
 #veil.veil-open {
-    transform: rotateX(-100deg);
+    transform: perspective(1400px) rotateX(-90deg);
     transform-origin: bottom;
+    visibility: hidden;
+    transition: transform .55s cubic-bezier(.76,0,.24,1), visibility 0s linear .55s;
 }
 #veil.veil-close {
-    transform: rotateX(0deg);
+    transform: perspective(1400px) rotateX(0deg);
     transform-origin: top;
     pointer-events: auto;
 }
