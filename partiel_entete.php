@@ -14,7 +14,6 @@ $navAdmin = $navAdmin ?? false;
 <body>
 <div id="veil" aria-hidden="true"></div>
 <script src="transitions.js"></script>
-<script src="curseur.js" defer></script>
 <?php if ($navAdmin): ?><script src="notif_messages.js" defer></script><?php endif; ?>
 <nav>
   <h1><a href="index.html">Mon classeur numérique</a></h1>

@@ -31,7 +31,6 @@ $dossier = "uploads_cours/";
 <div id="veil" aria-hidden="true"></div>
 <script src="transitions.js"></script>
 <script src="lightning.js" defer></script>
-<script src="curseur.js" defer></script>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/" } }
 </script>
