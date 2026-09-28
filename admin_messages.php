@@ -21,18 +21,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $selection = $cible;
 }
 
-// Conversations : un utilisateur par ligne, triees par dernier message.
-$conversations = [];
-foreach (lireDonnees("messages") as $m) {
-    $id = $m["utilisateur_id"];
-    if (!isset($conversations[$id])) { $conversations[$id] = ["nb" => 0, "dernier" => 0, "attente" => false]; }
-    $conversations[$id]["nb"]++;
-    if ($m["date"] >= $conversations[$id]["dernier"]) {
-        $conversations[$id]["dernier"] = $m["date"];
-        $conversations[$id]["attente"] = $m["auteur"] === "visiteur";
-    }
-}
-uasort($conversations, function ($a, $b) { return $b["dernier"] <=> $a["dernier"]; });
+$conversations = conversations();
 
 $utilisateurSelection = $selection !== "" ? utilisateurParId($selection) : null;
 

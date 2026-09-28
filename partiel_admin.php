@@ -59,6 +59,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["action"])) {
 $fichiers = listerFichiers($dossier);
 $themes = themesDisponibles($fichiers);
 ?>
+<script src="notif_messages.js" defer></script>
 <section id="prestation">
   <p class="badge">🔒 Espace administrateur</p>
   <?php if ($message): ?><p class="message"><?= htmlspecialchars($message) ?></p><?php endif; ?>

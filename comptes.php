@@ -64,6 +64,23 @@ function messagesDe(string $utilisateurId): array {
     return $messages;
 }
 
+// Une entree par utilisateur ayant ecrit, triee par dernier message.
+// "attente" = le dernier message vient du visiteur (donc pas encore repondu).
+function conversations(): array {
+    $conversations = [];
+    foreach (lireDonnees("messages") as $m) {
+        $id = $m["utilisateur_id"];
+        if (!isset($conversations[$id])) { $conversations[$id] = ["nb" => 0, "dernier" => 0, "attente" => false]; }
+        $conversations[$id]["nb"]++;
+        if ($m["date"] >= $conversations[$id]["dernier"]) {
+            $conversations[$id]["dernier"] = $m["date"];
+            $conversations[$id]["attente"] = $m["auteur"] === "visiteur";
+        }
+    }
+    uasort($conversations, function ($a, $b) { return $b["dernier"] <=> $a["dernier"]; });
+    return $conversations;
+}
+
 function ajouterMessage(string $utilisateurId, string $auteur, string $texte): void {
     $messages = lireDonnees("messages");
     $messages[] = [
