@@ -37,6 +37,63 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
     return new THREE.TubeGeometry(courbe, pts.length * 2, rayon, 5, false);
   }
 
+  // Texture "circuit imprime" generee proceduralement (mode geek du noyau).
+  function creerTextureCircuit() {
+    var taille = 512;
+    var c = document.createElement("canvas");
+    c.width = taille;
+    c.height = taille;
+    var ctx = c.getContext("2d");
+    ctx.fillStyle = "#08152b";
+    ctx.fillRect(0, 0, taille, taille);
+
+    var grille = 8;
+    var pas = taille / grille;
+    var noeuds = [];
+    for (var i = 0; i <= grille; i++) {
+      for (var j = 0; j <= grille; j++) {
+        noeuds.push({ x: i * pas, y: j * pas });
+      }
+    }
+
+    ctx.strokeStyle = "rgba(63,168,255,0.55)";
+    ctx.lineWidth = 2.5;
+    noeuds.forEach(function (n) {
+      if (Math.random() < 0.55) {
+        var horizontal = Math.random() < 0.5;
+        var longueur = pas * (0.6 + Math.random() * 0.8);
+        var coude = { x: n.x + (horizontal ? longueur : 0), y: n.y + (horizontal ? 0 : longueur) };
+        ctx.beginPath();
+        ctx.moveTo(n.x, n.y);
+        ctx.lineTo(coude.x, n.y);
+        ctx.lineTo(coude.x, coude.y);
+        ctx.stroke();
+      }
+    });
+
+    ctx.fillStyle = "rgba(124,196,255,0.9)";
+    noeuds.forEach(function (n) {
+      if (Math.random() < 0.35) {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (Math.random() < 0.12) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(159,212,255,0.8)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(n.x - 9, n.y - 9, 18, 18);
+        ctx.restore();
+      }
+    });
+
+    var tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
   function demarrerScene(hero) {
     var canvas = document.createElement("canvas");
     canvas.className = "objet-3d-canvas";
@@ -66,20 +123,26 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
     var racine = new THREE.Group();
     scene.add(racine);
 
-    // ----- Noyau -----
-    var rayonNoyau = 0.75;
+    // ----- Noyau "geek" : sphere texturee circuit imprime + coque facettee -----
+    var rayonNoyau = 0.78;
     var noyau = new THREE.Mesh(
       new THREE.SphereGeometry(rayonNoyau, 32, 24),
-      new THREE.MeshBasicMaterial({ color: 0x2f8fff })
+      new THREE.MeshBasicMaterial({ map: creerTextureCircuit() })
     );
     racine.add(noyau);
 
-    var lumiereNoyau = new THREE.PointLight(0x7cc4ff, 3, 10);
+    var coque = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(rayonNoyau * 1.06, 1)),
+      new THREE.LineBasicMaterial({ color: 0x9fd4ff, transparent: true, opacity: 0.45 })
+    );
+    racine.add(coque);
+
+    var lumiereNoyau = new THREE.PointLight(0x7cc4ff, 2.2, 10);
     racine.add(lumiereNoyau);
 
-    // ----- Eclairs : forme chaotique, branches, flash -----
-    var matEclair = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    var matGlow = new THREE.MeshBasicMaterial({ color: 0x5fb4ff, transparent: true, opacity: 0.4 });
+    // ----- Eclairs : memes couleurs que le fond 2D (lightning.js) -----
+    var matEclair = new THREE.MeshBasicMaterial({ color: 0xf4f9ff });
+    var matGlow = new THREE.MeshBasicMaterial({ color: 0x50a0ff, transparent: true, opacity: 0.4 });
 
     function creerEclair() {
       var depart = new THREE.Vector3().randomDirection().multiplyScalar(rayonNoyau * 1.02);
@@ -122,7 +185,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
     var prochainEclair = 0;
     var flashAmbiant = 0;
 
-    scene.add(new THREE.AmbientLight(0x1a2f52, 0.6));
+    scene.add(new THREE.AmbientLight(0x1a2f52, 0.7));
     var lum1 = new THREE.PointLight(0x3fa8ff, 0.8, 20);
     lum1.position.set(3, 2, 4);
     scene.add(lum1);
@@ -154,8 +217,9 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
       racine.rotation.x += (sourisY * 0.15 - racine.rotation.x) * 0.04;
       racine.rotation.z += (-sourisX * 0.1 - racine.rotation.z) * 0.04;
 
-      noyau.material.color.setHSL(0.58, 1, 0.55 + Math.sin(t * 3) * 0.08);
-      lumiereNoyau.intensity = 2.5 + Math.sin(t * 5) * 1.2;
+      noyau.rotation.y += 0.004;
+      coque.rotation.y -= 0.0018;
+      lumiereNoyau.intensity = 1.8 + Math.sin(t * 5) * 0.5;
 
       prochainEclair -= 1;
       if (prochainEclair <= 0) {
@@ -164,7 +228,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
         prochainEclair = 10 + Math.random() * 20;
       }
       flashAmbiant *= 0.85;
-      bloom.strength = 0.9 + flashAmbiant * 0.9;
+      bloom.strength = 0.85 + flashAmbiant * 0.25;
 
       eclairs = eclairs.filter(function (grp) {
         grp.userData.vie *= grp.userData.decroissance;
