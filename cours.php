@@ -18,6 +18,7 @@ $dossier = "uploads_cours/";
 <script src="transitions.js"></script>
 <script src="lightning.js" defer></script>
 <script src="curseur.js" defer></script>
+<script type="module" src="objet3d.js"></script>
 <script src="filtre.js" defer></script>
 <nav>
   <h1><a href="index.html">Mon classeur numérique</a></h1>
