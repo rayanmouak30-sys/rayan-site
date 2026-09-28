@@ -6,3 +6,6 @@ $motDePasseAdmin = "change-moi";
 $motDePasseProf = "change-moi-aussi";
 // Adresse qui recoit le code de verification quand le prof se connecte.
 $emailProprietaire = "ton-email@example.com";
+// Cle API pour l'assistant IA du site (gratuite sur https://aistudio.google.com/apikey).
+$cleApiIA = "colle-ta-cle-ici";
+$modeleIA = "gemini-2.0-flash";
