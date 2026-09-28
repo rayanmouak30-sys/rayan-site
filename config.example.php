@@ -6,6 +6,6 @@ $motDePasseAdmin = "change-moi";
 $motDePasseProf = "change-moi-aussi";
 // Adresse qui recoit le code de verification quand le prof se connecte.
 $emailProprietaire = "ton-email@example.com";
-// Cle API pour l'assistant IA du site (gratuite sur https://console.mistral.ai/api-keys).
+// Cle API pour l'assistant IA du site (gratuite, sans carte bancaire, sur https://console.groq.com/keys).
 $cleApiIA = "colle-ta-cle-ici";
-$modeleIA = "mistral-small-latest";
+$modeleIA = "openai/gpt-oss-20b";

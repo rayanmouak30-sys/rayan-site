@@ -45,7 +45,7 @@ if (mb_strlen($message) > 500) {
     repondreJson(["erreur" => "Message trop long (500 caractères max)."], 400);
 }
 
-// ----- Construction de la conversation pour l'API Mistral (compatible format OpenAI) -----
+// ----- Construction de la conversation pour l'API Groq (compatible format OpenAI) -----
 $instructionSysteme = "Tu es l'assistant du site portfolio de Rayan, élève en STI2D spécialité SIN "
     . "(Systèmes d'Information et Numérique). Le site s'appelle 'Mon classeur numérique' et présente "
     . "ses documents, cours et évaluations. Réponds toujours en français, de façon simple et concise "
@@ -60,14 +60,14 @@ foreach (array_slice($historique, -6) as $m) {
 }
 $messagesEnvoyes[] = ["role" => "user", "content" => $message];
 
-$modele = $modeleIA ?? "mistral-small-latest";
+$modele = $modeleIA ?? "openai/gpt-oss-20b";
 $payload = [
     "model" => $modele,
     "messages" => $messagesEnvoyes,
     "max_tokens" => 300,
 ];
 
-$ch = curl_init("https://api.mistral.ai/v1/chat/completions");
+$ch = curl_init("https://api.groq.com/openai/v1/chat/completions");
 curl_setopt_array($ch, [
     CURLOPT_POST => true,
     CURLOPT_RETURNTRANSFER => true,
