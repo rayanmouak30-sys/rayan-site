@@ -703,27 +703,45 @@ nav .ligne li a:hover::after { width: 100%; }
 }
 
 /* ===== Logo dans la barre de navigation (toutes les pages) ===== */
+/* Deux faces (::before devant, ::after derriere) tournent ensemble : la lettre n'apparait
+   jamais a l'envers pendant la rotation. */
 nav h1 a {
     display: inline-flex;
     align-items: center;
+    position: relative;
 }
-nav h1 a::before {
+nav h1 a::before,
+nav h1 a::after {
     content: "";
     width: 44px;
     height: 44px;
-    margin-right: 12px;
-    background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8cG9seWdvbiBwb2ludHM9IjUwLDYgODgsMjggODgsNzIgNTAsOTQgMTIsNzIgMTIsMjgiIGZpbGw9IiMwODE1MmIiIHN0cm9rZT0iIzJmOGZmZiIgc3Ryb2tlLXdpZHRoPSI2Ii8+CiAgPHRleHQgeD0iNTAiIHk9IjcwIiBmb250LWZhbWlseT0iQXJpYWwsIEhlbHZldGljYSwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI1NiIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM3Y2M0ZmYiPlI8L3RleHQ+Cjwvc3ZnPgo=") no-repeat center;
+    background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8cG9seWdvbiBwb2ludHM9IjUwLDYgODgsMjggODgsNzIgNTAsOTQgMTIsNzIgMTIsMjgiIGZpbGw9IiMwODE1MmIiIHN0cm9rZT0iIzJmOGZmZiIgc3Ryb2tlLXdpZHRoPSI2Ii8+CiAgPHBhdGggZD0iTTU1LjMgNTEuNVE1OC4yIDQ3LjQgNTguMSA0MC40UTU4LjEgMzQuNyA1NiAzMFE1NiAzMCA3MCAzMFE3MiAzNS44IDcyIDQwLjRRNzIgNTAuNyA2OC42IDU1LjlRNjMuNiA2My4zIDU0LjkgNjcuMVE0NS45IDcxIDI4IDcxUTI4IDcxIDI4IDYxUTQwLjEgNjEgNDYuMiA1OC40UTUyLjEgNTUuOCA1NS4zIDUxLjVaIiBmaWxsPSIjN2NjNGZmIi8+Cjwvc3ZnPgo=") no-repeat center;
     background-size: contain;
     flex-shrink: 0;
+    backface-visibility: hidden;
     filter: drop-shadow(0 0 6px var(--glow));
-    animation: logoPulse 3s ease-in-out infinite, logoWobble3D 5s ease-in-out infinite;
-    transform-style: preserve-3d;
+}
+nav h1 a::before {
+    margin-right: 12px;
+    animation: logoPulse 3s ease-in-out infinite, logoTourAvant 4s linear infinite;
+}
+nav h1 a::after {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    margin-top: -22px;
+    animation: logoPulse 3s ease-in-out infinite, logoTourArriere 4s linear infinite;
 }
 @keyframes logoPulse {
     0%, 100% { filter: drop-shadow(0 0 6px var(--glow)); }
     50% { filter: drop-shadow(0 0 14px var(--glow)); }
 }
-@keyframes logoWobble3D {
-    0%, 100% { transform: perspective(300px) rotateY(-18deg) rotateX(4deg); }
-    50% { transform: perspective(300px) rotateY(18deg) rotateX(-4deg); }
+@keyframes logoTourAvant {
+    from { transform: perspective(300px) rotateY(0deg); }
+    to { transform: perspective(300px) rotateY(360deg); }
 }
+@keyframes logoTourArriere {
+    from { transform: perspective(300px) rotateY(180deg); }
+    to { transform: perspective(300px) rotateY(540deg); }
+}
+
