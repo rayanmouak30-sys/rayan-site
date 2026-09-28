@@ -10,7 +10,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@latest/build/three.mo
     try {
       demarrerScene(hero);
     } catch (erreur) {
-      // WebGL indisponible ou erreur de rendu : on laisse simplement le fond animé existant.
+      // WebGL indisponible ou erreur de rendu : on laisse simplement le fond anime existant.
     }
   });
 
@@ -30,54 +30,106 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@latest/build/three.mo
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
     var scene = new THREE.Scene();
-    var camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-    camera.position.set(0, 0, 6.2);
+    var camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+    camera.position.set(0, 0.3, 7.5);
 
-    var groupe = new THREE.Group();
-    scene.add(groupe);
+    var racine = new THREE.Group();
+    scene.add(racine);
 
-    var geometrie = new THREE.CylinderGeometry(1.5, 1.5, 0.6, 6);
-    var materiau = new THREE.MeshStandardMaterial({
+    // ----- Nuage -----
+    var nuage = new THREE.Group();
+    var matiereNuage = new THREE.MeshStandardMaterial({
+      color: 0xbfe0ff,
+      emissive: 0x2f8fff,
+      emissiveIntensity: 0.18,
+      transparent: true,
+      opacity: 0.85,
+      roughness: 0.9,
+      metalness: 0,
+    });
+    [
+      { r: 1.15, x: 0, y: 0, z: 0 },
+      { r: 0.7, x: -1.1, y: 0.05, z: 0.1 },
+      { r: 0.75, x: 1.05, y: 0.02, z: -0.1 },
+      { r: 0.55, x: -0.5, y: 0.35, z: 0.3 },
+      { r: 0.6, x: 0.55, y: 0.32, z: 0.25 },
+    ].forEach(function (b) {
+      var boule = new THREE.Mesh(new THREE.SphereGeometry(b.r, 16, 12), matiereNuage);
+      boule.position.set(b.x, b.y - 1.7, b.z);
+      boule.scale.y = 0.55;
+      nuage.add(boule);
+    });
+    racine.add(nuage);
+
+    // ----- Silhouette assise (robe conique, ouverte en bas) -----
+    var matiereRobe = new THREE.MeshStandardMaterial({
       color: 0x0a1830,
       emissive: 0x1f6fe0,
-      emissiveIntensity: 0.45,
-      metalness: 0.6,
-      roughness: 0.3,
-      transparent: true,
-      opacity: 0.88,
+      emissiveIntensity: 0.35,
+      metalness: 0.5,
+      roughness: 0.4,
     });
-    groupe.add(new THREE.Mesh(geometrie, materiau));
+    var robe = new THREE.Mesh(new THREE.ConeGeometry(1.1, 2.1, 24, 1, true), matiereRobe);
+    robe.position.y = -0.75;
+    racine.add(robe);
 
-    var contours = new THREE.LineSegments(
-      new THREE.EdgesGeometry(geometrie),
-      new THREE.LineBasicMaterial({ color: 0x7cc4ff, transparent: true, opacity: 0.9 })
+    var contourRobe = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.ConeGeometry(1.1, 2.1, 12, 1, true), 25),
+      new THREE.LineBasicMaterial({ color: 0x7cc4ff, transparent: true, opacity: 0.5 })
     );
-    groupe.add(contours);
+    contourRobe.position.y = -0.75;
+    racine.add(contourRobe);
 
-    var noeuds = [];
-    var nbNoeuds = 6;
-    for (var i = 0; i < nbNoeuds; i++) {
-      var sphere = new THREE.Mesh(
-        new THREE.SphereGeometry(0.07, 12, 12),
-        new THREE.MeshBasicMaterial({ color: 0x3fa8ff })
+    // ----- Tete, masque et auréole (suivent le curseur) -----
+    var tete = new THREE.Group();
+    tete.position.y = 0.55;
+    racine.add(tete);
+
+    tete.add(new THREE.Mesh(
+      new THREE.SphereGeometry(0.55, 24, 20),
+      new THREE.MeshStandardMaterial({ color: 0x0f1f38, emissive: 0x1f6fe0, emissiveIntensity: 0.25, metalness: 0.4, roughness: 0.5 })
+    ));
+
+    var masque = new THREE.Mesh(
+      new THREE.TorusGeometry(0.34, 0.05, 10, 24, Math.PI * 1.1),
+      new THREE.MeshStandardMaterial({ color: 0x7cc4ff, emissive: 0x3fa8ff, emissiveIntensity: 0.9, metalness: 0.8, roughness: 0.2 })
+    );
+    masque.position.set(0, -0.02, 0.48);
+    masque.rotation.x = Math.PI / 2.1;
+    tete.add(masque);
+
+    var halo = new THREE.Mesh(
+      new THREE.TorusGeometry(0.72, 0.035, 10, 40),
+      new THREE.MeshBasicMaterial({ color: 0x7cc4ff, transparent: true, opacity: 0.75 })
+    );
+    halo.position.y = 0.62;
+    halo.rotation.x = Math.PI / 2;
+    tete.add(halo);
+
+    // ----- Petits eclats d'energie qui crepitent autour -----
+    var eclats = [];
+    for (var i = 0; i < 8; i++) {
+      var eclat = new THREE.Mesh(
+        new THREE.SphereGeometry(0.035, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0x9fd4ff, transparent: true, opacity: 0 })
       );
-      sphere.userData = {
-        rayon: 2.3 + Math.random() * 0.7,
-        vitesse: 0.3 + Math.random() * 0.4,
-        decalage: Math.random() * Math.PI * 2,
-        inclinaison: (Math.random() - 0.5) * 1.2,
+      eclat.userData = {
+        angle: Math.random() * Math.PI * 2,
+        rayon: 1.2 + Math.random() * 0.5,
+        vitesse: 0.4 + Math.random() * 0.5,
+        decalageVie: Math.random() * Math.PI * 2,
       };
-      noeuds.push(sphere);
-      scene.add(sphere);
+      eclats.push(eclat);
+      racine.add(eclat);
     }
 
-    scene.add(new THREE.AmbientLight(0x2a4a7a, 1.1));
-    var lumiere1 = new THREE.PointLight(0x7cc4ff, 2.4, 20);
-    lumiere1.position.set(2, 2, 4);
-    scene.add(lumiere1);
-    var lumiere2 = new THREE.PointLight(0x3fa8ff, 1.3, 20);
-    lumiere2.position.set(-3, -1, 3);
-    scene.add(lumiere2);
+    scene.add(new THREE.AmbientLight(0x2a4a7a, 1.0));
+    var lum1 = new THREE.PointLight(0x7cc4ff, 2.2, 20);
+    lum1.position.set(2, 3, 4);
+    scene.add(lum1);
+    var lum2 = new THREE.PointLight(0x3fa8ff, 1.1, 20);
+    lum2.position.set(-3, -1, 3);
+    scene.add(lum2);
 
     var sourisX = 0;
     var sourisY = 0;
@@ -101,17 +153,28 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@latest/build/three.mo
     function animer() {
       var t = horloge.getElapsedTime();
 
-      groupe.rotation.y += 0.006;
-      groupe.rotation.x += (sourisY * 0.35 - groupe.rotation.x) * 0.04;
-      groupe.rotation.z += (sourisX * -0.15 - groupe.rotation.z) * 0.04;
+      racine.position.y = 0.4 + Math.sin(t * 0.9) * 0.06;
+      racine.rotation.y += 0.0025;
 
-      noeuds.forEach(function (n) {
-        var d = n.userData;
-        var angle = t * d.vitesse + d.decalage;
-        n.position.set(
-          Math.cos(angle) * d.rayon,
-          Math.sin(angle * 0.6) * d.rayon * 0.4 + d.inclinaison,
-          Math.sin(angle) * d.rayon
+      tete.rotation.y += (sourisX * 0.5 - tete.rotation.y) * 0.06;
+      tete.rotation.x += (-sourisY * 0.3 - tete.rotation.x) * 0.06;
+
+      halo.rotation.z += 0.01;
+      masque.material.emissiveIntensity = 0.7 + Math.sin(t * 3) * 0.3;
+
+      nuage.children.forEach(function (b, i) {
+        b.position.y += Math.sin(t * 1.2 + i) * 0.0008;
+      });
+
+      eclats.forEach(function (e) {
+        var d = e.userData;
+        var vie = (Math.sin(t * d.vitesse + d.decalageVie) + 1) / 2;
+        var visible = vie > 0.82;
+        e.material.opacity = visible ? (vie - 0.82) / 0.18 : 0;
+        e.position.set(
+          Math.cos(d.angle + t * 0.3) * d.rayon,
+          -0.2 + Math.sin(t * d.vitesse) * 0.4,
+          Math.sin(d.angle + t * 0.3) * d.rayon
         );
       });
 
