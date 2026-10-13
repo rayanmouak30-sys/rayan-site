@@ -1,10 +1,50 @@
-// Commandes unifiées : clavier + souris, manette (Xbox / PlayStation, mappage standard) et écran tactile.
-// Toutes produisent le même objet "cmd" (déplacement, tir, visée...) et une file d'actions ponctuelles.
+// Commandes unifiées : clavier + souris (touches modifiables), manette (Xbox / PlayStation, mappage standard)
+// et écran tactile. Toutes produisent le même objet "cmd" (déplacement, tir, visée...) et une file d'actions ponctuelles.
 
 const ZONE_MORTE = 0.18;
+const CLE_TOUCHES = "neonstrike-touches";
+const CLE_LIBELLES = "neonstrike-libelles";
+
+// Actions du jeu : [identifiant, nom affiché, "maintien" (gardée enfoncée) ou "appui" (une fois), touches par défaut]
+// Les touches sont des positions physiques : KeyW = Z sur un clavier AZERTY.
+export const ACTIONS = [
+  ["avancer", "Avancer", "maintien", ["KeyW", "ArrowUp"]],
+  ["reculer", "Reculer", "maintien", ["KeyS", "ArrowDown"]],
+  ["gauche", "Aller à gauche", "maintien", ["KeyA", "ArrowLeft"]],
+  ["droite", "Aller à droite", "maintien", ["KeyD", "ArrowRight"]],
+  ["saut", "Sauter", "maintien", ["Space"]],
+  ["sprint", "Courir", "maintien", ["ShiftLeft"]],
+  ["accroupi", "S'accroupir", "maintien", ["ControlLeft"]],
+  ["tir", "Tirer", "maintien", ["Souris0"]],
+  ["viser", "Viser / coup lourd au couteau", "maintien", ["Souris2"]],
+  ["recharger", "Recharger", "appui", ["KeyR"]],
+  ["arme1", "Arme principale", "appui", ["Digit1"]],
+  ["arme2", "Pistolet", "appui", ["Digit2"]],
+  ["arme3", "Couteau", "appui", ["Digit3"]],
+  ["armeSuivante", "Arme suivante", "appui", ["MoletteBas"]],
+  ["armePrecedente", "Arme précédente", "appui", ["MoletteHaut"]],
+  ["fumee", "Fumée", "appui", ["KeyC"]],
+  ["flash", "Flash", "appui", ["KeyQ"]],
+  ["signature", "Compétence signature (agent)", "appui", ["KeyE"]],
+  ["ultime", "Ultime", "appui", ["KeyX"]],
+  ["interagir", "Poser / désamorcer le spike (maintenir)", "maintien", ["KeyF"]],
+  ["lacher", "Lâcher le spike", "appui", ["KeyG"]],
+  ["boutique", "Boutique", "appui", ["KeyB"]],
+  ["ordres", "Ordres aux coéquipiers", "appui", ["KeyV"]],
+  ["tableau", "Tableau des scores (maintenir)", "maintien", ["Tab"]],
+  ["inspecter", "Inspecter l'arme", "appui", ["KeyY"]],
+  ["pause", "Pause (Échap marche toujours)", "appui", ["KeyP"]],
+];
 
 // Libellés AZERTY par défaut (le jeu utilise la position physique des touches)
 const AZERTY = { KeyQ: "A", KeyW: "Z", KeyA: "Q", KeyZ: "W", KeyM: ",", Semicolon: "M" };
+const NOMS = {
+  Space: "Espace", ShiftLeft: "Maj", ShiftRight: "Maj droite", ControlLeft: "Ctrl", ControlRight: "Ctrl droit", AltLeft: "Alt", AltRight: "Alt Gr",
+  Escape: "Échap", Tab: "Tab", CapsLock: "Verr. Maj", Enter: "Entrée", Backspace: "Retour arrière", Delete: "Suppr", Insert: "Inser",
+  Home: "Début", End: "Fin", PageUp: "Page ↑", PageDown: "Page ↓", ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→",
+  Souris0: "Clic gauche", Souris1: "Clic molette", Souris2: "Clic droit", Souris3: "Souris 4", Souris4: "Souris 5",
+  MoletteHaut: "Molette ↑", MoletteBas: "Molette ↓", NumpadEnter: "Entrée (pavé)",
+};
 
 export class Controles {
   constructor(canvas) {
@@ -13,7 +53,6 @@ export class Controles {
     this.regard = { dx: 0, dy: 0 };     // pixels de souris équivalents, consommés à chaque image
     this.actions = [];                   // actions ponctuelles ("recharger", "arme1", "fumee"...)
     this.touches = {};
-    this.souris = { gauche: false, droit: false };
     this.manetteActive = false;
     this.tactileActif = false;
     this.disposition = null;
@@ -23,8 +62,86 @@ export class Controles {
     this.precedentManette = [];
     this.sensibiliteManette = 1;
     this.tactile = { joystick: null, regard: null, boutons: new Map() };
+    this.libelles = {};
+    try { this.libelles = JSON.parse(localStorage.getItem(CLE_LIBELLES) || "{}") || {}; } catch (e) { /* stockage indisponible */ }
+    this.chargerLiaisons();
     this.chargerDisposition();
   }
+
+  // ----- Touches personnalisées -----
+  chargerLiaisons() {
+    let sauve = {};
+    try { sauve = JSON.parse(localStorage.getItem(CLE_TOUCHES) || "{}") || {}; } catch (e) { /* stockage indisponible */ }
+    this.liaisons = {};
+    for (const [id, , , defaut] of ACTIONS) this.liaisons[id] = Array.isArray(sauve[id]) ? sauve[id].filter((c) => typeof c === "string").slice(0, 2) : [...defaut];
+    this.indexer();
+  }
+
+  indexer() {
+    this.parCode = new Map();
+    for (const [id, codes] of Object.entries(this.liaisons)) for (const c of codes) {
+      if (!this.parCode.has(c)) this.parCode.set(c, []);
+      this.parCode.get(c).push(id);
+    }
+  }
+
+  sauverLiaisons() {
+    try { localStorage.setItem(CLE_TOUCHES, JSON.stringify(this.liaisons)); } catch (e) { /* stockage indisponible */ }
+    this.indexer();
+  }
+
+  // Associe une touche à une action (emplacement 0 = principale, 1 = secondaire).
+  // Retourne la liste des actions qui utilisaient déjà cette touche (elles la perdent).
+  lier(action, emplacement, code) {
+    const retirees = [];
+    for (const [id, codes] of Object.entries(this.liaisons)) {
+      const i = codes.indexOf(code);
+      if (i >= 0 && !(id === action && i === emplacement)) { codes.splice(i, 1); retirees.push(id); }
+    }
+    const codes = this.liaisons[action];
+    if (emplacement < codes.length) codes[emplacement] = code;
+    else codes.push(code);
+    this.liaisons[action] = [...new Set(codes)].slice(0, 2);
+    this.sauverLiaisons();
+    return retirees;
+  }
+
+  effacer(action, emplacement) {
+    this.liaisons[action].splice(emplacement, 1);
+    this.sauverLiaisons();
+  }
+
+  reinitialiserLiaisons() {
+    for (const [id, , , defaut] of ACTIONS) this.liaisons[id] = [...defaut];
+    this.sauverLiaisons();
+  }
+
+  estLiee(code) { return this.parCode.has(code); }
+
+  // Libellé de la touche principale d'une action (pour l'interface)
+  etiquetteAction(action) {
+    const codes = this.liaisons[action] || [];
+    return codes.length ? this.etiquette(codes[0]) : "—";
+  }
+
+  // Une action "maintien" est-elle active (une de ses touches est enfoncée) ?
+  actif(action) {
+    for (const c of this.liaisons[action] || []) if (this.touches[c]) return true;
+    return false;
+  }
+
+  // Une touche (ou un bouton de souris) vient d'être enfoncée
+  presser(code) {
+    if (code === "Escape") { this.action("pause"); return; }
+    const deja = this.touches[code];
+    this.touches[code] = true;
+    if (deja) return;
+    for (const id of this.parCode.get(code) || []) this.action(id);
+    const chiffre = /^(Digit|Numpad)([1-5])$/.exec(code);
+    if (chiffre) this.action("chiffre" + chiffre[2]);
+  }
+
+  relacherCode(code) { this.touches[code] = false; }
 
   async chargerDisposition() {
     try {
@@ -37,17 +154,28 @@ export class Controles {
     if (this.surDisposition) this.surDisposition();
   }
 
-  // Lettre affichée pour une touche physique
+  // Texte affiché pour une touche physique (ou un bouton de souris)
   etiquette(code) {
+    if (!code) return "—";
+    if (NOMS[code]) return NOMS[code];
+    const chiffre = /^Digit(\d)$/.exec(code);
+    if (chiffre) return chiffre[1];
+    const pave = /^Numpad(.+)$/.exec(code);
+    if (pave) return "Pavé " + pave[1].replace("Add", "+").replace("Subtract", "−").replace("Multiply", "×").replace("Divide", "÷").replace("Decimal", ".");
     if (this.carteTouches && this.carteTouches.get(code)) return this.carteTouches.get(code).toUpperCase();
+    if (this.libelles[code]) return this.libelles[code];
     if (this.disposition !== "qwerty" && AZERTY[code]) return AZERTY[code];
     if (code.startsWith("Key")) return code.slice(3);
-    if (code.startsWith("Digit")) return code.slice(5);
-    return { Space: "Espace", ShiftLeft: "Maj", ControlLeft: "Ctrl", Escape: "Échap", Tab: "Tab" }[code] || code;
+    if (/^F\d+$/.test(code)) return code;
+    return code;
   }
 
   // Devine la disposition du clavier d'après la lettre produite
   apprendre(e) {
+    if (e.code && e.key && e.key.length === 1 && e.key !== " " && this.libelles[e.code] !== e.key.toUpperCase()) {
+      this.libelles[e.code] = e.key.toUpperCase();
+      try { localStorage.setItem(CLE_LIBELLES, JSON.stringify(this.libelles)); } catch (err) { /* stockage indisponible */ }
+    }
     if (e.code === "KeyQ" && e.key && e.key.length === 1) {
       const d = e.key.toLowerCase() === "a" ? "azerty" : e.key.toLowerCase() === "q" ? "qwerty" : null;
       if (d && d !== this.disposition) {
@@ -64,29 +192,27 @@ export class Controles {
 
   relacher() {
     for (const k in this.touches) this.touches[k] = false;
-    this.souris.gauche = this.souris.droit = false;
     this.tactile.joystick = null;
     this.tactile.regard = null;
     for (const b of this.tactile.boutons.values()) b.presse = false;
   }
 
-  // ----- Clavier et souris -----
+  // ----- Clavier, souris et molette -----
   clavierBas(e) {
     this.apprendre(e);
-    const deja = this.touches[e.code];
-    this.touches[e.code] = true;
-    if (deja) return;
-    const map = {
-      KeyR: "recharger", Digit1: "arme1", Digit2: "arme2", Digit3: "arme3", Digit4: "ordre4",
-      KeyC: "fumee", KeyQ: "flash", KeyE: "signature", KeyX: "ultime", KeyB: "boutique", KeyV: "ordres", KeyY: "inspecter",
-      Escape: "pause", KeyP: "pause", KeyG: "lacher",
-    };
-    if (map[e.code]) this.action(map[e.code]);
+    this.presser(e.code);
   }
 
-  clavierHaut(e) { this.touches[e.code] = false; }
+  clavierHaut(e) { this.relacherCode(e.code); }
 
-  molette(e) { this.action(e.deltaY > 0 ? "armeSuivante" : "armePrecedente"); }
+  sourisBas(bouton) { this.presser("Souris" + bouton); }
+  sourisHaut(bouton) { this.relacherCode("Souris" + bouton); }
+
+  molette(e) {
+    const code = e.deltaY > 0 ? "MoletteBas" : "MoletteHaut";
+    this.presser(code);
+    this.relacherCode(code);
+  }
 
   // ----- Manette (API Gamepad) -----
   manette(dt, reglages) {
@@ -195,18 +321,18 @@ export class Controles {
 
   // ----- Synthèse : la commande finale, à chaque image -----
   maj(dt, reglages) {
-    const t = this.touches;
     const etatManette = this.manette(dt, reglages);
     const c = this.cmd;
-    c.avant = (t.KeyW || t.ArrowUp ? 1 : 0) - (t.KeyS || t.ArrowDown ? 1 : 0);
-    c.cote = (t.KeyD || t.ArrowRight ? 1 : 0) - (t.KeyA || t.ArrowLeft ? 1 : 0);
-    c.sprint = !!(t.ShiftLeft || t.ShiftRight);
-    c.accroupi = !!(t.ControlLeft || t.ControlRight);
-    c.saut = !!t.Space;
-    c.tir = this.souris.gauche;
-    c.viser = this.souris.droit;
-    c.interagir = !!t.KeyF;
-    c.tableau = !!t.Tab;
+    const a = (id) => this.actif(id);
+    c.avant = (a("avancer") ? 1 : 0) - (a("reculer") ? 1 : 0);
+    c.cote = (a("droite") ? 1 : 0) - (a("gauche") ? 1 : 0);
+    c.sprint = a("sprint");
+    c.accroupi = a("accroupi");
+    c.saut = a("saut");
+    c.tir = a("tir");
+    c.viser = a("viser");
+    c.interagir = a("interagir");
+    c.tableau = a("tableau");
     const m = this.manetteCmd;
     if (m) {
       if (Math.abs(m.avant) > Math.abs(c.avant)) c.avant = m.avant;

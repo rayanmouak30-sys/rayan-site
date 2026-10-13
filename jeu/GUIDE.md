@@ -17,6 +17,8 @@ Options d'une partie : carte (Nexus, Bazar, Hangar), difficulté des bots, 5 con
 
 ## Commandes (clavier AZERTY)
 
+Toutes les touches se changent dans **Commandes** (menu principal ou pause) : clique sur une touche puis appuie sur la nouvelle (clavier, bouton de souris ou molette). Deux touches possibles par action, « Remettre les touches d'origine » annule tout. Voici les touches de départ :
+
 | Touche | Action |
 |---|---|
 | Z Q S D | Se déplacer |

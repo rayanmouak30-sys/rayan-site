@@ -93,8 +93,9 @@ export class Hud {
     for (let i = 0; i < POINTS_ULTIME; i++) pts.appendChild(document.createElement("i"));
   }
 
-  etiquettesTouches(etiquette) {
-    for (const el of document.querySelectorAll("[data-touche]")) el.textContent = etiquette(el.dataset.touche);
+  // Lettres des touches affichées sur les compétences (elles suivent les touches choisies par le joueur)
+  etiquettesTouches(etiquetteAction) {
+    for (const el of document.querySelectorAll("[data-action-touche]")) el.textContent = etiquetteAction(el.dataset.actionTouche);
   }
 
   annonce(texte, sous = "", couleur = "#e9f1ff", duree = 2) {

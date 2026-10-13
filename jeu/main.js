@@ -21,7 +21,7 @@ import { Competences, AGENTS, CAPACITES } from "./competences.js";
 import { Joueur, nouvellesStats } from "./joueur.js";
 import { Regles, MODES, DEFIS, ARTICLES, OBJECTIF_DM } from "./regles.js";
 import { Profil, SUCCES, NIVEAUX_SKINS, etatCompte, envoyerResultat, classement } from "./profil.js";
-import { Controles } from "./controles.js";
+import { Controles, ACTIONS } from "./controles.js";
 import { Reseau, PartieEnLigne, adresseParDefaut } from "./reseau.js";
 
 const $ = (id) => document.getElementById(id);
@@ -303,7 +303,6 @@ function mortJoueur(tueur, tete, arme) {
   joueur.stats.morts++;
   joueur.morts++;
   joueur.verrou = false;
-  controles.souris.gauche = false;
   mortCamT = 0;
   if (partie.mode === "enligne") enLigne.mortLocale(tueur, tete, arme);
   else {
@@ -570,9 +569,10 @@ function traiterActions() {
     if (a === "boutique") { if (boutiqueOuverte) fermerBoutique(true); else ouvrirBoutique(); continue; }
     if (boutiqueOuverte) continue;
     if (a === "ordres") { basculerOrdres(!ordresOuverts); continue; }
-    if (ordresOuverts && /^(arme[123]|ordre[45])$/.test(a)) { donnerOrdre(Number(a.slice(-1))); continue; }
+    if (ordresOuverts && /^chiffre[1-5]$/.test(a)) { donnerOrdre(Number(a.slice(-1))); continue; }
+    if (ordresOuverts && /^arme[123]$/.test(a)) continue;
     if (!joueur.vivant) {
-      if (a === "armeSuivante" || a === "arme1") changerSpectateur(1);
+      if (a === "armeSuivante" || a === "arme1" || a === "tir") changerSpectateur(1);
       continue;
     }
     switch (a) {
@@ -728,7 +728,6 @@ function majCamera(dt, alpha) {
         restaurations.push([b.modele.racine, b.modele.racine.position.clone(), b.modele.racine.rotation.y, b.modele.racine.visible]);
         b.modele.racine.visible = false;
         hud.killcam("SPECTATEUR · " + b.nom + " · clic pour changer");
-        if (controles.souris.gauche) { controles.souris.gauche = false; changerSpectateur(1); }
         return { zoom: 1, armeVisible: false, killcam: true, spectateur: true };
       }
     }
@@ -802,12 +801,12 @@ function textePhase() {
 function texteAide() {
   if (!joueur.vivant || partie.mode === "enligne") return "";
   const r = regles;
-  if (r.mode === "stand") return `${etiquette("KeyB")} : changer d'arme · Échap : quitter`;
-  if (r.mode === "deathmatch") return `${etiquette("KeyB")} : changer d'arme`;
-  if (r.phase === "preparation") return `${etiquette("KeyB")} : boutique · ${etiquette("KeyV")} : ordres à l'équipe`;
+  if (r.mode === "stand") return `${touche("boutique")} : changer d'arme · Échap : quitter`;
+  if (r.mode === "deathmatch") return `${touche("boutique")} : changer d'arme`;
+  if (r.phase === "preparation") return `${touche("boutique")} : boutique · ${touche("ordres")} : ordres à l'équipe`;
   const s = r.spike;
-  if (s && r.phase === "combat" && joueur.porteSpike) return joueur.dansSite ? `Maintiens ${etiquette("KeyF")} pour poser le spike` : "Tu portes le spike : va sur le site A ou B";
-  if (s && s.etat === "pose" && r.campJoueur === "defense" && Math.hypot(joueur.x - s.x, joueur.z - s.z) < 2.5) return `Maintiens ${etiquette("KeyF")} pour désamorcer`;
+  if (s && r.phase === "combat" && joueur.porteSpike) return joueur.dansSite ? `Maintiens ${touche("interagir")} pour poser le spike` : "Tu portes le spike : va sur le site A ou B";
+  if (s && s.etat === "pose" && r.campJoueur === "defense" && Math.hypot(joueur.x - s.x, joueur.z - s.z) < 2.5) return `Maintiens ${touche("interagir")} pour désamorcer`;
   return "";
 }
 
@@ -956,7 +955,7 @@ addEventListener("keydown", (e) => {
     if (e.code === "Escape" && document.querySelector(".ecran.visible [data-retour]")) retourEcran();
     return;
   }
-  if (["Space", "Tab", "ControlLeft", "KeyC", "KeyE", "KeyR", "KeyQ", "KeyX", "KeyF", "KeyB", "KeyV", "KeyG"].includes(e.code)) e.preventDefault();
+  if (e.code === "Tab" || controles.estLiee(e.code)) e.preventDefault();
   controles.clavierBas(e);
 });
 addEventListener("keyup", (e) => controles.clavierHaut(e));
@@ -966,13 +965,13 @@ addEventListener("blur", () => {
 });
 canvas.addEventListener("mousedown", (e) => {
   if (partie.etat !== "jeu") return;
+  if (e.button > 2) e.preventDefault(); // boutons latéraux : pas de « page précédente »
   if (!document.pointerLockElement && !controles.tactileActif) verrouiller();
-  if (e.button === 0) controles.souris.gauche = true;
-  if (e.button === 2) controles.souris.droit = true;
+  controles.sourisBas(e.button);
 });
 addEventListener("mouseup", (e) => {
-  if (e.button === 0) controles.souris.gauche = false;
-  if (e.button === 2) controles.souris.droit = false;
+  if (e.button > 2 && (partie.etat === "jeu" || capture)) e.preventDefault();
+  controles.sourisHaut(e.button);
 });
 addEventListener("contextmenu", (e) => e.preventDefault());
 addEventListener("mousemove", (e) => {
@@ -992,7 +991,13 @@ document.addEventListener("pointerlockchange", () => {
 controles.enJeu = () => partie.etat === "jeu";
 controles.installerTactile($("tactile"));
 function etiquette(code) { return controles.etiquette(code); }
-controles.surDisposition = () => { hud.etiquettesTouches(etiquette); remplirCommandes(); };
+function touche(action) { return controles.etiquetteAction(action); }
+// Version courte pour les petites cases du HUD
+function toucheCourte(action) {
+  const t = touche(action);
+  return { "Clic gauche": "CG", "Clic droit": "CD", "Clic molette": "CM", "Souris 4": "S4", "Souris 5": "S5", "Molette ↑": "M↑", "Molette ↓": "M↓", Espace: "Esp" }[t] || t.slice(0, 5);
+}
+controles.surDisposition = () => { hud.etiquettesTouches(toucheCourte); remplirCommandes(); };
 
 // Navigation dans les menus à la manette
 function navigationManette(m) {
@@ -1012,6 +1017,7 @@ function navigationManette(m) {
 const pile = [];
 const qualiteChoisieAuDemarrage = reglages.qualite;
 function afficherEcran(id) {
+  if (capture) { capture = null; $("note-touches").textContent = ""; }
   document.querySelectorAll(".ecran").forEach((e) => e.classList.toggle("visible", e.id === id));
   if (id === "ecran-carriere") remplirCarriere();
   if (id === "ecran-arsenal") remplirArsenal();
@@ -1180,24 +1186,86 @@ function majBadge() {
   joueur.nom = profilJ.pseudo;
 }
 
+// ===== Touches personnalisables (écran Commandes) =====
+let capture = null;  // { action, emplacement, bouton } pendant qu'on attend la nouvelle touche
+const NOMS_ACTIONS = Object.fromEntries(ACTIONS.map(([id, nom]) => [id, nom]));
+
 function remplirCommandes() {
-  const e = etiquette;
-  const lignes = [
-    [`${e("KeyW")} ${e("KeyA")} ${e("KeyS")} ${e("KeyD")}`, "Se déplacer"], ["Souris", "Viser"], ["Clic gauche", "Tirer (la 1re balle est la plus précise)"],
-    ["Clic droit", "Viser avec la mire / coup lourd au couteau"], [e("KeyR"), "Recharger"], ["1 · 2 · 3 / molette", "Arme principale, pistolet, couteau"],
-    [e("Space"), "Sauter"], [e("ShiftLeft"), "Courir"], [e("ControlLeft"), "S'accroupir (silencieux et précis)"],
-    [e("KeyC"), "Fumée"], [e("KeyQ"), "Flash (détourne le regard !)"], [e("KeyE"), "Compétence signature de l'agent"], [e("KeyX"), "Ultime (se charge en éliminant)"],
-    [e("KeyF") + " (maintenir)", "Poser / désamorcer le spike"], [e("KeyG"), "Lâcher le spike"], [e("KeyB"), "Boutique"], [e("KeyV"), "Ordres aux coéquipiers"],
-    ["Tab", "Tableau des scores"], [e("KeyY"), "Inspecter l'arme"], ["Échap", "Pause"],
-  ];
   const el = $("liste-touches");
   el.innerHTML = "";
-  for (const [k, t] of lignes) {
-    const kb = document.createElement("kbd"); kb.textContent = k;
-    const sp = document.createElement("span"); sp.textContent = t;
-    el.append(kb, sp);
+  for (const [id, nom] of ACTIONS) {
+    const libelle = document.createElement("span");
+    libelle.className = "nom-action";
+    libelle.textContent = nom;
+    el.appendChild(libelle);
+    for (const emplacement of [0, 1]) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "liaison" + (emplacement ? " secondaire" : "");
+      const code = controles.liaisons[id][emplacement];
+      b.textContent = code ? etiquette(code) : emplacement ? "+" : "—";
+      if (!code) b.classList.add("vide");
+      b.title = emplacement ? "Touche secondaire" : "Touche principale";
+      b.addEventListener("click", () => { audio.clic(); commencerCapture(id, emplacement, b); });
+      el.appendChild(b);
+    }
   }
 }
+
+function commencerCapture(action, emplacement, bouton) {
+  if (capture) capture.bouton.classList.remove("attente");
+  capture = { action, emplacement, bouton };
+  bouton.classList.add("attente");
+  bouton.textContent = "Appuie…";
+  $("note-touches").textContent = `Nouvelle touche pour « ${NOMS_ACTIONS[action]} » : appuie sur une touche, un bouton de la souris ou tourne la molette. Échap annule, Retour arrière efface.`;
+}
+
+function terminerCapture(code) {
+  const { action, emplacement } = capture;
+  capture = null;
+  let note = "";
+  if (code === "effacer") {
+    if (controles.liaisons[action][emplacement]) controles.effacer(action, emplacement);
+    note = `« ${NOMS_ACTIONS[action]} » : touche effacée.`;
+  } else if (code) {
+    const retirees = controles.lier(action, emplacement, code);
+    note = `« ${NOMS_ACTIONS[action]} » : ${etiquette(code)}.`;
+    if (retirees.length) note += ` Cette touche servait aussi à « ${retirees.map((r) => NOMS_ACTIONS[r]).join(" », « ")} » : elle y a été retirée.`;
+    audio.achat(true);
+  }
+  $("note-touches").textContent = note;
+  remplirCommandes();
+  hud.etiquettesTouches(toucheCourte);
+}
+
+// Pendant la capture, la touche appuyée est enregistrée au lieu d'agir normalement
+addEventListener("keydown", (e) => {
+  if (!capture) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  if (e.repeat) return;
+  if (e.code === "Escape") terminerCapture(null);
+  else if (e.code === "Backspace" || e.code === "Delete") terminerCapture("effacer");
+  else { controles.apprendre(e); terminerCapture(e.code); }
+}, true);
+addEventListener("mousedown", (e) => {
+  if (!capture) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  terminerCapture("Souris" + e.button);
+}, true);
+addEventListener("wheel", (e) => {
+  if (!capture) return;
+  e.preventDefault();
+  terminerCapture(e.deltaY > 0 ? "MoletteBas" : "MoletteHaut");
+}, { capture: true, passive: false });
+$("reinit-touches").addEventListener("click", () => {
+  audio.clic();
+  controles.reinitialiserLiaisons();
+  $("note-touches").textContent = "Toutes les touches sont revenues à leur réglage d'origine.";
+  remplirCommandes();
+  hud.etiquettesTouches(toucheCourte);
+});
 
 // ===== Boutique =====
 function ouvrirBoutique() {
@@ -1244,11 +1312,12 @@ function remplirBoutique() {
   if (equipes) {
     article("boutique-armures", "armure25", "Absorbe une partie des dégâts");
     article("boutique-armures", "armure50", "Protection maximale");
-    article("boutique-capacites", "fumee", `Touche ${etiquette("KeyC")} · ${joueur.fumees}/2`);
-    article("boutique-capacites", "flash", `Touche ${etiquette("KeyQ")} · ${joueur.flashs}/2`);
+    article("boutique-capacites", "fumee", `Touche ${touche("fumee")} · ${joueur.fumees}/2`);
+    article("boutique-capacites", "flash", `Touche ${touche("flash")} · ${joueur.flashs}/2`);
   }
 }
 $("boutique-fermer").addEventListener("click", () => fermerBoutique(true));
+$("boutique-fermer").textContent = "Fermer";
 
 // ===== Démarrage d'une partie =====
 function attendreImage() { return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); }
@@ -1259,7 +1328,7 @@ function preparerJoueur() {
   joueur.nom = profilJ.pseudo;
   hud.agent(joueur.agent);
   hud.appliquerViseur(profilJ.d.viseur);
-  hud.etiquettesTouches(etiquette);
+  hud.etiquettesTouches(toucheCourte);
   hud.vider();
   competences.vider();
   killcam = null; spectateur = null; enregistrement.length = 0; succesDeLaPartie = [];
@@ -1516,7 +1585,7 @@ partie.mode = "menu";
 afficherEcran("ecran-menu");
 majBadge();
 remplirCommandes();
-hud.etiquettesTouches(etiquette);
+hud.etiquettesTouches(toucheCourte);
 requestAnimationFrame(boucle);
 // Premier geste de l'utilisateur : on peut démarrer le son (règle des navigateurs)
 addEventListener("pointerdown", () => { audio.demarrer(); musique.demarrer(); if (partie.etat === "menu") musique.etat("menu"); }, { once: true });

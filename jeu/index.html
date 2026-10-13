@@ -66,10 +66,10 @@
   </div>
 
   <div id="bas-centre" class="hud">
-    <div class="capacite" id="cap-fumee"><span class="touche" data-touche="KeyC">C</span><div class="icone"></div><span class="charges"></span></div>
-    <div class="capacite" id="cap-flash"><span class="touche" data-touche="KeyQ">A</span><div class="icone"></div><span class="charges"></span></div>
-    <div class="capacite signature" id="cap-signature"><div class="remplir"></div><span class="touche" data-touche="KeyE">E</span><div class="icone"></div></div>
-    <div class="capacite ultime" id="cap-ultime"><span class="touche" data-touche="KeyX">X</span><div class="icone"></div><div class="points"></div></div>
+    <div class="capacite" id="cap-fumee"><span class="touche" data-action-touche="fumee">C</span><div class="icone"></div><span class="charges"></span></div>
+    <div class="capacite" id="cap-flash"><span class="touche" data-action-touche="flash">A</span><div class="icone"></div><span class="charges"></span></div>
+    <div class="capacite signature" id="cap-signature"><div class="remplir"></div><span class="touche" data-action-touche="signature">E</span><div class="icone"></div></div>
+    <div class="capacite ultime" id="cap-ultime"><span class="touche" data-action-touche="ultime">X</span><div class="icone"></div><div class="points"></div></div>
   </div>
 
   <div id="bas-droite" class="hud">
@@ -234,7 +234,10 @@
 <div id="ecran-commandes" class="ecran">
   <div class="panneau-menu large">
     <h2>Commandes</h2>
-    <div class="touches" id="liste-touches"></div>
+    <p class="astuce">Tu peux changer chaque touche : clique dessus, puis appuie sur la touche de ton choix (clavier, bouton de la souris ou molette). Chaque action peut avoir deux touches.</p>
+    <div class="liste-liaisons" id="liste-touches"></div>
+    <p class="astuce note-touches" id="note-touches" aria-live="polite"></p>
+    <button type="button" class="bouton-secondaire" id="reinit-touches">Remettre les touches d'origine</button>
     <h3>Manette</h3>
     <p class="astuce">Stick gauche : bouger · Stick droit : viser · RT : tirer · LT : viser · A : sauter · B : s'accroupir · X : recharger (maintenir : poser/désamorcer) · Y : changer d'arme · LB / RB : flash / fumée · Croix ↑ / ↓ : signature / ultime · Croix ← : ordres · Select : boutique · Start : pause</p>
     <h3>Téléphone et tablette</h3>
