@@ -5,6 +5,16 @@ export class Audio {
   constructor() {
     this.ctx = null;
     this.volume = 0.7;
+    this.volumeAmbiance = 0.5;
+    this.derniers = {};
+  }
+
+  // Évite d'empiler le même son plusieurs fois dans un temps très court.
+  limite(cle, ecart) {
+    const t = performance.now();
+    if (t - (this.derniers[cle] || 0) < ecart * 1000) return false;
+    this.derniers[cle] = t;
+    return true;
   }
 
   demarrer() {
@@ -39,6 +49,74 @@ export class Audio {
     this.envoiReverb = this.ctx.createGain();
     this.envoiReverb.gain.value = 0.22;
     this.envoiReverb.connect(this.reverb).connect(this.maitre);
+    this.lancerAmbiance();
+  }
+
+  // Ambiance de l'arène : vent filtré qui ondule + rumeur grave de la ville au loin.
+  lancerAmbiance() {
+    const ctx = this.ctx;
+    this.gainAmbiance = ctx.createGain();
+    this.gainAmbiance.gain.value = this.volumeAmbiance * 0.35;
+    this.gainAmbiance.connect(this.maitre);
+    const vent = ctx.createBufferSource();
+    vent.buffer = this.bruit;
+    vent.loop = true;
+    const filtre = ctx.createBiquadFilter();
+    filtre.type = "lowpass";
+    filtre.frequency.value = 420;
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.09;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 180;
+    lfo.connect(lfoGain).connect(filtre.frequency);
+    const gVent = ctx.createGain();
+    gVent.gain.value = 0.5;
+    vent.connect(filtre).connect(gVent).connect(this.gainAmbiance);
+    vent.start();
+    lfo.start();
+    for (const [f, v] of [[55, 0.05], [82.5, 0.03], [110, 0.015]]) {
+      const o = ctx.createOscillator();
+      o.frequency.value = f;
+      const g = ctx.createGain();
+      g.gain.value = v;
+      o.connect(g).connect(this.gainAmbiance);
+      o.start();
+    }
+  }
+
+  reglerAmbiance(v) {
+    this.volumeAmbiance = v;
+    if (this.gainAmbiance) this.gainAmbiance.gain.value = v * 0.35;
+  }
+
+  // Sons d'interface
+  clic() {
+    if (!this.ctx) return;
+    this.oscillo(this.maitre, "triangle", 1400, 900, 0.06, 0.08);
+  }
+
+  survol() {
+    if (!this.ctx || !this.limite("survol", 0.05)) return;
+    this.oscillo(this.maitre, "sine", 2200, 2000, 0.03, 0.03);
+  }
+
+  // Balle qui passe tout près de la tête
+  sifflement(position) {
+    if (!this.ctx || !this.limite("siffle", 0.08)) return;
+    const s = this.sortie(position);
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    o.type = "sine";
+    o.frequency.setValueAtTime(3200, t);
+    o.frequency.exponentialRampToValueAtTime(900, t + 0.12);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.12, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+    o.connect(g).connect(s);
+    o.start(t);
+    o.stop(t + 0.15);
+    this.bruitFiltre(s, "highpass", 5000, 1, 0.08, 0.06);
   }
 
   reglerVolume(v) {
@@ -135,13 +213,13 @@ export class Audio {
     this.bruitFiltre(s, "highpass", 3000, 0.8, 0.04, 0.05 * fort);
   }
 
-  pasJoueur() {
-    if (!this.ctx) return;
-    this.bruitFiltre(this.maitre, "bandpass", 380 + Math.random() * 200, 2, 0.08, 0.12);
+  pasJoueur(fort = 1) {
+    if (!this.ctx || !this.limite("pasJoueur", 0.12)) return;
+    this.bruitFiltre(this.maitre, "bandpass", 380 + Math.random() * 200, 2, 0.08, 0.12 * fort);
   }
 
   impact(position) {
-    if (!this.ctx) return;
+    if (!this.ctx || !this.limite("impact", 0.03)) return;
     const s = this.sortie(position);
     this.bruitFiltre(s, "highpass", 2400, 1, 0.06, 0.18);
     if (Math.random() < 0.25) this.oscillo(s, "sine", 3200 + Math.random() * 1500, 1200, 0.18, 0.04);
@@ -195,6 +273,7 @@ export class Audio {
       victoire: [[523, 0], [659, 0.1], [784, 0.2], [1047, 0.3]],
       defaite: [[440, 0], [370, 0.15], [294, 0.3]],
       compte: [[880, 0]],
+      manche: [[330, 0], [440, 0.14]],
     }[type] || [];
     for (const [f, r] of notes) this.oscillo(this.maitre, "triangle", f, f, 0.35, 0.16, r);
   }

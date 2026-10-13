@@ -23,17 +23,24 @@
   <div id="marqueur" class="hud"></div>
 
   <div id="haut" class="hud">
+    <div class="etiquette-equipe moi">ATTAQUE</div>
     <div class="equipe moi"><span id="score-moi">0</span></div>
     <div class="centre-haut">
       <div id="chrono">1:40</div>
       <div id="phase"></div>
     </div>
     <div class="equipe eux"><span id="score-eux">0</span></div>
+    <div class="etiquette-equipe eux">DÉFENSE</div>
   </div>
   <div id="pips-bots" class="hud"></div>
 
   <canvas id="minimap" class="hud" width="200" height="146"></canvas>
   <div id="fil" class="hud"></div>
+
+  <div id="banniere" class="hud">
+    <div id="banniere-points"></div>
+    <div id="banniere-titre">ÉLIMINATION</div>
+  </div>
 
   <div id="bloc-annonce" class="hud">
     <div id="annonce"></div>
@@ -56,7 +63,7 @@
   <div id="bas-droite" class="hud">
     <div id="recharge-anneau"></div>
     <div class="munitions"><span id="mun-chargeur">25</span><span class="sep">/</span><span id="mun-reserve">75</span></div>
-    <div class="nom-arme">VECTEUR</div>
+    <div class="nom-arme">NS-7 VECTEUR</div>
   </div>
   <div id="fps" class="hud"></div>
 </div>
@@ -119,17 +126,22 @@
       <input type="range" id="r-sensibilite" min="0.2" max="3" step="0.05">
       <label for="r-fov">Champ de vision <output id="o-fov"></output></label>
       <input type="range" id="r-fov" min="80" max="110" step="1">
-      <label for="r-volume">Volume <output id="o-volume"></output></label>
+      <label for="r-volume">Volume général <output id="o-volume"></output></label>
       <input type="range" id="r-volume" min="0" max="1" step="0.05">
+      <label for="r-ambiance">Ambiance de l'arène <output id="o-ambiance"></output></label>
+      <input type="range" id="r-ambiance" min="0" max="1" step="0.05">
+      <label for="r-bob">Balancement de la caméra <output id="o-bob"></output></label>
+      <input type="range" id="r-bob" min="0" max="1" step="0.05">
       <label for="r-qualite">Qualité graphique</label>
       <select id="r-qualite">
-        <option value="basse">Basse (PC lent)</option>
-        <option value="moyenne">Moyenne</option>
-        <option value="haute">Haute</option>
+        <option value="basse">Faible : sans ombres ni post-traitement (PC modeste)</option>
+        <option value="moyenne">Moyenne : ombres, anticrénelage, bloom discret</option>
+        <option value="haute">Élevée : ombres fines, pleine résolution</option>
       </select>
       <label class="case"><input type="checkbox" id="r-fps"> Afficher les FPS</label>
+      <button type="button" class="bouton-secondaire" id="r-plein-ecran">Passer en plein écran</button>
     </div>
-    <p class="astuce" id="note-qualite" hidden>La nouvelle qualité s'applique au rechargement de la page.</p>
+    <p class="astuce" id="note-qualite" hidden>La nouvelle qualité s'appliquera en revenant au menu principal.</p>
     <button type="button" class="bouton-principal petit" data-retour>Retour</button>
   </div>
 </div>

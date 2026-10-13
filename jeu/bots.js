@@ -1,11 +1,12 @@
 // Bots ennemis : modèle 3D animé et intelligence (vision réelle, réaction, rafales, couverture, communication).
 import * as THREE from "three";
 import { rayonSphere, rayonCylindre, RAYON_PERSO } from "./physique.js";
+import { Personnage, ARCHETYPES } from "./personnages.js";
 
 export const DIFFICULTES = {
-  facile:    { nom: "Facile",    reaction: 0.65, erreur: 2.4, convergence: 1.3, tete: 0.06, rafale: [2, 4], degats: { tete: 70, corps: 20, jambes: 17 }, vitesseDetection: 1.0, cadence: 0.16 },
-  normal:    { nom: "Normal",    reaction: 0.42, erreur: 1.45, convergence: 0.85, tete: 0.16, rafale: [3, 5], degats: { tete: 110, corps: 27, jambes: 23 }, vitesseDetection: 1.5, cadence: 0.13 },
-  difficile: { nom: "Difficile", reaction: 0.26, erreur: 0.8, convergence: 0.5, tete: 0.32, rafale: [3, 6], degats: { tete: 160, corps: 35, jambes: 30 }, vitesseDetection: 2.2, cadence: 0.11 },
+  facile:    { nom: "Facile",    reaction: 0.65, erreur: 2.4, convergence: 1.3, tete: 0.06, rafale: [2, 4], degats: { tete: 70, corps: 20, jambes: 17 }, vitesseDetection: 1.0, cadence: 0.16, ouie: 0.7, couvert: 0.35, pause: [0.5, 0.9], rotation: 6 },
+  normal:    { nom: "Normal",    reaction: 0.42, erreur: 1.45, convergence: 0.85, tete: 0.16, rafale: [3, 5], degats: { tete: 110, corps: 27, jambes: 23 }, vitesseDetection: 1.5, cadence: 0.13, ouie: 1, couvert: 0.6, pause: [0.35, 0.75], rotation: 9 },
+  difficile: { nom: "Difficile", reaction: 0.26, erreur: 0.8, convergence: 0.5, tete: 0.32, rafale: [3, 6], degats: { tete: 160, corps: 35, jambes: 30 }, vitesseDetection: 2.2, cadence: 0.11, ouie: 1.25, couvert: 0.85, pause: [0.2, 0.45], rotation: 12 },
 };
 
 const DEG = Math.PI / 180;
@@ -16,95 +17,17 @@ function angleVers(dx, dz) { return Math.atan2(dx, dz); }
 function diffAngle(a, b) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; }
 const alea = (a, b) => a + Math.random() * (b - a);
 
-// ----- Modèle -----
-const geos = {};
-function geo(nom, fabrique) { return geos[nom] || (geos[nom] = fabrique()); }
-
-function creerModele(mats) {
-  const racine = new THREE.Group();
-  racine.rotation.order = "YXZ";
-  const corps = new THREE.Group();
-  racine.add(corps);
-
-  const m = (g, mat, x, y, z, parent) => {
-    const mesh = new THREE.Mesh(g, mat);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = true;
-    parent.add(mesh);
-    return mesh;
-  };
-
-  // Jambes
-  const jambes = [];
-  for (const cote of [-1, 1]) {
-    const hanche = new THREE.Group();
-    hanche.position.set(cote * 0.12, 0.93, 0);
-    corps.add(hanche);
-    m(geo("cuisse", () => new THREE.CapsuleGeometry(0.085, 0.3, 4, 10)), mats.tenue, 0, -0.22, 0, hanche);
-    m(geo("genouillere", () => new THREE.BoxGeometry(0.12, 0.1, 0.06)), mats.armure, 0, -0.42, 0.07, hanche);
-    const genou = new THREE.Group();
-    genou.position.y = -0.45;
-    hanche.add(genou);
-    m(geo("tibia", () => new THREE.CapsuleGeometry(0.075, 0.3, 4, 10)), mats.tenue, 0, -0.21, 0, genou);
-    m(geo("botte", () => new THREE.BoxGeometry(0.13, 0.1, 0.24)), mats.sombre, 0, -0.43, 0.04, genou);
-    jambes.push({ hanche, genou });
-  }
-
-  // Haut du corps (s'incline pour viser)
-  const buste = new THREE.Group();
-  buste.position.y = 0.95;
-  corps.add(buste);
-  m(geo("bassin", () => new THREE.BoxGeometry(0.34, 0.16, 0.22)), mats.sombre, 0, 0.02, 0, buste);
-  const torse = m(geo("torse", () => new THREE.CapsuleGeometry(0.19, 0.3, 4, 12)), mats.tenue, 0, 0.33, 0, buste);
-  torse.scale.set(1.05, 1, 0.75);
-  m(geo("plastron", () => new THREE.BoxGeometry(0.36, 0.32, 0.08)), mats.armure, 0, 0.38, 0.12, buste);
-  m(geo("bande", () => new THREE.BoxGeometry(0.3, 0.025, 0.02)), mats.accent, 0, 0.44, 0.165, buste);
-  m(geo("sac", () => new THREE.BoxGeometry(0.28, 0.32, 0.12)), mats.sombre, 0, 0.38, -0.17, buste);
-  m(geo("cou", () => new THREE.CylinderGeometry(0.06, 0.07, 0.1, 10)), mats.tenue, 0, 0.62, 0, buste);
-  const tete = new THREE.Group();
-  tete.position.y = 0.7;
-  buste.add(tete);
-  m(geo("casque", () => new THREE.SphereGeometry(0.145, 18, 14)), mats.armure, 0, 0, 0, tete);
-  m(geo("visiere", () => new THREE.BoxGeometry(0.22, 0.055, 0.07)), mats.visiere, 0, 0.005, 0.11, tete);
-  m(geo("antenne", () => new THREE.BoxGeometry(0.015, 0.12, 0.015)), mats.accent, 0.1, 0.1, -0.05, tete);
-
-  // Bras + fusil
-  const bras = new THREE.Group();
-  bras.position.y = 0.48;
-  buste.add(bras);
-  for (const cote of [-1, 1]) {
-    const b = m(geo("bras", () => new THREE.CapsuleGeometry(0.06, 0.32, 4, 8)), mats.tenue, cote * 0.2, -0.05, 0.16, bras);
-    b.rotation.x = Math.PI / 2.4;
-    b.rotation.z = -cote * 0.5;
-    m(geo("epaule", () => new THREE.SphereGeometry(0.09, 10, 8)), mats.armure, cote * 0.24, 0.05, 0, bras);
-  }
-  const fusil = new THREE.Group();
-  fusil.position.set(0.07, -0.08, 0.42);
-  bras.add(fusil);
-  m(geo("fusilCorps", () => new THREE.BoxGeometry(0.06, 0.09, 0.62)), mats.sombre, 0, 0, 0, fusil);
-  m(geo("fusilCanon", () => new THREE.CylinderGeometry(0.014, 0.014, 0.2, 8).rotateX(Math.PI / 2)), mats.sombre, 0, 0.01, 0.4, fusil);
-  m(geo("fusilChargeur", () => new THREE.BoxGeometry(0.04, 0.15, 0.07)), mats.sombre, 0, -0.1, 0.05, fusil);
-  m(geo("fusilNeon", () => new THREE.BoxGeometry(0.065, 0.01, 0.3)), mats.accent, 0, 0.02, 0, fusil);
-
-  return { racine, corps, buste, tete, jambes, fusil };
-}
-
 // ----- Gestion des bots -----
 export class GestionBots {
-  constructor(scene, carte, audio) {
+  constructor(scene, carte, audio, qualite = "moyenne") {
+    this.qualite = qualite;
+    this.diff = DIFFICULTES.normal;
     this.scene = scene;
     this.carte = carte;
     this.audio = audio;
     this.liste = [];
     this.surTir = null;       // (bot, depart, arrivee, toucheJoueur)
     this.surMort = null;
-    this.mats = {
-      tenue: new THREE.MeshStandardMaterial({ color: 0x272b36, roughness: 0.85 }),
-      armure: new THREE.MeshStandardMaterial({ color: 0x6b2433, roughness: 0.45, metalness: 0.45 }),
-      sombre: new THREE.MeshStandardMaterial({ color: 0x15171d, roughness: 0.5, metalness: 0.6 }),
-      accent: new THREE.MeshBasicMaterial({ color: 0xff4f5e }),
-      visiere: new THREE.MeshBasicMaterial({ color: 0xff7b54 }),
-    };
     this.tmp = new THREE.Vector3();
   }
 
@@ -125,7 +48,7 @@ export class GestionBots {
 
     for (let i = 0; i < nombre; i++) {
       const depart = this.carte.nav.aleatoire(Math.random, this.carte.zoneDepartBots) || { x: 0, z: -18 };
-      const modele = creerModele(this.mats);
+      const modele = new Personnage(ARCHETYPES[(i + Math.floor(Math.random() * 3)) % 3], i % 3, this.qualite);
       modele.racine.position.set(depart.x, 0, depart.z);
       this.scene.add(modele.racine);
       const bot = {
@@ -156,6 +79,7 @@ export class GestionBots {
 
   // Un bruit (tir, pas) : les bots proches vont voir, les autres gardent leur angle et regardent vers le bruit.
   entendre(x, z, rayon) {
+    rayon *= this.diff.ouie;
     for (const b of this.liste) {
       if (!b.vivant || b.etat === "combat" || b.etat === "couvert") continue;
       const d = Math.hypot(b.x - x, b.z - z);
@@ -199,11 +123,15 @@ export class GestionBots {
       bot.vivant = false;
       bot.vie = 0;
       bot.mortT = 0;
-      bot.chuteDir = Math.sign(Math.random() - 0.5) * 0.3;
+      bot.modele.mourir(Math.sign(Math.random() - 0.5));
       if (this.surMort) this.surMort(bot, tete);
       return true;
     }
     // Touché : il sait d'où vient le tir et réagit plus vite.
+    // Réaction physique à l'impact (le buste encaisse dans le sens du tir)
+    const ix = bot.x - depuisX, iz = bot.z - depuisZ, il = Math.hypot(ix, iz) || 1;
+    const s = Math.sin(bot.yaw), c = Math.cos(bot.yaw);
+    bot.modele.impact((ix * c - iz * s) / il, (ix * s + iz * c) / il, tete);
     bot.lacetCible = angleVers(depuisX - bot.x, depuisZ - bot.z);
     bot.derniereVue = { x: depuisX, z: depuisZ };
     if (bot.etat !== "combat" && bot.etat !== "couvert") {
@@ -214,7 +142,7 @@ export class GestionBots {
       bot.etatT = 0;
       bot.chemin = null;
     }
-    if (bot.vie < 45 && !bot.couvertFait && Math.random() < 0.7) bot.veutCouvert = true;
+    if (bot.vie < 45 && !bot.couvertFait && Math.random() < this.diff.couvert) bot.veutCouvert = true;
     return false;
   }
 
@@ -224,7 +152,7 @@ export class GestionBots {
     for (const b of this.liste) {
       if (!b.vivant) continue;
       const accroupi = 0;
-      const teteY = 1.66 - accroupi;
+      const teteY = 1.69 - accroupi;
       const tTete = rayonSphere(ox, oy, oz, dx, dy, dz, b.x, teteY, b.z, 0.17);
       if (tTete >= 0 && tTete < tMax && (!meilleur || tTete < meilleur.t)) meilleur = { bot: b, t: tTete, partie: "tete" };
       const c = rayonCylindre(ox, oy, oz, dx, dy, dz, b.x, b.z, 0.29, 0, 1.5);
@@ -424,7 +352,7 @@ export class GestionBots {
     this.tirer(b, joueur, d, temps);
     b.rafale--;
     b.prochainTir = temps + diff.cadence;
-    if (b.rafale <= 0) b.pauseT = alea(0.35, 0.75);
+    if (b.rafale <= 0) b.pauseT = alea(diff.pause[0], diff.pause[1]);
   }
 
   tirer(b, joueur, d, temps) {
@@ -462,7 +390,9 @@ export class GestionBots {
     else if (corps && corps.t < tMur) toucheJoueur = { t: corps.t, partie: corps.y - joueur.pos.y < 0.8 ? "jambes" : "corps" };
 
     const t = toucheJoueur ? toucheJoueur.t : tMur;
-    const depart = b.modele.fusil.getWorldPosition(this.tmp).clone();
+    b.modele.tir();
+    b.modele.fusil.updateWorldMatrix(true, false);
+    const depart = this.tmp.copy(b.modele.points.bouche).applyMatrix4(b.modele.fusil.matrixWorld).clone();
     const arrivee = { x: ox + dx * t, y: oy + dy * t, z: oz + dz * t };
     this.audio.tirBot({ x: b.x, y: 1.4, z: b.z }, d);
     if (this.surTir) this.surTir(b, depart, arrivee, toucheJoueur ? { degats: diff.degats[toucheJoueur.partie], partie: toucheJoueur.partie } : null, toucheJoueur ? null : mur);
@@ -494,6 +424,7 @@ export class GestionBots {
       if (d < 0.35) { b.iChemin++; }
       else { dirX = dx / d; dirZ = dz / d; }
     }
+    if (dirX || dirZ) { if (!b.dirMouvement) b.dirMouvement = { x: 0, z: 1 }; b.dirMouvement.x = dirX; b.dirMouvement.z = dirZ; }
     const cible = (dirX || dirZ) ? b.vitesseCible : 0;
     b.vitesse += (cible - b.vitesse) * (1 - Math.exp(-10 * dt));
     if (b.vitesse > 0.05 && (dirX || dirZ)) {
@@ -518,7 +449,7 @@ export class GestionBots {
       }
     }
     const d = diffAngle(b.yaw, b.lacetCible);
-    const vitRot = b.etat === "combat" ? 9 : 4;
+    const vitRot = b.etat === "combat" ? this.diff.rotation : 4;
     b.yaw += Math.sign(d) * Math.min(Math.abs(d), vitRot * dt);
   }
 
@@ -526,37 +457,28 @@ export class GestionBots {
     const m = b.modele;
     m.racine.position.set(b.x, 0, b.z);
     m.racine.rotation.y = b.yaw;
-    const v = Math.min(b.vitesse / 5, 1.2);
-    b.phase += dt * (3 + b.vitesse * 1.9);
-    const s = Math.sin(b.phase);
-    m.jambes[0].hanche.rotation.x = s * 0.55 * v;
-    m.jambes[1].hanche.rotation.x = -s * 0.55 * v;
-    m.jambes[0].genou.rotation.x = Math.max(0, -s) * 0.9 * v + 0.05;
-    m.jambes[1].genou.rotation.x = Math.max(0, s) * 0.9 * v + 0.05;
-    m.corps.position.y = Math.abs(Math.cos(b.phase)) * 0.04 * v;
-    // Le buste vise le joueur en hauteur pendant le combat
+    // Direction du mouvement dans le repère du personnage (avant = +Z)
+    let lx = 0, lz = 1;
+    if (b.dirMouvement) {
+      const s = Math.sin(b.yaw), c = Math.cos(b.yaw);
+      lz = b.dirMouvement.x * s + b.dirMouvement.z * c;
+      lx = b.dirMouvement.x * c - b.dirMouvement.z * s;
+    }
     let pitch = 0;
     if (b.etat === "combat" && joueur) {
       const d = Math.hypot(joueur.pos.x - b.x, joueur.pos.z - b.z);
-      pitch = -Math.atan2(joueur.pos.y + joueur.hauteurYeux - 0.4 - 1.45, d);
+      pitch = Math.atan2(joueur.pos.y + joueur.hauteurYeux - 0.4 - 1.45, d);
     }
     b.pitch += (pitch - b.pitch) * (1 - Math.exp(-10 * dt));
-    m.buste.rotation.x = b.pitch * 0.8 + (b.vitesse > 4 ? 0.12 : 0);
-    m.buste.rotation.y = 0;
-    m.fusil.rotation.x = b.etat === "combat" ? 0 : 0.35;
+    const vise = b.etat === "combat" || b.etat === "chasse" || b.conscience > 0.6;
+    m.maj({ dt, vitesse: b.vitesse, dirX: lx, dirZ: lz, vise, tangage: b.pitch, recharge: b.rechargeT > 0 ? 1 - b.rechargeT / 2.2 : -1 });
   }
 
   animerMort(b, dt) {
     b.mortT += dt;
     const m = b.modele;
-    const k = Math.min(1, b.mortT / 0.55);
-    const e = k * k * (3 - 2 * k);
-    m.racine.rotation.x = -e * Math.PI / 2 * 0.97;
-    m.racine.rotation.z = e * b.chuteDir;
-    m.jambes[0].genou.rotation.x = e * 0.6;
-    m.jambes[1].genou.rotation.x = e * 0.3;
-    m.racine.position.y = e * 0.18;
-    if (b.mortT > 6) m.racine.position.y = 0.18 - (b.mortT - 6) * 0.25;
+    m.maj({ dt, vitesse: 0, dirX: 0, dirZ: 1, vise: false, tangage: 0, recharge: -1 });
+    if (b.mortT > 6) m.racine.position.y = -(b.mortT - 6) * 0.25;
     if (b.mortT > 8) m.racine.visible = false;
   }
 }

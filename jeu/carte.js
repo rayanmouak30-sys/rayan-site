@@ -2,6 +2,8 @@
 // Axe X : gauche/droite. Axe Z : le joueur part en Z positif, les bots défendent en Z négatif.
 import * as THREE from "three";
 import { Monde, GrilleNav } from "./physique.js";
+import { decorer } from "./decor.js";
+import { Assemblage } from "./formes.js";
 import { textureBeton, textureSol, textureMetal, textureMetalSombre, textureDanger, textureFacade, texturePeinture, uvMonde } from "./textures.js";
 
 export const LIMITES = { minX: -32, maxX: 32, minZ: -22, maxZ: 22 };
@@ -36,15 +38,13 @@ export function construireCarte(scene, qualite) {
   }
 
   const murs2D = []; // pour la minimap
+  // Géométrie fixe fusionnée par matériau : quelques appels de rendu au lieu de plusieurs centaines.
+  const fixe = new Assemblage();
+  const neons = new Assemblage();
 
   function boite(cx, cz, l, p, h, type = "mur", y0 = 0, options = {}) {
-    const geo = uvMonde(new THREE.BoxGeometry(l, h, p), l, h, p, echelles[type] || 2);
-    const m = new THREE.Mesh(geo, mat[type]);
-    m.position.set(cx, y0 + h / 2, cz);
-    m.castShadow = ombres;
-    m.receiveShadow = ombres;
-    groupe.add(m);
-    const b = monde.ajouter(cx - l / 2, y0, cz - p / 2, cx + l / 2, y0 + h, cz + p / 2, { type, mesh: m, ...options });
+    fixe.ajouter(uvMonde(new THREE.BoxGeometry(l, h, p), l, h, p, echelles[type] || 2), type, { p: [cx, y0 + h / 2, cz] });
+    const b = monde.ajouter(cx - l / 2, y0, cz - p / 2, cx + l / 2, y0 + h, cz + p / 2, { type, ...options });
     if (y0 < 0.5 && !options.traversable) murs2D.push({ x: cx - l / 2, z: cz - p / 2, l, p, h: y0 + h });
     return b;
   }
@@ -52,21 +52,12 @@ export function construireCarte(scene, qualite) {
   // Mur avec rebord métallique et éventuellement un néon.
   function mur(cx, cz, l, p, h, neon = null) {
     boite(cx, cz, l, p, h, "mur");
-    const rebord = new THREE.Mesh(new THREE.BoxGeometry(l + 0.08, 0.14, p + 0.08), mat.sombre);
-    rebord.position.set(cx, h + 0.07, cz);
-    rebord.castShadow = ombres;
-    groupe.add(rebord);
-    const plinthe = new THREE.Mesh(new THREE.BoxGeometry(l + 0.04, 0.22, p + 0.04), mat.sombre);
-    plinthe.position.set(cx, 0.11, cz);
-    groupe.add(plinthe);
+    fixe.ajouter(new THREE.BoxGeometry(l + 0.08, 0.14, p + 0.08), "sombre", { p: [cx, h + 0.07, cz] });
+    fixe.ajouter(new THREE.BoxGeometry(l + 0.04, 0.22, p + 0.04), "sombre", { p: [cx, 0.11, cz] });
     if (neon) {
       const horiz = l > p;
-      const n = new THREE.Mesh(
-        new THREE.BoxGeometry(horiz ? l - 0.2 : p + 0.1, 0.05, horiz ? p + 0.1 : l - 0.2).rotateY(horiz ? 0 : Math.PI / 2),
-        new THREE.MeshBasicMaterial({ color: neon })
-      );
-      n.position.set(cx, h - 0.35, cz);
-      groupe.add(n);
+      neons.ajouter(new THREE.BoxGeometry(horiz ? l - 0.2 : l + 0.06, 0.03, horiz ? p + 0.06 : p - 0.2), "n" + neon, { p: [cx, h - 0.35, cz] });
+      if (!mat["n" + neon]) mat["n" + neon] = new THREE.MeshStandardMaterial({ color: neon, emissive: neon, emissiveIntensity: 0.9 });
     }
   }
 
@@ -75,23 +66,14 @@ export function construireCarte(scene, qualite) {
     // Cornières sombres sur les arêtes verticales
     const geo = new THREE.BoxGeometry(0.08, h, 0.08);
     for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-      const c = new THREE.Mesh(geo, mat.sombre);
-      c.position.set(cx + sx * (l / 2 - 0.03), y0 + h / 2, cz + sz * (p / 2 - 0.03));
-      groupe.add(c);
+      fixe.ajouter(geo, "sombre", { p: [cx + sx * (l / 2 - 0.03), y0 + h / 2, cz + sz * (p / 2 - 0.03)] });
     }
   }
 
   function baril(cx, cz) {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 1.05, 20), mat.bleu);
-    m.position.set(cx, 0.525, cz);
-    m.castShadow = m.receiveShadow = ombres;
-    groupe.add(m);
-    for (const y of [0.25, 0.8]) {
-      const cercle = new THREE.Mesh(new THREE.TorusGeometry(0.555, 0.025, 6, 24).rotateX(Math.PI / 2), mat.sombre);
-      cercle.position.set(cx, y, cz);
-      groupe.add(cercle);
-    }
-    monde.ajouter(cx - 0.55, 0, cz - 0.55, cx + 0.55, 1.05, cz + 0.55, { type: "baril", mesh: m });
+    fixe.ajouter(new THREE.CylinderGeometry(0.55, 0.55, 1.05, 20), "bleu", { p: [cx, 0.525, cz] });
+    for (const y of [0.25, 0.8]) fixe.ajouter(new THREE.TorusGeometry(0.555, 0.025, 6, 24).rotateX(Math.PI / 2), "sombre", { p: [cx, y, cz] });
+    monde.ajouter(cx - 0.55, 0, cz - 0.55, cx + 0.55, 1.05, cz + 0.55, { type: "baril" });
     murs2D.push({ x: cx - 0.55, z: cz - 0.55, l: 1.1, p: 1.1, h: 1.05 });
   }
 
@@ -211,9 +193,9 @@ export function construireCarte(scene, qualite) {
   peinture("MID", "#9aa6b8", 0, 3.4, -21.99, 0, 4);
 
   // ----- Lumières -----
-  const hemi = new THREE.HemisphereLight(0xa8c4ff, 0x3a2c24, 0.75);
+  const hemi = new THREE.HemisphereLight(0xa8c4ff, 0x4a3a30, 1.0);
   scene.add(hemi);
-  const soleil = new THREE.DirectionalLight(0xffd3a8, 2.6);
+  const soleil = new THREE.DirectionalLight(0xffd3a8, 3.0);
   soleil.position.set(-26, 30, 18);
   soleil.castShadow = ombres;
   if (ombres) {
@@ -269,22 +251,25 @@ export function construireCarte(scene, qualite) {
 
   // ----- Immeubles lointains -----
   const facades = [textureFacade(81), textureFacade(82), textureFacade(83)];
+  const ville = new Assemblage();
+  const matsVille = facades.map((t) => new THREE.MeshStandardMaterial({ color: 0x0a0d18, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.9, roughness: 1 }));
   const rngVille = (() => { let s = 99; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
   for (let k = 0; k < 46; k++) {
     const a = (k / 46) * Math.PI * 2 + rngVille() * 0.08;
     const d = 75 + rngVille() * 70;
     const l = 10 + rngVille() * 16, h = 18 + rngVille() * 60;
-    const t = facades[k % 3].clone();
-    t.needsUpdate = true;
-    t.repeat.set(l / 20, h / 40);
-    const b = new THREE.Mesh(
-      new THREE.BoxGeometry(l, h, l),
-      new THREE.MeshStandardMaterial({ color: 0x0a0d18, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.9, roughness: 1 })
-    );
-    b.position.set(Math.cos(a) * d * 1.25, h / 2 - 1, Math.sin(a) * d);
-    b.rotation.y = -a;
-    groupe.add(b);
+    const g = new THREE.BoxGeometry(l, h, l);
+    const uvs = g.attributes.uv;
+    for (let i = 0; i < uvs.count; i++) uvs.setXY(i, uvs.getX(i) * l / 20, uvs.getY(i) * h / 40);
+    ville.ajouter(g, k % 3, { p: [Math.cos(a) * d * 1.25, h / 2 - 1, Math.sin(a) * d], r: [0, -a, 0] });
   }
+  groupe.add(ville.construire(matsVille, false));
+
+  groupe.add(fixe.construire(mat, ombres));
+  groupe.add(neons.construire(mat, false));
+
+  // ----- Habillage (architecture, équipements, signalisation, ombrage de contact) -----
+  decorer({ groupe, monde, mat, qualite, ombres });
 
   // ----- Points d'apparition et postes de défense des bots -----
   const nav = new GrilleNav(monde, LIMITES.minX, LIMITES.maxX, LIMITES.minZ, LIMITES.maxZ, 0.5, 0.45);
@@ -302,7 +287,7 @@ export function construireCarte(scene, qualite) {
   ];
 
   return {
-    monde, nav, barriere, postes, murs2D, soleil,
+    monde, nav, barriere, postes, murs2D, soleil, ciel,
     zoneDepartBots: { minX: -11, maxX: 11, minZ: -21, maxZ: -14 },
     departJoueur() {
       const p = nav.aleatoire(Math.random, { minX: -4, maxX: 4, minZ: 18, maxZ: 20.5 });

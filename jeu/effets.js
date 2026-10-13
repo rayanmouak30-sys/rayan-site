@@ -1,0 +1,166 @@
+// Effets visuels avec réserves d'objets réutilisés (aucune création pendant le combat) :
+// traçantes, étincelles, poussière d'impact, trous de balles, lumière de tir.
+import * as THREE from "three";
+import { textureEclat, textureTrou } from "./textures.js";
+
+function textureFumee() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, "rgba(200,200,200,0.55)");
+  g.addColorStop(0.6, "rgba(170,170,170,0.18)");
+  g.addColorStop(1, "rgba(150,150,150,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+
+export class Effets {
+  constructor(scene, qualite) {
+    this.scene = scene;
+    const n = qualite === "basse" ? 0.5 : 1;
+
+    // Traçantes : segments réutilisés
+    this.tracantes = [];
+    for (let i = 0; i < 24; i++) {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
+      const mat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+      const l = new THREE.Line(geo, mat);
+      l.frustumCulled = false;
+      l.visible = false;
+      scene.add(l);
+      this.tracantes.push({ obj: l, vie: 0 });
+    }
+    this.iTracante = 0;
+
+    // Étincelles : un seul nuage de points partagé, particules recyclées
+    this.maxEtincelles = Math.round(240 * n);
+    const pos = new Float32Array(this.maxEtincelles * 3).fill(-1000);
+    const col = new Float32Array(this.maxEtincelles * 3);
+    this.geoEtincelles = new THREE.BufferGeometry();
+    this.geoEtincelles.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    this.geoEtincelles.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    const pts = new THREE.Points(this.geoEtincelles, new THREE.PointsMaterial({ map: textureEclat(), size: 0.07, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    pts.frustumCulled = false;
+    scene.add(pts);
+    this.etincelles = Array.from({ length: this.maxEtincelles }, () => ({ vie: 0, max: 1, v: new THREE.Vector3(), c: new THREE.Color() }));
+    this.iEtincelle = 0;
+
+    // Poussière d'impact : sprites recyclés
+    const matFumee = new THREE.SpriteMaterial({ map: textureFumee(), transparent: true, depthWrite: false, color: 0xb8b2a8 });
+    this.fumees = [];
+    for (let i = 0; i < Math.round(20 * n); i++) {
+      const s = new THREE.Sprite(matFumee.clone());
+      s.visible = false;
+      scene.add(s);
+      this.fumees.push({ obj: s, vie: 0, v: new THREE.Vector3() });
+    }
+    this.iFumee = 0;
+
+    // Trous de balles : anneau de 90 décalcomanies
+    const matTrou = new THREE.MeshBasicMaterial({ map: textureTrou(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
+    const geoTrou = new THREE.PlaneGeometry(0.11, 0.11);
+    this.trous = [];
+    for (let i = 0; i < 90; i++) {
+      const m = new THREE.Mesh(geoTrou, matTrou);
+      m.visible = false;
+      m.matrixAutoUpdate = false;
+      scene.add(m);
+      this.trous.push(m);
+    }
+    this.iTrou = 0;
+
+    this.lumiere = new THREE.PointLight(0xffc27a, 0, 9, 2);
+    scene.add(this.lumiere);
+    this._a = new THREE.Vector3();
+  }
+
+  tracante(a, b, couleur, vie = 0.06) {
+    const t = this.tracantes[this.iTracante++ % this.tracantes.length];
+    const p = t.obj.geometry.attributes.position;
+    p.setXYZ(0, a.x, a.y, a.z);
+    p.setXYZ(1, b.x, b.y, b.z);
+    p.needsUpdate = true;
+    t.obj.material.color.setHex(couleur);
+    t.obj.material.opacity = 0.9;
+    t.obj.visible = true;
+    t.vie = t.max = vie;
+  }
+
+  etincellesEn(p, n, couleur, nombre = 9) {
+    const pos = this.geoEtincelles.attributes.position, col = this.geoEtincelles.attributes.color;
+    for (let k = 0; k < nombre; k++) {
+      const i = this.iEtincelle++ % this.maxEtincelles;
+      const e = this.etincelles[i];
+      e.vie = e.max = 0.2 + Math.random() * 0.25;
+      e.v.set(n.x + (Math.random() - 0.5) * 1.4, n.y + Math.random() * 1.1, n.z + (Math.random() - 0.5) * 1.4).multiplyScalar(2 + Math.random() * 3.5);
+      e.c.setHex(couleur);
+      pos.setXYZ(i, p.x, p.y, p.z);
+      col.setXYZ(i, e.c.r, e.c.g, e.c.b);
+    }
+    pos.needsUpdate = col.needsUpdate = true;
+  }
+
+  poussiere(p, n) {
+    const f = this.fumees[this.iFumee++ % this.fumees.length];
+    f.obj.position.set(p.x + n.x * 0.05, p.y + n.y * 0.05, p.z + n.z * 0.05);
+    f.v.set(n.x * 0.6, 0.25 + n.y * 0.4, n.z * 0.6);
+    f.vie = 0.6;
+    f.obj.scale.setScalar(0.15);
+    f.obj.material.opacity = 0.7;
+    f.obj.visible = true;
+  }
+
+  trou(p, n) {
+    const m = this.trous[this.iTrou++ % this.trous.length];
+    m.position.set(p.x + n.x * 0.004, p.y + n.y * 0.004, p.z + n.z * 0.004);
+    this._a.set(p.x + n.x, p.y + n.y, p.z + n.z);
+    m.lookAt(this._a);
+    m.rotateZ(Math.random() * Math.PI);
+    m.updateMatrix();
+    m.visible = true;
+  }
+
+  flashTir(p) {
+    this.lumiere.position.copy(p);
+    this.lumiere.intensity = 6;
+  }
+
+  vider() {
+    for (const m of this.trous) m.visible = false;
+  }
+
+  maj(dt) {
+    for (const t of this.tracantes) {
+      if (t.vie <= 0) continue;
+      t.vie -= dt;
+      t.obj.material.opacity = Math.max(0, t.vie / t.max) * 0.9;
+      if (t.vie <= 0) t.obj.visible = false;
+    }
+    const pos = this.geoEtincelles.attributes.position, col = this.geoEtincelles.attributes.color;
+    let actif = false;
+    for (let i = 0; i < this.maxEtincelles; i++) {
+      const e = this.etincelles[i];
+      if (e.vie <= 0) continue;
+      actif = true;
+      e.vie -= dt;
+      e.v.y -= 9.8 * dt;
+      pos.setXYZ(i, pos.getX(i) + e.v.x * dt, pos.getY(i) + e.v.y * dt, pos.getZ(i) + e.v.z * dt);
+      const k = Math.max(0, e.vie / e.max);
+      col.setXYZ(i, e.c.r * k, e.c.g * k, e.c.b * k);
+      if (e.vie <= 0) pos.setXYZ(i, 0, -1000, 0);
+    }
+    if (actif) pos.needsUpdate = col.needsUpdate = true;
+    for (const f of this.fumees) {
+      if (f.vie <= 0) continue;
+      f.vie -= dt;
+      f.obj.position.addScaledVector(f.v, dt);
+      f.obj.scale.setScalar(0.15 + (0.6 - f.vie) * 0.9);
+      f.obj.material.opacity = Math.max(0, f.vie / 0.6) * 0.6;
+      if (f.vie <= 0) f.obj.visible = false;
+    }
+    this.lumiere.intensity *= Math.exp(-35 * dt);
+  }
+}

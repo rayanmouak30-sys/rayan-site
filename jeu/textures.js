@@ -287,3 +287,116 @@ export function uvMonde(geo, l, h, p, echelle) {
   uv.needsUpdate = true;
   return geo;
 }
+
+// ===== Textures de détail (personnages, arme) =====
+// Tissu tissé : trame fine en relief, légères variations.
+export function textureTissu(qualite) {
+  const T = qualite === "basse" ? 128 : 256;
+  const n = bruitTuilable(T, 8, 3, 91);
+  const h = new Float32Array(T * T);
+  const { c } = remplir(T, (x, y, i) => {
+    const trame = (Math.sin(x * Math.PI / 2) * 0.5 + 0.5) * ((y >> 2) % 2 ? 1 : 0.6) + (Math.sin(y * Math.PI / 2) * 0.5 + 0.5) * ((x >> 2) % 2 ? 0.6 : 1);
+    h[i] = trame * 0.5 + n[i] * 0.3;
+    const v = 200 + (n[i] - 0.5) * 50 + trame * 18;
+    return [clamp(v), clamp(v), clamp(v)];
+  });
+  const t = { map: versTexture(c), normalMap: normalDepuisHauteur(h, T, 1.6) };
+  t.map.repeat.set(3, 3); t.normalMap.repeat.set(3, 3);
+  return t;
+}
+
+// Plaque composite (armures) : surface légèrement granuleuse, usure claire aux bords des coutures.
+export function texturePlaque(qualite) {
+  const T = qualite === "basse" ? 128 : 256;
+  const n = bruitTuilable(T, 16, 3, 92);
+  const u = bruitTuilable(T, 6, 4, 93);
+  const h = new Float32Array(T * T);
+  const { c } = remplir(T, (x, y, i) => {
+    h[i] = n[i] * 0.35;
+    const usure = u[i] > 0.72 ? (u[i] - 0.72) * 3 : 0;
+    const v = 215 + (n[i] - 0.5) * 30 + usure * 120;
+    return [clamp(v), clamp(v), clamp(v)];
+  });
+  return { map: versTexture(c), normalMap: normalDepuisHauteur(h, T, 1.2) };
+}
+
+// Polymère granité (poignée, crosse) et métal anodisé brossé (carcasse).
+export function texturePolymere(qualite) {
+  const T = qualite === "basse" ? 128 : 256;
+  const n = bruitTuilable(T, 64, 2, 94);
+  const h = new Float32Array(T * T);
+  const { c } = remplir(T, (x, y, i) => {
+    h[i] = n[i];
+    const v = 205 + (n[i] - 0.5) * 30;
+    return [clamp(v), clamp(v), clamp(v)];
+  });
+  return { map: versTexture(c), normalMap: normalDepuisHauteur(h, T, 2.2) };
+}
+
+export function textureAnodise(qualite) {
+  const T = qualite === "basse" ? 128 : 256;
+  const n = bruitTuilable(T, 4, 4, 95);
+  const fin = bruitTuilable(T, 128, 1, 96);
+  const { c } = remplir(T, (x, y, i) => {
+    const brosse = Math.sin(y * 1.7 + fin[i] * 3) * 6;
+    const v = 200 + (n[i] - 0.5) * 36 + brosse;
+    return [clamp(v), clamp(v), clamp(v)];
+  });
+  const rough = remplir(T, (x, y, i) => {
+    const v = 120 + (n[i] - 0.5) * 90 + (fin[i] - 0.5) * 40;
+    return [clamp(v), clamp(v), clamp(v)];
+  });
+  return { map: versTexture(c), roughnessMap: versTexture(rough.c, false) };
+}
+
+// Marquage gravé de l'arme (logo Neon Strike, numéro de modèle).
+export function textureMarquage(texte, sous) {
+  const c = document.createElement("canvas");
+  c.width = 256; c.height = 64;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "rgba(0,0,0,0)";
+  ctx.fillRect(0, 0, 256, 64);
+  ctx.fillStyle = "rgba(210,220,235,0.85)";
+  ctx.font = `700 28px "Orbitron", Arial, sans-serif`;
+  ctx.fillText(texte, 8, 32);
+  ctx.font = `600 15px "Rajdhani", Arial, sans-serif`;
+  ctx.fillStyle = "rgba(150,165,190,0.85)";
+  ctx.fillText(sous, 10, 54);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+// Réticule du viseur point rouge.
+export function textureReticule() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const ctx = c.getContext("2d");
+  ctx.strokeStyle = "rgba(255,70,80,0.95)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(64, 64, 22, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255,90,100,1)";
+  ctx.beginPath();
+  ctx.arc(64, 64, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// Dégradé sombre pour l'ombrage de contact (pied des murs, sous les caisses).
+export function textureOmbreContact() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const ctx = c.getContext("2d");
+  const g = ctx.createLinearGradient(0, 0, 0, 64);
+  g.addColorStop(0, "rgba(0,0,0,0.55)");
+  g.addColorStop(0.5, "rgba(0,0,0,0.18)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}

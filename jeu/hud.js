@@ -13,7 +13,9 @@ export class Hud {
       pips: $("pips-bots"), fil: $("fil"), annonce: $("annonce"), sousAnnonce: $("sous-annonce"),
       vignette: $("vignette"), directions: $("directions"), competence: $("competence"), competenceRemplir: $("competence-remplir"),
       minimap: $("minimap"), lunette: $("lunette"),
+      banniere: $("banniere"), banniereTitre: $("banniere-titre"), bannierePoints: $("banniere-points"),
     };
+    this.banniereT = 0;
     this.ctx = this.el.minimap.getContext("2d");
     this.cache = {};
     this.annonceT = 0;
@@ -69,11 +71,36 @@ export class Hud {
     setTimeout(() => arc.remove(), 1200);
   }
 
+  // Bannière d'élimination (compteur de la manche, icône headshot)
+  elimination(n, tete) {
+    const b = this.el.banniere;
+    this.el.banniereTitre.textContent = n >= 5 ? "ACE" : tete ? "HEADSHOT" : "ÉLIMINATION";
+    this.el.bannierePoints.innerHTML = "";
+    for (let i = 0; i < Math.min(n, 5); i++) {
+      const p = document.createElement("i");
+      if (i === n - 1) p.className = "nouveau";
+      this.el.bannierePoints.appendChild(p);
+    }
+    b.classList.toggle("tete", tete);
+    b.classList.remove("visible");
+    void b.offsetWidth;
+    b.classList.add("visible");
+    this.banniereT = 1.6;
+  }
+
+  ruee() {
+    const c = this.el.competence;
+    c.classList.remove("active");
+    void c.offsetWidth;
+    c.classList.add("active");
+  }
+
   ping(x, z) {
     this.pings.push({ x, z, t: 2.5 });
   }
 
   vider() {
+    this.el.banniere.classList.remove("visible");
     this.el.fil.innerHTML = "";
     this.el.directions.innerHTML = "";
     this.pings = [];
@@ -125,6 +152,8 @@ export class Hud {
 
     this.annonceT -= dt;
     if (this.annonceT <= 0) this.el.annonce.parentElement.classList.remove("visible");
+    this.banniereT -= dt;
+    if (this.banniereT <= 0) this.el.banniere.classList.remove("visible");
     this.marqueurT -= dt;
     if (this.marqueurT <= 0) this.el.marqueur.style.opacity = 0;
     this.vignetteK = Math.max(0, this.vignetteK - dt * 1.4);
