@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon Strike — Mon classeur numérique</title>
+<link rel="icon" href="../logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="jeu.css">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/" } }
+</script>
+</head>
+<body>
+
+<!-- ===== HUD ===== -->
+<div id="hud" class="cache">
+  <div id="vignette" class="hud"></div>
+  <div id="directions" class="hud"></div>
+  <div id="lunette" class="hud"></div>
+  <div id="viseur" class="hud"><i></i><i></i><i></i><i></i><b></b></div>
+  <div id="marqueur" class="hud"></div>
+
+  <div id="haut" class="hud">
+    <div class="equipe moi"><span id="score-moi">0</span></div>
+    <div class="centre-haut">
+      <div id="chrono">1:40</div>
+      <div id="phase"></div>
+    </div>
+    <div class="equipe eux"><span id="score-eux">0</span></div>
+  </div>
+  <div id="pips-bots" class="hud"></div>
+
+  <canvas id="minimap" class="hud" width="200" height="146"></canvas>
+  <div id="fil" class="hud"></div>
+
+  <div id="bloc-annonce" class="hud">
+    <div id="annonce"></div>
+    <div id="sous-annonce"></div>
+  </div>
+
+  <div id="bas-gauche" class="hud">
+    <div class="ligne-vie"><span class="croix">✚</span><span id="vie-nombre">100</span></div>
+    <div class="barre-fond"><div id="vie-barre"></div></div>
+  </div>
+
+  <div id="bas-centre" class="hud">
+    <div id="competence" class="prete" title="Ruée">
+      <div id="competence-remplir"></div>
+      <span class="touche">E</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h11l-4-4m4 4-4 4M15 6l5 6-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+  </div>
+
+  <div id="bas-droite" class="hud">
+    <div id="recharge-anneau"></div>
+    <div class="munitions"><span id="mun-chargeur">25</span><span class="sep">/</span><span id="mun-reserve">75</span></div>
+    <div class="nom-arme">VECTEUR</div>
+  </div>
+  <div id="fps" class="hud"></div>
+</div>
+
+<!-- ===== Écrans ===== -->
+<div id="ecran-chargement" class="ecran visible">
+  <div class="logo-jeu">NEON<span>STRIKE</span></div>
+  <p id="texte-chargement">Chargement de l'arène…</p>
+</div>
+
+<div id="ecran-menu" class="ecran">
+  <div class="panneau-menu">
+    <div class="logo-jeu">NEON<span>STRIKE</span></div>
+    <p class="accroche">1 contre 5. Élimine tous les bots avant la fin du chrono. Le premier à 5 manches gagne.</p>
+
+    <div class="groupe-choix" role="radiogroup" aria-label="Difficulté">
+      <span class="etiquette">Difficulté</span>
+      <div class="choix" id="choix-difficulte">
+        <button type="button" data-valeur="facile">Facile</button>
+        <button type="button" data-valeur="normal">Normal</button>
+        <button type="button" data-valeur="difficile">Difficile</button>
+      </div>
+    </div>
+
+    <button type="button" class="bouton-principal" id="bouton-jouer">JOUER</button>
+    <div class="boutons-secondaires">
+      <button type="button" class="bouton-lien" data-ouvre="ecran-reglages">Paramètres</button>
+      <button type="button" class="bouton-lien" data-ouvre="ecran-commandes">Commandes</button>
+      <a class="bouton-lien" href="../index.html">Retour au site</a>
+    </div>
+    <p class="avert-mobile">Ce jeu se joue sur ordinateur, avec un clavier et une souris.</p>
+  </div>
+</div>
+
+<div id="ecran-commandes" class="ecran">
+  <div class="panneau-menu">
+    <h2>Commandes</h2>
+    <div class="touches">
+      <kbd>Z Q S D</kbd><span>Se déplacer</span>
+      <kbd>Souris</kbd><span>Viser</span>
+      <kbd>Clic gauche</kbd><span>Tirer (la 1re balle est la plus précise)</span>
+      <kbd>Clic droit</kbd><span>Viser avec la mire (zoom, plus précis)</span>
+      <kbd>R</kbd><span>Recharger</span>
+      <kbd>Espace</kbd><span>Sauter (sur les petites caisses)</span>
+      <kbd>Maj</kbd><span>Courir (bruyant et imprécis)</span>
+      <kbd>Ctrl ou C</kbd><span>S'accroupir (silencieux et précis)</span>
+      <kbd>E</kbd><span>Ruée : un dash rapide</span>
+      <kbd>Échap</kbd><span>Pause</span>
+    </div>
+    <p class="astuce">Astuce : arrête-toi avant de tirer et tire par petites rafales. Les bots t'entendent courir et tirer, mais pas marcher accroupi.</p>
+    <button type="button" class="bouton-principal petit" data-retour>Retour</button>
+  </div>
+</div>
+
+<div id="ecran-reglages" class="ecran">
+  <div class="panneau-menu">
+    <h2>Paramètres</h2>
+    <div class="reglages">
+      <label for="r-sensibilite">Sensibilité de la souris <output id="o-sensibilite"></output></label>
+      <input type="range" id="r-sensibilite" min="0.2" max="3" step="0.05">
+      <label for="r-fov">Champ de vision <output id="o-fov"></output></label>
+      <input type="range" id="r-fov" min="80" max="110" step="1">
+      <label for="r-volume">Volume <output id="o-volume"></output></label>
+      <input type="range" id="r-volume" min="0" max="1" step="0.05">
+      <label for="r-qualite">Qualité graphique</label>
+      <select id="r-qualite">
+        <option value="basse">Basse (PC lent)</option>
+        <option value="moyenne">Moyenne</option>
+        <option value="haute">Haute</option>
+      </select>
+      <label class="case"><input type="checkbox" id="r-fps"> Afficher les FPS</label>
+    </div>
+    <p class="astuce" id="note-qualite" hidden>La nouvelle qualité s'applique au rechargement de la page.</p>
+    <button type="button" class="bouton-principal petit" data-retour>Retour</button>
+  </div>
+</div>
+
+<div id="ecran-pause" class="ecran">
+  <div class="panneau-menu">
+    <h2>Pause</h2>
+    <p id="pause-score" class="accroche"></p>
+    <button type="button" class="bouton-principal" id="bouton-reprendre">REPRENDRE</button>
+    <div class="boutons-secondaires">
+      <button type="button" class="bouton-lien" data-ouvre="ecran-reglages">Paramètres</button>
+      <button type="button" class="bouton-lien" data-ouvre="ecran-commandes">Commandes</button>
+      <button type="button" class="bouton-lien" id="bouton-abandon">Quitter la partie</button>
+    </div>
+  </div>
+</div>
+
+<div id="ecran-fin" class="ecran">
+  <div class="panneau-menu large">
+    <div id="fin-titre" class="titre-fin">VICTOIRE</div>
+    <p id="fin-score" class="accroche"></p>
+    <div class="stats" id="fin-stats"></div>
+    <button type="button" class="bouton-principal" id="bouton-rejouer">REJOUER</button>
+    <div class="boutons-secondaires">
+      <button type="button" class="bouton-lien" id="bouton-menu">Menu principal</button>
+      <a class="bouton-lien" href="../index.html">Retour au site</a>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

@@ -30,6 +30,7 @@ $navAdmin = $navAdmin ?? false;
       <li><a href="cours.php">Cours</a></li>
       <li><a href="tp.php">Évaluations</a></li>
       <li><a href="contact.php">Contact</a></li>
+      <li><a href="jeu/">Jeu</a></li>
       <?php endif; ?>
     </ul>
   </div>

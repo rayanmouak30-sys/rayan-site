@@ -70,7 +70,7 @@ jobs:
         run: |
           SITE="https://mou.alwaysdata.net"
           echec=0
-          for page in index.html documents.php cours.php tp.php contact.php inscription.php compte.php connexion.php; do
+          for page in index.html documents.php cours.php tp.php contact.php inscription.php compte.php connexion.php jeu/; do
             code=$(curl -s -o page.html -w "%{http_code}" "$SITE/$page")
             if [ "$code" != "200" ]; then
               echo "::error::$page repond $code"; echec=1
