@@ -7,6 +7,7 @@ export class Audio {
     this.volume = 0.7;
     this.volumeAmbiance = 0.5;
     this.derniers = {};
+    this.annonceur = true;
   }
 
   // Évite d'empiler le même son plusieurs fois dans un temps très court.
@@ -157,6 +158,9 @@ export class Audio {
   }
 
   bruitFiltre(sortie, type, freq, q, duree, vol, attaque = 0.002) {
+    // Valeurs toujours valides : une erreur audio ne doit jamais bloquer le jeu
+    vol = Number.isFinite(vol) && vol > 0.0001 ? vol : 0.0001;
+    duree = Number.isFinite(duree) && duree > 0.01 ? duree : 0.01;
     const t = this.ctx.currentTime;
     const src = this.ctx.createBufferSource();
     src.buffer = this.bruit;
@@ -172,6 +176,8 @@ export class Audio {
   }
 
   oscillo(sortie, forme, f1, f2, duree, vol, retard = 0) {
+    vol = Number.isFinite(vol) && vol > 0.0001 ? vol : 0.0001;
+    duree = Number.isFinite(duree) && duree > 0.01 ? duree : 0.01;
     const t = this.ctx.currentTime + retard;
     const o = this.ctx.createOscillator();
     o.type = forme;
@@ -187,23 +193,55 @@ export class Audio {
   }
 
   // ----- Sons du jeu -----
-  tirJoueur() {
-    if (!this.ctx) return;
-    const s = this.maitre;
-    const g = this.bruitFiltre(s, "lowpass", 3800, 0.7, 0.16, 0.55);
-    g.connect(this.envoiReverb);
-    this.bruitFiltre(s, "bandpass", 1400, 1.2, 0.07, 0.35);
-    this.oscillo(s, "sine", 150, 42, 0.13, 0.75);
-    this.oscillo(s, "square", 2600, 900, 0.025, 0.05);
+  // Signature sonore de chaque arme
+  coupDeFeu(s, id, distance = 0) {
+    const loin = Math.min(1, distance / 40);
+    if (id === "pistolet") {
+      this.bruitFiltre(s, "lowpass", 4600 - loin * 2200, 0.7, 0.11, 0.42).connect(this.envoiReverb);
+      this.bruitFiltre(s, "bandpass", 2000, 1.4, 0.05, 0.3);
+      this.oscillo(s, "sine", 230, 60, 0.08, 0.5);
+    } else if (id === "pompe") {
+      this.bruitFiltre(s, "lowpass", 2400 - loin * 1200, 0.6, 0.34, 0.85).connect(this.envoiReverb);
+      this.bruitFiltre(s, "bandpass", 700, 0.9, 0.14, 0.45);
+      this.oscillo(s, "sine", 95, 28, 0.26, 0.95);
+    } else if (id === "sniper") {
+      this.bruitFiltre(s, "highpass", 2600, 0.8, 0.05, 0.55);
+      this.bruitFiltre(s, "lowpass", 3200 - loin * 1800, 0.6, 0.55, 0.9).connect(this.envoiReverb);
+      this.oscillo(s, "sine", 75, 22, 0.42, 1.0);
+      this.oscillo(s, "square", 1800, 600, 0.03, 0.08);
+    } else {
+      this.bruitFiltre(s, "lowpass", 3800 - loin * 1600, 0.7, 0.16, 0.55).connect(this.envoiReverb);
+      this.bruitFiltre(s, "bandpass", 1400, 1.2, 0.07, 0.35);
+      this.oscillo(s, "sine", 150, 42, 0.13, 0.75);
+      this.oscillo(s, "square", 2600, 900, 0.025, 0.05);
+    }
   }
 
-  tirBot(position, distance) {
+  tirJoueur(id = "fusil") {
     if (!this.ctx) return;
-    const s = this.sortie(position);
-    const loin = Math.min(1, distance / 40);
-    const g = this.bruitFiltre(s, "lowpass", 2600 - loin * 1500, 0.7, 0.18, 0.6);
-    g.connect(this.envoiReverb);
-    this.oscillo(s, "sine", 120, 40, 0.12, 0.5);
+    this.coupDeFeu(this.maitre, id);
+    // Réarmement mécanique (pompe, verrou)
+    if (id === "pompe") { this.cliquetis(0.2, 700); this.cliquetis(0.42, 1000); }
+    if (id === "sniper") { this.cliquetis(0.32, 1300); this.cliquetis(0.55, 900); this.cliquetis(0.82, 1500); }
+  }
+
+  tirBot(position, distance, id = "fusil") {
+    if (!this.ctx || !this.limite("tirBot" + Math.round(position.x * 10), 0.04)) return;
+    this.coupDeFeu(this.sortie(position), id, distance);
+  }
+
+  cliquetis(retard, freq) {
+    const t = this.ctx.currentTime + retard;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.bruit;
+    const f = this.ctx.createBiquadFilter();
+    f.type = "bandpass"; f.frequency.value = freq; f.Q.value = 5;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.3, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    src.connect(f).connect(g).connect(this.maitre);
+    src.start(t, Math.random() * 0.5, 0.08);
   }
 
   pas(position, fort = 1) {
@@ -276,5 +314,155 @@ export class Audio {
       manche: [[330, 0], [440, 0.14]],
     }[type] || [];
     for (const [f, r] of notes) this.oscillo(this.maitre, "triangle", f, f, 0.35, 0.16, r);
+  }
+
+  // ----- Armes, équipement, boutique -----
+  equiper(id) {
+    if (!this.ctx || !this.limite("equiper", 0.05)) return;
+    if (id === "couteau") { this.bruitFiltre(this.maitre, "highpass", 5000, 1, 0.18, 0.12, 0.05); return; }
+    this.cliquetis(0, 900); this.cliquetis(0.08, 1400);
+  }
+
+  couteau(touche) {
+    if (!this.ctx) return;
+    if (touche) { this.bruitFiltre(this.maitre, "lowpass", 900, 1, 0.12, 0.5); this.oscillo(this.maitre, "sine", 160, 60, 0.1, 0.4); }
+    else {
+      const t = this.ctx.currentTime;
+      const src = this.ctx.createBufferSource(); src.buffer = this.bruit;
+      const f = this.ctx.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 2;
+      f.frequency.setValueAtTime(1200, t); f.frequency.exponentialRampToValueAtTime(5000, t + 0.15);
+      const g = this.ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.25, t + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+      src.connect(f).connect(g).connect(this.maitre); src.start(t, Math.random() * 0.5, 0.2);
+    }
+  }
+
+  achat(ok) {
+    if (!this.ctx) return;
+    if (ok) { this.oscillo(this.maitre, "triangle", 1320, 1320, 0.08, 0.15); this.oscillo(this.maitre, "triangle", 1760, 1760, 0.12, 0.13, 0.06); }
+    else this.oscillo(this.maitre, "triangle", 900, 600, 0.12, 0.12);
+  }
+
+  refus() {
+    if (!this.ctx) return;
+    this.oscillo(this.maitre, "square", 160, 140, 0.15, 0.1);
+  }
+
+  // ----- Compétences -----
+  lancer() {
+    if (!this.ctx) return;
+    this.bruitFiltre(this.maitre, "bandpass", 1200, 0.7, 0.25, 0.18, 0.05);
+    this.cliquetis(0, 2600);
+  }
+
+  rebond(position) {
+    if (!this.ctx || !this.limite("rebond", 0.08)) return;
+    this.oscillo(this.sortie(position), "triangle", 2400 + Math.random() * 600, 1800, 0.06, 0.12);
+  }
+
+  fumee(position) {
+    if (!this.ctx) return;
+    this.bruitFiltre(this.sortie(position), "highpass", 1800, 0.5, 1.6, 0.35, 0.08);
+  }
+
+  flash(position) {
+    if (!this.ctx) return;
+    const s = this.sortie(position);
+    this.bruitFiltre(s, "lowpass", 3000, 0.6, 0.35, 0.8).connect(this.envoiReverb);
+    this.oscillo(s, "sine", 2600, 2400, 0.4, 0.15);
+  }
+
+  // Sifflement d'oreilles quand on est aveuglé
+  acouphene(intensite, duree) {
+    if (!this.ctx || !(intensite > 0) || !(duree > 0) || !this.limite("acouphene", 0.5)) return;
+    this.oscillo(this.maitre, "sine", 3600, 3500, duree, 0.05 * intensite);
+  }
+
+  mur(position) {
+    if (!this.ctx) return;
+    const s = this.sortie(position);
+    this.oscillo(s, "sawtooth", 140, 520, 0.45, 0.12);
+    this.bruitFiltre(s, "bandpass", 600, 1, 0.5, 0.2, 0.1);
+  }
+
+  soin() {
+    if (!this.ctx) return;
+    [660, 880, 1100, 1320].forEach((f, i) => this.oscillo(this.maitre, "sine", f, f, 0.25, 0.1, i * 0.08));
+  }
+
+  ultime() {
+    if (!this.ctx) return;
+    this.bruitFiltre(this.maitre, "bandpass", 500, 0.6, 0.8, 0.35, 0.2);
+    [220, 277, 330, 440].forEach((f, i) => this.oscillo(this.maitre, "triangle", f, f * 2, 0.6, 0.12, i * 0.05));
+  }
+
+  droneStart() {
+    if (!this.ctx) return null;
+    const o = this.ctx.createOscillator();
+    o.type = "sawtooth";
+    o.frequency.value = 118;
+    const f = this.ctx.createBiquadFilter();
+    f.type = "lowpass"; f.frequency.value = 900;
+    const g = this.ctx.createGain();
+    g.gain.value = 0.06;
+    const p = this.sortie({ x: 0, y: 0, z: 0 });
+    o.connect(f).connect(g).connect(p);
+    o.start();
+    return { o, g, p };
+  }
+
+  droneMaj(h, pos) {
+    if (!h) return;
+    const p = h.p;
+    if (p.positionX) { p.positionX.value = pos.x; p.positionY.value = pos.y; p.positionZ.value = pos.z; }
+    else p.setPosition(pos.x, pos.y, pos.z);
+    h.o.frequency.value = 118 + Math.sin(this.ctx.currentTime * 7) * 6;
+  }
+
+  droneStop(h) {
+    if (!h) return;
+    try { h.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05); h.o.stop(this.ctx.currentTime + 0.3); } catch (e) { /* déjà arrêté */ }
+  }
+
+  // ----- Spike -----
+  spikeBip(position, urgent) {
+    if (!this.ctx) return;
+    this.oscillo(this.sortie(position), "square", urgent ? 1900 : 1500, urgent ? 1900 : 1500, 0.07, 0.18);
+  }
+
+  spikePose() {
+    if (!this.ctx) return;
+    [0, 0.12, 0.24].forEach((r) => this.oscillo(this.maitre, "square", 1200, 1200, 0.08, 0.12, r));
+    this.oscillo(this.maitre, "sawtooth", 200, 60, 0.6, 0.2, 0.3);
+  }
+
+  spikeDesamorce(fini) {
+    if (!this.ctx) return;
+    if (fini) [880, 1175, 1760].forEach((f, i) => this.oscillo(this.maitre, "triangle", f, f, 0.3, 0.16, i * 0.1));
+    else this.cliquetis(0, 2000);
+  }
+
+  explosion(position) {
+    if (!this.ctx) return;
+    const s = this.sortie(position);
+    this.bruitFiltre(s, "lowpass", 1400, 0.5, 2.4, 1.0, 0.01).connect(this.envoiReverb);
+    this.oscillo(s, "sine", 60, 18, 1.6, 1.0);
+    this.bruitFiltre(this.maitre, "lowpass", 300, 0.5, 1.8, 0.6, 0.02);
+  }
+
+  // ----- Annonceur vocal (synthèse vocale du navigateur, en français) -----
+  parler(texte) {
+    if (!this.annonceur || !("speechSynthesis" in window) || this.volume <= 0) return;
+    try {
+      const synth = window.speechSynthesis;
+      if (synth.pending || synth.speaking) synth.cancel();
+      const u = new SpeechSynthesisUtterance(texte);
+      u.lang = "fr-FR";
+      const voix = synth.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith("fr"));
+      if (voix.length) u.voice = voix.find((v) => /google|thomas|amelie|hortense|paul|julie/i.test(v.name)) || voix[0];
+      u.rate = 1.08;
+      u.pitch = 0.85;
+      u.volume = Math.min(1, this.volume * 1.2);
+      synth.speak(u);
+    } catch (e) { /* synthèse vocale indisponible */ }
   }
 }

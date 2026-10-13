@@ -27,7 +27,10 @@ function texte(lignes, couleur, fond, l = 512, h = 128) {
   return t;
 }
 
-export function decorer({ groupe, monde, mat, qualite, ombres }) {
+export { texte as texteSignal };
+
+// nexus = true : ajoute l'habillage propre à la carte Nexus. Les autres sections servent à toutes les cartes.
+export function decorer({ groupe, monde, mat, qualite, ombres, nexus = false }) {
   const riche = qualite !== "basse";
   const A = new Assemblage();
   const mats = {
@@ -46,6 +49,7 @@ export function decorer({ groupe, monde, mat, qualite, ombres }) {
     caoutchouc: new THREE.MeshStandardMaterial({ color: 0x1a1b1e, roughness: 0.95 }),
   };
 
+  if (nexus) {
   // ----- Piliers et bandeaux sur les murs extérieurs -----
   const murExt = [
     { axe: "x", fixe: -22, sens: 1, de: -31.5, a: 31.5 },  // nord (côté bots), face intérieure vers +Z
@@ -163,6 +167,8 @@ export function decorer({ groupe, monde, mat, qualite, ombres }) {
     monde.ajouter(x - 0.12, 0, z - 0.12, x + 0.12, 6, z + 0.12, { type: "poteau" });
   }
 
+  }
+
   // ----- Portes et détails des conteneurs (caisses de plus de 2,5 m de long) -----
   for (const b of monde.boites) {
     if (!["orange", "bleu", "gris", "vert"].includes(b.type)) continue;
@@ -207,6 +213,7 @@ export function decorer({ groupe, monde, mat, qualite, ombres }) {
   ombreMesh.renderOrder = 1;
   groupe.add(ombreMesh);
 
+  if (nexus) {
   // ----- Sols différenciés : plaques métalliques sur les sites, asphalte aux départs -----
   const tole = textureMetal("#4a505a", 111, qualite);
   const matTole = new THREE.MeshStandardMaterial({ map: tole.map, normalMap: tole.normalMap, roughness: 0.5, metalness: 0.5, polygonOffset: true, polygonOffsetFactor: -1 });
@@ -247,6 +254,7 @@ export function decorer({ groupe, monde, mat, qualite, ombres }) {
     m.position.set(p.x, p.y, p.z);
     m.rotation.y = p.ry;
     groupe.add(m);
+  }
   }
   // Numéros peints sur les conteneurs
   let num = 11;

@@ -74,6 +74,12 @@ export class Effets {
 
     this.lumiere = new THREE.PointLight(0xffc27a, 0, 9, 2);
     scene.add(this.lumiere);
+
+    // Boule de feu de l'explosion du spike
+    this.boule = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    this.boule.visible = false;
+    scene.add(this.boule);
+    this.bouleT = 1;
     this._a = new THREE.Vector3();
   }
 
@@ -128,8 +134,19 @@ export class Effets {
     this.lumiere.intensity = 6;
   }
 
+  explosion(p) {
+    this.boule.position.set(p.x, p.y, p.z);
+    this.boule.visible = true;
+    this.bouleT = 0;
+    this.lumiere.position.set(p.x, p.y + 2, p.z);
+    this.lumiere.distance = 45;
+    this.lumiere.intensity = 120;
+    for (let i = 0; i < 4; i++) this.etincellesEn(p, { x: 0, y: 1.5, z: 0 }, i % 2 ? 0xffa040 : 0xffe08a, 40);
+  }
+
   vider() {
     for (const m of this.trous) m.visible = false;
+    this.boule.visible = false;
   }
 
   maj(dt) {
@@ -161,6 +178,12 @@ export class Effets {
       f.obj.material.opacity = Math.max(0, f.vie / 0.6) * 0.6;
       if (f.vie <= 0) f.obj.visible = false;
     }
-    this.lumiere.intensity *= Math.exp(-35 * dt);
+    this.lumiere.intensity *= Math.exp(-(this.bouleT < 1 ? 5 : 35) * dt);
+    if (this.bouleT < 1) {
+      this.bouleT += dt / 0.8;
+      this.boule.scale.setScalar(1 + this.bouleT * 16);
+      this.boule.material.opacity = Math.max(0, 1 - this.bouleT);
+      if (this.bouleT >= 1) { this.boule.visible = false; this.lumiere.distance = 9; }
+    }
   }
 }

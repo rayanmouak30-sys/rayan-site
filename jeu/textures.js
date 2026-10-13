@@ -400,3 +400,103 @@ export function textureOmbreContact() {
   ctx.fillRect(0, 0, 64, 64);
   return new THREE.CanvasTexture(c);
 }
+
+// ===== Textures des nouvelles cartes =====
+// Enduit de façade (marché) : surface irrégulière, taches d'humidité, éclats laissant voir la brique.
+export function textureEnduit(teinte, graine, qualite) {
+  const T = qualite === "basse" ? 256 : 512;
+  const n = bruitTuilable(T, 4, 5, graine);
+  const fin = bruitTuilable(T, 32, 3, graine + 1);
+  const eclats = bruitTuilable(T, 6, 3, graine + 2);
+  const hex = parseInt(teinte.replace("#", ""), 16);
+  const R = (hex >> 16) & 255, G = (hex >> 8) & 255, B = hex & 255;
+  const h = new Float32Array(T * T);
+  const { c } = remplir(T, (x, y, i) => {
+    const brique = eclats[i] > 0.74;
+    const humide = Math.max(0, 1 - y / (T * 0.35)) * 0 + Math.max(0, (y / T) - 0.75) * (n[i] * 0.8);
+    h[i] = fin[i] * 0.5 + n[i] * 0.3 - (brique ? 0.6 : 0);
+    if (brique) {
+      const joint = (y % 24 < 3) || ((x + (Math.floor(y / 24) % 2) * 24) % 48 < 3);
+      const v = joint ? 150 : 1;
+      return joint ? [v, v * 0.95, v * 0.88] : [150 + fin[i] * 40, 80 + fin[i] * 20, 60 + fin[i] * 15];
+    }
+    const k = 0.9 + (n[i] - 0.5) * 0.18 + (fin[i] - 0.5) * 0.08 - humide * 0.35;
+    return [clamp(R * k), clamp(G * k), clamp(B * k)];
+  });
+  return { map: versTexture(c), normalMap: normalDepuisHauteur(h, T, 2.2), echelle: 4 };
+}
+
+// Pavés de pierre (sol du marché)
+export function texturePaves(qualite) {
+  const T = qualite === "basse" ? 256 : 512;
+  const n = bruitTuilable(T, 8, 4, 141);
+  const fin = bruitTuilable(T, 48, 2, 142);
+  const tailleP = T / 8;
+  const h = new Float32Array(T * T);
+  const { c } = remplir(T, (x, y, i) => {
+    const ligne = Math.floor(y / tailleP);
+    const xx = (x + (ligne % 2) * tailleP / 2) % T;
+    const lx = xx % tailleP, ly = y % tailleP;
+    const bord = Math.min(lx, ly, tailleP - lx, tailleP - ly);
+    const joint = bord < 3;
+    const id = Math.floor(xx / tailleP) * 7 + ligne * 13;
+    const teinte = 0.85 + ((id * 9301 + 49297) % 233280) / 233280 * 0.3;
+    h[i] = joint ? 0 : Math.min(1, bord / 8) * 0.8 + fin[i] * 0.2;
+    if (joint) return [70, 66, 60];
+    const v = (150 + (n[i] - 0.5) * 50 + (fin[i] - 0.5) * 20) * teinte;
+    return [clamp(v * 1.02), clamp(v * 0.97), clamp(v * 0.9)];
+  });
+  return { map: versTexture(c), normalMap: normalDepuisHauteur(h, T, 3), echelle: 6 };
+}
+
+// Planches de bois (caisses, étals)
+export function textureBois(qualite) {
+  const T = qualite === "basse" ? 256 : 512;
+  const n = bruitTuilable(T, 4, 4, 151);
+  const fibre = bruitTuilable(T, 64, 2, 152);
+  const h = new Float32Array(T * T);
+  const { c } = remplir(T, (x, y, i) => {
+    const planche = Math.floor(y / (T / 6));
+    const joint = y % (T / 6) < 3;
+    const veine = Math.sin((x / T) * Math.PI * 2 * 3 + n[i] * 10 + planche * 2) * 0.5 + 0.5;
+    h[i] = joint ? 0 : 0.6 + fibre[i] * 0.3;
+    if (joint) return [40, 28, 18];
+    const v = 0.75 + veine * 0.2 + (fibre[i] - 0.5) * 0.15 + (planche % 2) * 0.05;
+    return [clamp(150 * v), clamp(108 * v), clamp(70 * v)];
+  });
+  return { map: versTexture(c), normalMap: normalDepuisHauteur(h, T, 2.4), echelle: 1.6 };
+}
+
+// Bâche rayée (toits des étals)
+export function textureBache(c1, c2) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const ctx = c.getContext("2d");
+  for (let i = 0; i < 8; i++) {
+    ctx.fillStyle = i % 2 ? c1 : c2;
+    ctx.fillRect(i * 16, 0, 16, 128);
+  }
+  ctx.fillStyle = "rgba(0,0,0,0.08)";
+  for (let y = 0; y < 128; y += 4) ctx.fillRect(0, y, 128, 1);
+  return versTexture(c);
+}
+
+// Tôle ondulée claire (murs du hangar)
+export function textureTole(teinte, qualite) {
+  return textureMetal(teinte, 161, qualite);
+}
+
+// Sol époxy industriel avec marquages
+export function textureSolIndustriel(qualite) {
+  const T = qualite === "basse" ? 256 : 512;
+  const n = bruitTuilable(T, 3, 5, 171);
+  const fin = bruitTuilable(T, 64, 2, 172);
+  const h = new Float32Array(T * T);
+  const { c } = remplir(T, (x, y, i) => {
+    const joint = (x % (T / 2) < 2 || y % (T / 2) < 2);
+    h[i] = fin[i] * 0.2 - (joint ? 1 : 0);
+    const v = 118 + (n[i] - 0.5) * 34 + (fin[i] - 0.5) * 10 - (joint ? 25 : 0);
+    return [clamp(v * 0.94), clamp(v * 0.98), clamp(v * 1.02)];
+  });
+  return { map: versTexture(c), normalMap: normalDepuisHauteur(h, T, 1.8), echelle: 8 };
+}

@@ -2,7 +2,8 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050912">
 <title>Neon Strike — Mon classeur numérique</title>
 <link rel="icon" href="../logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,25 +17,28 @@
 
 <!-- ===== HUD ===== -->
 <div id="hud" class="cache">
+  <div id="flash-blanc" class="hud"></div>
   <div id="vignette" class="hud"></div>
+  <div id="teinte" class="hud"></div>
   <div id="directions" class="hud"></div>
-  <div id="lunette" class="hud"></div>
+  <div id="lunette" class="hud"><div class="cercle"></div><i class="h"></i><i class="v"></i></div>
   <div id="viseur" class="hud"><i></i><i></i><i></i><i></i><b></b></div>
   <div id="marqueur" class="hud"></div>
 
   <div id="haut" class="hud">
-    <div class="etiquette-equipe moi">ATTAQUE</div>
+    <div id="pips-moi" class="pips moi"></div>
     <div class="equipe moi"><span id="score-moi">0</span></div>
     <div class="centre-haut">
       <div id="chrono">1:40</div>
       <div id="phase"></div>
     </div>
     <div class="equipe eux"><span id="score-eux">0</span></div>
-    <div class="etiquette-equipe eux">DÉFENSE</div>
+    <div id="pips-eux" class="pips eux"></div>
   </div>
-  <div id="pips-bots" class="hud"></div>
+  <div id="etiquette-camp" class="hud"></div>
+  <div id="spike-etat" class="hud"></div>
 
-  <canvas id="minimap" class="hud" width="200" height="146"></canvas>
+  <canvas id="minimap" class="hud" width="220" height="160"></canvas>
   <div id="fil" class="hud"></div>
 
   <div id="banniere" class="hud">
@@ -47,25 +51,75 @@
     <div id="sous-annonce"></div>
   </div>
 
+  <div id="aide" class="hud"></div>
+  <div id="progression" class="hud"><div class="texte"></div><div class="barre"><i></i><b></b></div></div>
+  <div id="credits" class="hud"></div>
+
   <div id="bas-gauche" class="hud">
-    <div class="ligne-vie"><span class="croix">✚</span><span id="vie-nombre">100</span></div>
+    <div id="agent-nom"></div>
+    <div class="ligne-vie">
+      <span class="croix">✚</span><span id="vie-nombre">100</span>
+      <span id="armure-bloc"><span class="bouclier">⬢</span><span id="armure-nombre">0</span></span>
+    </div>
     <div class="barre-fond"><div id="vie-barre"></div></div>
+    <div class="barre-fond armure"><div id="armure-barre"></div></div>
   </div>
 
   <div id="bas-centre" class="hud">
-    <div id="competence" class="prete" title="Ruée">
-      <div id="competence-remplir"></div>
-      <span class="touche">E</span>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h11l-4-4m4 4-4 4M15 6l5 6-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </div>
+    <div class="capacite" id="cap-fumee"><span class="touche" data-touche="KeyC">C</span><div class="icone"></div><span class="charges"></span></div>
+    <div class="capacite" id="cap-flash"><span class="touche" data-touche="KeyQ">A</span><div class="icone"></div><span class="charges"></span></div>
+    <div class="capacite signature" id="cap-signature"><div class="remplir"></div><span class="touche" data-touche="KeyE">E</span><div class="icone"></div></div>
+    <div class="capacite ultime" id="cap-ultime"><span class="touche" data-touche="KeyX">X</span><div class="icone"></div><div class="points"></div></div>
   </div>
 
   <div id="bas-droite" class="hud">
+    <div id="emplacements"></div>
     <div id="recharge-anneau"></div>
     <div class="munitions"><span id="mun-chargeur">25</span><span class="sep">/</span><span id="mun-reserve">75</span></div>
-    <div class="nom-arme">NS-7 VECTEUR</div>
+    <div class="nom-arme" id="nom-arme"></div>
   </div>
+
+  <div id="ordres" class="hud"></div>
+  <div id="tableau" class="hud"></div>
+  <div id="recap" class="hud"></div>
+  <div id="killcam" class="hud"></div>
   <div id="fps" class="hud"></div>
+</div>
+
+<!-- ===== Boutique ===== -->
+<div id="boutique" class="cache" role="dialog" aria-label="Boutique">
+  <div class="boutique-panneau">
+    <div class="boutique-haut">
+      <h2>BOUTIQUE</h2>
+      <div id="boutique-credits"></div>
+      <button type="button" class="bouton-lien" id="boutique-fermer">Fermer (B)</button>
+    </div>
+    <div class="boutique-colonnes">
+      <section><h3>Armes</h3><div class="articles" id="boutique-armes"></div></section>
+      <section><h3>Boucliers</h3><div class="articles" id="boutique-armures"></div><h3>Compétences</h3><div class="articles" id="boutique-capacites"></div></section>
+    </div>
+    <p class="astuce" id="boutique-note">Clique à nouveau sur un achat de cette manche pour le revendre.</p>
+  </div>
+</div>
+
+<!-- ===== Commandes tactiles ===== -->
+<div id="tactile" class="cache">
+  <div class="zone-tactile"></div>
+  <div class="joystick"><i></i></div>
+  <button type="button" class="bt bt-tir" data-tactile="tir">TIR</button>
+  <button type="button" class="bt bt-viser" data-tactile="viser">◎</button>
+  <button type="button" class="bt bt-saut" data-tactile="saut">⤒</button>
+  <button type="button" class="bt bt-accroupi" data-tactile="accroupi">⤓</button>
+  <button type="button" class="bt bt-recharger" data-tactile="recharger" data-action="recharger">R</button>
+  <button type="button" class="bt bt-arme" data-tactile="arme" data-action="armeSuivante">⇄</button>
+  <button type="button" class="bt bt-interagir" data-tactile="interagir">F</button>
+  <button type="button" class="bt bt-cap1" data-tactile="c" data-action="fumee">C</button>
+  <button type="button" class="bt bt-cap2" data-tactile="q" data-action="flash">Q</button>
+  <button type="button" class="bt bt-cap3" data-tactile="e" data-action="signature">E</button>
+  <button type="button" class="bt bt-cap4" data-tactile="x" data-action="ultime">X</button>
+  <button type="button" class="bt bt-boutique" data-tactile="b" data-action="boutique">¤</button>
+  <button type="button" class="bt bt-ordres" data-tactile="v" data-action="ordres">⚑</button>
+  <button type="button" class="bt bt-pause" data-tactile="pause" data-action="pause">❚❚</button>
 </div>
 
 <!-- ===== Écrans ===== -->
@@ -77,69 +131,169 @@
 <div id="ecran-menu" class="ecran">
   <div class="panneau-menu">
     <div class="logo-jeu">NEON<span>STRIKE</span></div>
-    <p class="accroche">1 contre 5. Élimine tous les bots avant la fin du chrono. Le premier à 5 manches gagne.</p>
-
-    <div class="groupe-choix" role="radiogroup" aria-label="Difficulté">
-      <span class="etiquette">Difficulté</span>
-      <div class="choix" id="choix-difficulte">
-        <button type="button" data-valeur="facile">Facile</button>
-        <button type="button" data-valeur="normal">Normal</button>
-        <button type="button" data-valeur="difficile">Difficile</button>
-      </div>
+    <div class="badge-profil" id="badge-profil"></div>
+    <button type="button" class="bouton-principal" data-ouvre="ecran-modes">JOUER</button>
+    <div class="grille-menu">
+      <button type="button" class="tuile" data-ouvre="ecran-enligne"><strong>En ligne</strong><span>Joue avec tes amis</span></button>
+      <button type="button" class="tuile" data-ouvre="ecran-agents"><strong>Agents</strong><span id="tuile-agent"></span></button>
+      <button type="button" class="tuile" data-ouvre="ecran-arsenal"><strong>Arsenal</strong><span>Skins d'armes</span></button>
+      <button type="button" class="tuile" data-ouvre="ecran-carriere"><strong>Carrière</strong><span>Stats, succès, classement</span></button>
     </div>
-
-    <button type="button" class="bouton-principal" id="bouton-jouer">JOUER</button>
     <div class="boutons-secondaires">
       <button type="button" class="bouton-lien" data-ouvre="ecran-reglages">Paramètres</button>
       <button type="button" class="bouton-lien" data-ouvre="ecran-commandes">Commandes</button>
       <a class="bouton-lien" href="../index.html">Retour au site</a>
     </div>
-    <p class="avert-mobile">Ce jeu se joue sur ordinateur, avec un clavier et une souris.</p>
+  </div>
+</div>
+
+<div id="ecran-modes" class="ecran">
+  <div class="panneau-menu large-g">
+    <h2>NOUVELLE PARTIE</h2>
+    <div class="cartes-choix" id="choix-mode"></div>
+    <div class="ligne-options">
+      <div class="groupe-choix" id="groupe-carte"><span class="etiquette">Carte</span><div class="choix" id="choix-carte"></div></div>
+      <div class="groupe-choix" id="groupe-defi"><span class="etiquette">Défi</span><div class="choix colonne" id="choix-defi"></div></div>
+    </div>
+    <div class="ligne-options" id="options-partie">
+      <div class="groupe-choix"><span class="etiquette">Difficulté des bots</span><div class="choix" id="choix-difficulte"></div></div>
+      <div class="groupe-choix" id="groupe-allies"><span class="etiquette">Ton équipe</span><div class="choix" id="choix-allies"></div></div>
+    </div>
+    <div class="ligne-options">
+      <div class="groupe-choix"><span class="etiquette">Heure</span><div class="choix" id="choix-heure"></div></div>
+      <div class="groupe-choix"><span class="etiquette">Météo</span><div class="choix" id="choix-meteo"></div></div>
+    </div>
+    <div class="boutons-bas">
+      <button type="button" class="bouton-principal" id="bouton-jouer">LANCER</button>
+      <button type="button" class="bouton-lien" data-retour>Retour</button>
+    </div>
+  </div>
+</div>
+
+<div id="ecran-agents" class="ecran">
+  <div class="panneau-menu large-g">
+    <h2>AGENTS</h2>
+    <p class="accroche">Chaque agent a une compétence signature (E) et un ultime (X). Tout le monde peut acheter fumées (C) et flashs (A).</p>
+    <div class="cartes-choix" id="liste-agents"></div>
+    <button type="button" class="bouton-principal petit" data-retour>Valider</button>
+  </div>
+</div>
+
+<div id="ecran-arsenal" class="ecran">
+  <div class="panneau-menu large-g">
+    <h2>ARSENAL</h2>
+    <p class="accroche">Débloque des finitions en gagnant des niveaux, puis choisis-en une pour chaque arme.</p>
+    <div id="liste-arsenal"></div>
+    <button type="button" class="bouton-principal petit" data-retour>Retour</button>
+  </div>
+</div>
+
+<div id="ecran-carriere" class="ecran">
+  <div class="panneau-menu large-g">
+    <h2>CARRIÈRE</h2>
+    <div class="carriere-haut">
+      <label class="champ">Pseudo <input type="text" id="champ-pseudo" maxlength="16" placeholder="Ton pseudo"></label>
+      <div id="carriere-niveau"></div>
+    </div>
+    <div class="stats" id="carriere-stats"></div>
+    <h3>Succès</h3>
+    <div class="succes-grille" id="carriere-succes"></div>
+    <h3>Records du stand de tir</h3>
+    <div class="stats" id="carriere-defis"></div>
+    <h3>Classement en ligne</h3>
+    <div id="carriere-classement"><p class="astuce">Chargement…</p></div>
+    <button type="button" class="bouton-principal petit" data-retour>Retour</button>
+  </div>
+</div>
+
+<div id="ecran-enligne" class="ecran">
+  <div class="panneau-menu">
+    <h2>EN LIGNE</h2>
+    <p class="accroche">Deathmatch entre amis : crée un salon et donne le code, ou rejoins celui d'un ami.</p>
+    <div id="enligne-connexion">
+      <label class="champ">Ton pseudo <input type="text" id="enligne-pseudo" maxlength="16"></label>
+      <label class="champ">Serveur <input type="text" id="enligne-serveur" spellcheck="false"></label>
+      <div class="groupe-choix"><span class="etiquette">Carte du salon</span><div class="choix" id="enligne-carte"></div></div>
+      <button type="button" class="bouton-principal petit" id="enligne-creer">CRÉER UN SALON</button>
+      <div class="ligne-code">
+        <input type="text" id="enligne-code" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false">
+        <button type="button" class="bouton-secondaire" id="enligne-rejoindre">Rejoindre</button>
+      </div>
+    </div>
+    <div id="enligne-salon" hidden>
+      <div class="code-salon">Code du salon : <strong id="salon-code">----</strong></div>
+      <ul id="salon-joueurs"></ul>
+      <button type="button" class="bouton-principal petit" id="salon-lancer">LANCER LA PARTIE</button>
+      <button type="button" class="bouton-lien" id="salon-quitter">Quitter le salon</button>
+    </div>
+    <p class="astuce" id="enligne-statut"></p>
+    <button type="button" class="bouton-lien" data-retour>Retour</button>
   </div>
 </div>
 
 <div id="ecran-commandes" class="ecran">
-  <div class="panneau-menu">
+  <div class="panneau-menu large">
     <h2>Commandes</h2>
-    <div class="touches">
-      <kbd>Z Q S D</kbd><span>Se déplacer</span>
-      <kbd>Souris</kbd><span>Viser</span>
-      <kbd>Clic gauche</kbd><span>Tirer (la 1re balle est la plus précise)</span>
-      <kbd>Clic droit</kbd><span>Viser avec la mire (zoom, plus précis)</span>
-      <kbd>R</kbd><span>Recharger</span>
-      <kbd>Espace</kbd><span>Sauter (sur les petites caisses)</span>
-      <kbd>Maj</kbd><span>Courir (bruyant et imprécis)</span>
-      <kbd>Ctrl ou C</kbd><span>S'accroupir (silencieux et précis)</span>
-      <kbd>E</kbd><span>Ruée : un dash rapide</span>
-      <kbd>Échap</kbd><span>Pause</span>
-    </div>
-    <p class="astuce">Astuce : arrête-toi avant de tirer et tire par petites rafales. Les bots t'entendent courir et tirer, mais pas marcher accroupi.</p>
+    <div class="touches" id="liste-touches"></div>
+    <h3>Manette</h3>
+    <p class="astuce">Stick gauche : bouger · Stick droit : viser · RT : tirer · LT : viser · A : sauter · B : s'accroupir · X : recharger (maintenir : poser/désamorcer) · Y : changer d'arme · LB / RB : flash / fumée · Croix ↑ / ↓ : signature / ultime · Croix ← : ordres · Select : boutique · Start : pause</p>
+    <h3>Téléphone et tablette</h3>
+    <p class="astuce">Joystick à gauche, glisse à droite pour viser. Le bouton TIR sert aussi à viser en le faisant glisser.</p>
     <button type="button" class="bouton-principal petit" data-retour>Retour</button>
   </div>
 </div>
 
 <div id="ecran-reglages" class="ecran">
-  <div class="panneau-menu">
+  <div class="panneau-menu large">
     <h2>Paramètres</h2>
-    <div class="reglages">
-      <label for="r-sensibilite">Sensibilité de la souris <output id="o-sensibilite"></output></label>
-      <input type="range" id="r-sensibilite" min="0.2" max="3" step="0.05">
-      <label for="r-fov">Champ de vision <output id="o-fov"></output></label>
-      <input type="range" id="r-fov" min="80" max="110" step="1">
-      <label for="r-volume">Volume général <output id="o-volume"></output></label>
-      <input type="range" id="r-volume" min="0" max="1" step="0.05">
-      <label for="r-ambiance">Ambiance de l'arène <output id="o-ambiance"></output></label>
-      <input type="range" id="r-ambiance" min="0" max="1" step="0.05">
-      <label for="r-bob">Balancement de la caméra <output id="o-bob"></output></label>
-      <input type="range" id="r-bob" min="0" max="1" step="0.05">
-      <label for="r-qualite">Qualité graphique</label>
-      <select id="r-qualite">
-        <option value="basse">Faible : sans ombres ni post-traitement (PC modeste)</option>
-        <option value="moyenne">Moyenne : ombres, anticrénelage, bloom discret</option>
-        <option value="haute">Élevée : ombres fines, pleine résolution</option>
-      </select>
-      <label class="case"><input type="checkbox" id="r-fps"> Afficher les FPS</label>
-      <button type="button" class="bouton-secondaire" id="r-plein-ecran">Passer en plein écran</button>
+    <div class="reglages deux-colonnes">
+      <div>
+        <h3>Contrôles</h3>
+        <label for="r-sensibilite">Sensibilité de la souris <output id="o-sensibilite"></output></label>
+        <input type="range" id="r-sensibilite" min="0.2" max="3" step="0.05">
+        <label for="r-sensibiliteManette">Sensibilité manette / tactile <output id="o-sensibiliteManette"></output></label>
+        <input type="range" id="r-sensibiliteManette" min="0.3" max="2.5" step="0.05">
+        <label for="r-fov">Champ de vision <output id="o-fov"></output></label>
+        <input type="range" id="r-fov" min="80" max="110" step="1">
+        <label for="r-bob">Balancement de la caméra <output id="o-bob"></output></label>
+        <input type="range" id="r-bob" min="0" max="1" step="0.05">
+        <h3>Son</h3>
+        <label for="r-volume">Volume général <output id="o-volume"></output></label>
+        <input type="range" id="r-volume" min="0" max="1" step="0.05">
+        <label for="r-musique">Musique <output id="o-musique"></output></label>
+        <input type="range" id="r-musique" min="0" max="1" step="0.05">
+        <label for="r-ambiance">Ambiance de l'arène <output id="o-ambiance"></output></label>
+        <input type="range" id="r-ambiance" min="0" max="1" step="0.05">
+        <label class="case"><input type="checkbox" id="r-annonceur"> Annonceur vocal</label>
+      </div>
+      <div>
+        <h3>Graphismes</h3>
+        <label for="r-qualite">Qualité graphique</label>
+        <select id="r-qualite">
+          <option value="auto">Automatique (recommandé)</option>
+          <option value="basse">Faible : le plus fluide (PC modeste)</option>
+          <option value="moyenne">Moyenne : ombres et anticrénelage</option>
+          <option value="haute">Élevée : ombres dynamiques, bloom</option>
+        </select>
+        <p class="astuce" id="info-qualite"></p>
+        <label class="case"><input type="checkbox" id="r-resolutionDynamique"> Résolution dynamique (garde le jeu fluide)</label>
+        <label for="r-luminosite">Luminosité <output id="o-luminosite"></output></label>
+        <input type="range" id="r-luminosite" min="0.7" max="1.6" step="0.05">
+        <label class="case"><input type="checkbox" id="r-fps"> Afficher les FPS</label>
+        <button type="button" class="bouton-secondaire" id="r-plein-ecran">Passer en plein écran</button>
+        <h3>Viseur</h3>
+        <div class="apercu-viseur"><div id="apercu-viseur"><i></i><i></i><i></i><i></i><b></b></div></div>
+        <label for="v-couleur">Couleur <input type="color" id="v-couleur"></label>
+        <label for="v-longueur">Longueur <output id="ov-longueur"></output></label>
+        <input type="range" id="v-longueur" min="0" max="14" step="1">
+        <label for="v-epaisseur">Épaisseur <output id="ov-epaisseur"></output></label>
+        <input type="range" id="v-epaisseur" min="1" max="5" step="1">
+        <label for="v-ecart">Écart <output id="ov-ecart"></output></label>
+        <input type="range" id="v-ecart" min="0" max="14" step="1">
+        <label class="case"><input type="checkbox" id="v-point"> Point central</label>
+        <label class="case"><input type="checkbox" id="v-contour"> Contour noir</label>
+        <label class="case"><input type="checkbox" id="v-dynamique"> S'écarte quand tu bouges</label>
+      </div>
     </div>
     <p class="astuce" id="note-qualite" hidden>La nouvelle qualité s'appliquera en revenant au menu principal.</p>
     <button type="button" class="bouton-principal petit" data-retour>Retour</button>
@@ -164,6 +318,9 @@
     <div id="fin-titre" class="titre-fin">VICTOIRE</div>
     <p id="fin-score" class="accroche"></p>
     <div class="stats" id="fin-stats"></div>
+    <div id="fin-xp"></div>
+    <div id="fin-succes"></div>
+    <p class="astuce" id="fin-classement"></p>
     <button type="button" class="bouton-principal" id="bouton-rejouer">REJOUER</button>
     <div class="boutons-secondaires">
       <button type="button" class="bouton-lien" id="bouton-menu">Menu principal</button>
@@ -171,6 +328,8 @@
     </div>
   </div>
 </div>
+
+<div id="notification" aria-live="polite"></div>
 
 <script type="module" src="main.js"></script>
 </body>

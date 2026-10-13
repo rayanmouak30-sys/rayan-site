@@ -1,18 +1,32 @@
-// Personnages des bots : trois silhouettes (Avant-garde, Bastion, Spectre), équipements variés,
+// Personnages : trois silhouettes (Avant-garde, Bastion, Spectre), couleurs d'équipe, arme tenue,
 // squelette animé par cinématique inverse (pieds posés au sol, mains sur l'arme).
+// Les géométries sont fusionnées en maillages à squelette et gardées en cache d'une manche à l'autre.
 import * as THREE from "three";
 import { boiteRonde, membre, revolution, Assemblage, ik2, Ressort } from "./formes.js";
 import { textureTissu, texturePlaque } from "./textures.js";
-import { fusilStatique, geometrieChargeur, POINTS_FUSIL } from "./arme.js";
+import { piecesArme } from "./armes.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 export const ARCHETYPES = ["avantgarde", "bastion", "spectre"];
 
-const PALETTES = [
+// 0-2 : équipe rouge, 3-5 : équipe bleue, 6 : mannequin d'entraînement, 7-11 : couleurs du deathmatch
+export const PALETTES = [
   { armure: 0xa8343f, tissu: 0x454a55, accent: 0xff5a4a },
   { armure: 0xb0542e, tissu: 0x4d4a3a, accent: 0xff7a3a },
   { armure: 0x8a3a5c, tissu: 0x524a44, accent: 0xff4f7a },
+  { armure: 0x2f6fb8, tissu: 0x3d4656, accent: 0x5ad8ff },
+  { armure: 0x2f8f9c, tissu: 0x40505a, accent: 0x7cffd4 },
+  { armure: 0x4a5fc0, tissu: 0x454a5e, accent: 0x8ab4ff },
+  { armure: 0xd8cfbd, tissu: 0x8a8478, accent: 0xffb020 },
+  { armure: 0xc9a227, tissu: 0x4a4636, accent: 0xffe066 },
+  { armure: 0x3f8f3a, tissu: 0x3e4a3a, accent: 0x9cff3a },
+  { armure: 0x7a3fb0, tissu: 0x463e52, accent: 0xd08aff },
+  { armure: 0xd0d4dc, tissu: 0x50545e, accent: 0xffffff },
+  { armure: 0xc8462a, tissu: 0x2e3038, accent: 0xff9a3a },
 ];
+export const PALETTES_ROUGES = [0, 1, 2], PALETTES_BLEUES = [3, 4, 5];
+
+const LUEURS = new Set(["accent", "lentille", "visiere"]);
 
 let communs = null;
 function materiauxCommuns(qualite) {
@@ -36,17 +50,41 @@ function materiauxPalette(qualite, i) {
   if (cachePalettes.has(i)) return cachePalettes.get(i);
   const c = materiauxCommuns(qualite);
   const p = PALETTES[i % PALETTES.length];
+  const relief = qualite === "basse" ? null : undefined;
   const mats = {
     ...c,
-    tissu: new THREE.MeshStandardMaterial({ color: p.tissu, map: c.tex.tissu.map, normalMap: c.tex.tissu.normalMap, roughness: 0.93 }),
-    tissuClair: new THREE.MeshStandardMaterial({ color: new THREE.Color(p.tissu).multiplyScalar(1.5), map: c.tex.tissu.map, normalMap: c.tex.tissu.normalMap, roughness: 0.93 }),
-    armure: new THREE.MeshStandardMaterial({ color: p.armure, map: c.tex.plaque.map, normalMap: c.tex.plaque.normalMap, roughness: 0.48, metalness: 0.12 }),
-    accent: new THREE.MeshStandardMaterial({ color: p.accent, emissive: p.accent, emissiveIntensity: 0.55, roughness: 0.4 }),
+    tissu: new THREE.MeshStandardMaterial({ color: p.tissu, map: c.tex.tissu.map, normalMap: relief === null ? null : c.tex.tissu.normalMap, roughness: 0.93 }),
+    tissuClair: new THREE.MeshStandardMaterial({ color: new THREE.Color(p.tissu).multiplyScalar(1.5), map: c.tex.tissu.map, normalMap: relief === null ? null : c.tex.tissu.normalMap, roughness: 0.93 }),
+    armure: new THREE.MeshStandardMaterial({ color: p.armure, map: c.tex.plaque.map, normalMap: relief === null ? null : c.tex.plaque.normalMap, roughness: 0.48, metalness: 0.12 }),
+    accent: new THREE.MeshStandardMaterial({ color: p.accent, emissive: p.accent, emissiveIntensity: 0.75, roughness: 0.4 }),
     lentille: new THREE.MeshStandardMaterial({ color: 0x220806, emissive: p.accent, emissiveIntensity: 0.9, roughness: 0.2, metalness: 0.5 }),
   };
+  // PC modeste : deux matériaux seulement (couleurs portées par les sommets) = deux appels de rendu par personnage
+  mats.base = new THREE.MeshLambertMaterial({ vertexColors: true });
+  mats.lueur = new THREE.MeshBasicMaterial({ vertexColors: true });
   cachePalettes.set(i, mats);
   return mats;
 }
+
+// Ombre ronde sous les pieds (bien moins chère qu'une ombre portée calculée à chaque image)
+let matOmbre = null;
+function materiauOmbre() {
+  if (matOmbre) return matOmbre;
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const g = c.getContext("2d");
+  const d = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  d.addColorStop(0, "rgba(0,0,0,0.55)");
+  d.addColorStop(0.55, "rgba(0,0,0,0.3)");
+  d.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = d;
+  g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c);
+  matOmbre = new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
+  return matOmbre;
+}
+const geoOmbre = new THREE.PlaneGeometry(1.1, 1.1).rotateX(-Math.PI / 2);
+const cacheGeometries = new Map();
 
 // Longueurs du squelette (mètres)
 const CUISSE = 0.44, TIBIA = 0.43, CHEVILLE = 0.085, BRAS = 0.28, AVANT_BRAS = 0.3;
@@ -177,20 +215,23 @@ const _cible = new THREE.Vector3(), _pole = new THREE.Vector3(), _p = new THREE.
 const POINT_POCHE = new THREE.Vector3(-0.14, -0.32, 0.12);
 
 export class Personnage {
-  constructor(type, palette, qualite) {
+  constructor(type, palette, qualite, armeId = "fusil") {
     this.type = type;
+    this.armeId = armeId;
     const mats = materiauxPalette(qualite, palette);
-    const ombres = qualite !== "basse";
+    const simple = qualite === "basse";
     // Les pièces de l'arme reprennent les matériaux du corps (moins de matériaux = moins d'appels de rendu).
-    const correspondance = { carcasse: "metal", carcasseClaire: "metal", acierSombre: "metal", acier: "metal", polymere: "poly", caoutchouc: "semelle", accent: "accent" };
+    const correspondance = { carcasse: "metal", carcasseClaire: "metal", acierSombre: "metal", acier: "metal", polymere: "poly", caoutchouc: "semelle", laiton: "metal", cartouche: "accent", lame: "metal", verre: "poly", lentille: "lentille" };
 
     // Squelette : chaque pièce rigide est rattachée à un os. Le corps entier devient un maillage
     // à squelette (un seul appel de rendu par matériau pour tout le personnage, arme comprise).
     this.racine = new THREE.Group();
     const os = [];
     const pieces = [];
+    const cleCache = type + "|" + armeId + (simple ? "|" + palette : "");
+    const enCache = cacheGeometries.get(cleCache);
     const nouvelOs = (parent) => { const b = new THREE.Bone(); os.push(b); if (parent) parent.add(b); return b; };
-    const habiller = (b, fn, ...args) => { const A = new Assemblage(); fn(A, ...args); pieces.push({ os: b, pieces: A.extraire() }); };
+    const habiller = (b, fn, ...args) => { if (enCache) return; const A = new Assemblage(); fn(A, ...args); pieces.push({ os: b, pieces: A.extraire() }); };
 
     this.corps = nouvelOs(null);
     this.racine.add(this.corps);
@@ -235,45 +276,74 @@ export class Personnage {
       return { cote, epaule, coude, main };
     });
 
-    // Fusil : un os attaché à la poitrine, le chargeur a son propre os (il sort au rechargement)
+    // Arme : un os attaché à la poitrine, le chargeur a son propre os (il sort au rechargement)
     this.fusil = nouvelOs(this.poitrine);
     this.fusil.rotation.order = "YXZ";
     this.chargeur = nouvelOs(this.fusil);
-    habiller(this.fusil, (A) => fusilStatique(A, false));
-    habiller(this.chargeur, (A) => { const C = geometrieChargeur(false); for (const [k, g] of C.extraire()) for (const geo of g) A.pieces.has(k) ? A.pieces.get(k).push(geo) : A.pieces.set(k, [geo]); });
-    this.points = POINTS_FUSIL;
+    let points;
+    if (enCache) points = enCache.points;
+    else {
+      const arme = piecesArme(armeId, false);
+      points = arme.points;
+      const fixes = arme.A.extraire();
+      for (const mob of Object.values(arme.mob)) for (const [k, g] of mob.extraire()) fixes.has(k) ? fixes.get(k).push(...g) : fixes.set(k, [...g]);
+      pieces.push({ os: this.fusil, pieces: fixes });
+      pieces.push({ os: this.chargeur, pieces: arme.C.extraire() });
+    }
+    this.points = points;
     this.chargeurRepos = new THREE.Vector3();
 
     // Fusion en maillages à squelette (pose de repos = pose de liaison)
     this.racine.updateMatrixWorld(true);
-    const parMateriau = new Map();
-    for (const { os: b, pieces: p } of pieces) {
-      const indice = os.indexOf(b);
-      for (const [cle, geos] of p) {
-        const cleFinale = correspondance[cle] || cle;
-        for (const g of geos) {
-          g.applyMatrix4(b.matrixWorld);
-          const n = g.attributes.position.count;
-          g.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(new Uint16Array(n * 4).fill(0).map((v, i) => (i % 4 === 0 ? indice : 0)), 4));
-          g.setAttribute("skinWeight", new THREE.Float32BufferAttribute(new Float32Array(n * 4).map((v, i) => (i % 4 === 0 ? 1 : 0)), 4));
-          if (!parMateriau.has(cleFinale)) parMateriau.set(cleFinale, []);
-          parMateriau.get(cleFinale).push(g);
+    let geometries = enCache ? enCache.geometries : null;
+    if (!geometries) {
+      const parMateriau = new Map();
+      const couleur = new THREE.Color();
+      for (const { os: b, pieces: p } of pieces) {
+        const indice = os.indexOf(b);
+        for (const [cle, geos] of p) {
+          const cleMat = correspondance[cle] || cle;
+          const cleFinale = simple ? (LUEURS.has(cleMat) ? "lueur" : "base") : cleMat;
+          if (simple) couleur.copy(mats[cleMat] ? mats[cleMat].color : couleur.setHex(0x888888));
+          if (simple && mats[cleMat] && mats[cleMat].emissive && LUEURS.has(cleMat)) couleur.copy(mats[cleMat].emissive).multiplyScalar(cleMat === "visiere" ? 0.3 : 1);
+          for (const g of geos) {
+            g.applyMatrix4(b.matrixWorld);
+            const n = g.attributes.position.count;
+            g.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(new Uint16Array(n * 4).map((v, i) => (i % 4 === 0 ? indice : 0)), 4));
+            g.setAttribute("skinWeight", new THREE.Float32BufferAttribute(new Float32Array(n * 4).map((v, i) => (i % 4 === 0 ? 1 : 0)), 4));
+            if (simple) {
+              const col = new Float32Array(n * 3);
+              for (let i = 0; i < n; i++) { col[i * 3] = couleur.r; col[i * 3 + 1] = couleur.g; col[i * 3 + 2] = couleur.b; }
+              g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+            }
+            if (!parMateriau.has(cleFinale)) parMateriau.set(cleFinale, []);
+            parMateriau.get(cleFinale).push(g);
+          }
         }
       }
+      geometries = new Map();
+      for (const [cle, geos] of parMateriau) {
+        geometries.set(cle, mergeGeometries(geos, false));
+        for (const g of geos) g.dispose();
+      }
+      cacheGeometries.set(cleCache, { geometries, points });
     }
     this.squelette = new THREE.Skeleton(os);
     this.maillages = [];
-    for (const [cle, geos] of parMateriau) {
-      const geo = mergeGeometries(geos, false);
-      for (const g of geos) g.dispose();
+    for (const [cle, geo] of geometries) {
       const m = new THREE.SkinnedMesh(geo, mats[cle]);
-      m.castShadow = ombres;
-      m.receiveShadow = ombres;
+      m.castShadow = Personnage.ombresPortees;
+      m.receiveShadow = !simple;
       m.frustumCulled = false;
       this.racine.add(m);
       m.bind(this.squelette);
       this.maillages.push(m);
     }
+    this.ombre = new THREE.Mesh(geoOmbre, materiauOmbre());
+    this.ombre.position.y = 0.02;
+    this.ombre.renderOrder = -1;
+    this.ombre.visible = !Personnage.ombresPortees;
+    this.racine.add(this.ombre);
 
     // État d'animation
     this.phase = Math.random();
@@ -301,6 +371,17 @@ export class Personnage {
   mourir(sens) {
     this.mortT = 0;
     this.chute = sens;
+  }
+
+  // Remet le personnage debout (nouvelle manche, réapparition)
+  ressusciter() {
+    this.mortT = -1;
+    this.corps.rotation.set(0, 0, 0);
+    this.corps.position.set(0, 0, 0);
+    this.fusil.scale.setScalar(1);
+    this.racine.visible = true;
+    this.racine.position.y = 0;
+    this.ombre.visible = !Personnage.ombresPortees;
   }
 
   // e : { dt, vitesse, dirX, dirZ (direction du mouvement dans le repère du personnage), vise (bool), tangage, recharge (-1 ou 0..1) }
@@ -404,3 +485,6 @@ export class Personnage {
     }
   }
 }
+
+// Qualité élevée : vraies ombres portées (sinon une ombre ronde, bien moins coûteuse)
+Personnage.ombresPortees = false;

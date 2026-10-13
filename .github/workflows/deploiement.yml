@@ -91,5 +91,17 @@ jobs:
           else
             echo "OK  donnees/ protege (code $code)"
           fi
+          # Classement du jeu : l'API répond en JSON (et refuse les requêtes sans l'en-tête du jeu)
+          if curl -s -H "X-Requested-With: neonstrike" "$SITE/jeu/api.php?action=classement" | grep -q '"joueurs"'; then
+            echo "OK  jeu/api.php (classement)"
+          else
+            echo "::error::jeu/api.php ne repond pas correctement"; echec=1
+          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$SITE/jeu/serveur/serveur.js")
+          if [ "$code" = "200" ]; then
+            echo "::error::le code du serveur multijoueur est lisible depuis internet"; echec=1
+          else
+            echo "OK  jeu/serveur/ protege (code $code)"
+          fi
           rm -f page.html
           exit $echec

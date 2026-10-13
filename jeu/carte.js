@@ -1,297 +1,369 @@
-// La carte "Nexus" : deux sites (A à droite, B à gauche), un milieu, des couloirs et des couvertures.
-// Axe X : gauche/droite. Axe Z : le joueur part en Z positif, les bots défendent en Z négatif.
+// Construction d'une carte à partir de sa définition (cartes.js) : matériaux, géométrie fusionnée,
+// éclairage selon l'heure, météo, ciel, ville au loin, habillage, navigation des bots.
 import * as THREE from "three";
 import { Monde, GrilleNav } from "./physique.js";
 import { decorer } from "./decor.js";
 import { Assemblage } from "./formes.js";
-import { textureBeton, textureSol, textureMetal, textureMetalSombre, textureDanger, textureFacade, texturePeinture, uvMonde } from "./textures.js";
+import * as TX from "./textures.js";
+import { CARTES } from "./cartes.js";
 
-export const LIMITES = { minX: -32, maxX: 32, minZ: -22, maxZ: 22 };
+export const AMBIANCES = {
+  jour: {
+    nom: "Jour",
+    ciel: { zenith: [0.16, 0.38, 0.82], milieu: [0.45, 0.66, 0.94], horizon: [0.84, 0.9, 0.97], halo: [1.0, 0.95, 0.85], etoiles: 0 },
+    soleil: { couleur: 0xfff2df, intensite: 3.3, pos: [-22, 42, 16] },
+    hemi: { ciel: 0xd6e6ff, sol: 0xa09078, intensite: 1.5 },
+    brouillard: { couleur: 0xc4d8ee, pres: 90, loin: 300 },
+    fenetres: 0.12, facade: 0x6a7891, exposition: 1.0, env: 1.0, torche: false,
+  },
+  soir: {
+    nom: "Coucher de soleil",
+    ciel: { zenith: [0.06, 0.1, 0.24], milieu: [0.26, 0.3, 0.52], horizon: [1.0, 0.6, 0.4], halo: [1.0, 0.7, 0.45], etoiles: 0 },
+    soleil: { couleur: 0xffcf9e, intensite: 3.1, pos: [-26, 24, 18] },
+    hemi: { ciel: 0xb0c8ff, sol: 0x5a4636, intensite: 1.25 },
+    brouillard: { couleur: 0x6a5e78, pres: 70, loin: 240 },
+    fenetres: 0.9, facade: 0x10131f, exposition: 1.15, env: 0.9, torche: false,
+  },
+  nuit: {
+    nom: "Nuit",
+    ciel: { zenith: [0.01, 0.02, 0.05], milieu: [0.03, 0.05, 0.12], horizon: [0.1, 0.12, 0.22], halo: [0.6, 0.7, 0.9], etoiles: 1 },
+    soleil: { couleur: 0xa8c0ff, intensite: 1.3, pos: [20, 40, -10] },
+    hemi: { ciel: 0x6a80b0, sol: 0x25252e, intensite: 1.25 },
+    brouillard: { couleur: 0x0c1222, pres: 45, loin: 180 },
+    fenetres: 1.3, facade: 0x05070d, exposition: 1.35, env: 0.6, torche: true,
+  },
+};
 
-export function construireCarte(scene, qualite) {
+export const METEOS = {
+  clair: { nom: "Clair" },
+  pluie: { nom: "Pluie" },
+  brouillard: { nom: "Brouillard" },
+};
+
+const COULEURS_METAL = { orange: "#c8642a", bleu: "#2d5d8a", gris: "#6b7380", vert: "#3f6b4c", blanc: "#c9ccd1", jaune: "#d8a520", tole: "#8a949e", toleBleue: "#3d5f86" };
+const ENDUITS = { enduitSable: ["#dcc39a", 201], enduitOcre: ["#cf955e", 202], enduitBlanc: ["#e6dfd0", 203], pierre: ["#b8ab95", 204] };
+const SIMPLES = {
+  tuyau: { color: 0x5b636e, roughness: 0.45, metalness: 0.7 }, tuyauRouge: { color: 0x8a2c25, roughness: 0.5, metalness: 0.4 },
+  cable: { color: 0x111215, roughness: 0.7 }, cadre: { color: 0x2c3038, roughness: 0.5, metalness: 0.6 },
+  verre: { color: 0x1b2433, roughness: 0.08, metalness: 0.8, emissive: 0x0b1424, emissiveIntensity: 1 },
+  sac: { color: 0x7d735c, roughness: 0.95 }, caoutchouc: { color: 0x1a1b1e, roughness: 0.95 }, carton: { color: 0xb08a5a, roughness: 0.9 },
+  lampe: { color: 0xfff0d8, emissive: 0xffe2b8, emissiveIntensity: 2.2 }, ampoule: { color: 0xfff0c8, emissive: 0xffd28a, emissiveIntensity: 2.5 },
+  led: { color: 0x7cffd4, emissive: 0x3fe0b0, emissiveIntensity: 1.5 }, ledRouge: { color: 0xff5a4a, emissive: 0xff3a2a, emissiveIntensity: 1.5 },
+  fruitRouge: { color: 0xc8322f, roughness: 0.5 }, fruitJaune: { color: 0xe8b830, roughness: 0.5 }, volet: { color: 0x2f6f8f, roughness: 0.8 },
+  terre: { color: 0x9a5030, roughness: 0.9 }, plante: { color: 0x3f7a3a, roughness: 0.85 },
+};
+
+export function construireCarte(scene, qualite, idCarte = "nexus", options = {}) {
+  const def = CARTES[idCarte] || CARTES.nexus;
+  const heure = AMBIANCES[options.heure] ? options.heure : def.heure;
+  const meteo = METEOS[options.meteo] ? options.meteo : "clair";
+  const amb = AMBIANCES[heure];
+  const L = def.limites;
   const monde = new Monde();
   const groupe = new THREE.Group();
   scene.add(groupe);
   const ombres = qualite !== "basse";
+  const riche = qualite !== "basse";
+  const sansRelief = qualite === "basse"; // sur PC modeste : pas de normal maps
 
-  // ----- Matériaux -----
-  const beton = textureBeton(qualite);
-  const sol = textureSol(qualite);
-  const sombre = textureMetalSombre(qualite);
-  const danger = textureDanger();
-  const mat = {
-    mur: new THREE.MeshStandardMaterial({ map: beton.map, normalMap: beton.normalMap, roughness: 0.92, metalness: 0.02, color: 0xd8dce4 }),
-    sol: new THREE.MeshStandardMaterial({ map: sol.map, normalMap: sol.normalMap, roughness: 0.55, metalness: 0.08, color: 0xc9cdd6 }),
-    sombre: new THREE.MeshStandardMaterial({ map: sombre.map, roughness: 0.45, metalness: 0.75 }),
-    danger: new THREE.MeshStandardMaterial({ map: danger.map, roughness: 0.6 }),
+  // ----- Matériaux créés à la demande (seules les textures utilisées sont générées) -----
+  const mat = {};
+  const echelles = {};
+  const avecTexture = (nom, t, opts) => {
+    mat[nom] = new THREE.MeshStandardMaterial({ map: t.map, normalMap: sansRelief ? null : t.normalMap, ...opts });
+    echelles[nom] = t.echelle || 2;
   };
-  const echelles = { mur: beton.echelle, sol: sol.echelle, sombre: 1, danger: 1 };
-  const metaux = {
-    orange: textureMetal("#c8642a", 41, qualite),
-    bleu: textureMetal("#2d5d8a", 51, qualite),
-    gris: textureMetal("#6b7380", 61, qualite),
-    vert: textureMetal("#3f6b4c", 71, qualite),
-  };
-  for (const [nom, t] of Object.entries(metaux)) {
-    mat[nom] = new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normalMap, roughness: 0.55, metalness: 0.2 });
-    echelles[nom] = t.echelle;
+  function M(nom) {
+    if (mat[nom]) return mat[nom];
+    if (nom === "mur") avecTexture("mur", TX.textureBeton(qualite), { roughness: 0.92, metalness: 0.02, color: 0xe2e5ea });
+    else if (nom === "sombre") { const t = TX.textureMetalSombre(qualite); mat.sombre = new THREE.MeshStandardMaterial({ map: t.map, roughness: 0.45, metalness: 0.75 }); echelles.sombre = 1; }
+    else if (nom === "danger") { mat.danger = new THREE.MeshStandardMaterial({ map: TX.textureDanger().map, roughness: 0.6 }); echelles.danger = 1; }
+    else if (COULEURS_METAL[nom]) avecTexture(nom, TX.textureMetal(COULEURS_METAL[nom], 40 + nom.length * 7, qualite), { roughness: 0.55, metalness: nom.startsWith("tole") ? 0.45 : 0.2 });
+    else if (ENDUITS[nom]) avecTexture(nom, TX.textureEnduit(ENDUITS[nom][0], ENDUITS[nom][1], qualite), { roughness: 0.95 });
+    else if (nom === "bois") avecTexture("bois", TX.textureBois(qualite), { roughness: 0.85 });
+    else if (SIMPLES[nom]) mat[nom] = new THREE.MeshStandardMaterial(SIMPLES[nom]);
+    else mat[nom] = new THREE.MeshStandardMaterial({ color: 0x888888 });
+    return mat[nom];
   }
 
-  const murs2D = []; // pour la minimap
-  // Géométrie fixe fusionnée par matériau : quelques appels de rendu au lieu de plusieurs centaines.
+  const murs2D = [];
   const fixe = new Assemblage();
   const neons = new Assemblage();
+  const deco = new Assemblage();
 
-  function boite(cx, cz, l, p, h, type = "mur", y0 = 0, options = {}) {
-    fixe.ajouter(uvMonde(new THREE.BoxGeometry(l, h, p), l, h, p, echelles[type] || 2), type, { p: [cx, y0 + h / 2, cz] });
-    const b = monde.ajouter(cx - l / 2, y0, cz - p / 2, cx + l / 2, y0 + h, cz + p / 2, { type, ...options });
-    if (y0 < 0.5 && !options.traversable) murs2D.push({ x: cx - l / 2, z: cz - p / 2, l, p, h: y0 + h });
+  // ----- Outils de construction offerts aux définitions de cartes -----
+  function boite(cx, cz, l, p, h, type = "mur", y0 = 0, opts = {}) {
+    M(type);
+    fixe.ajouter(TX.uvMonde(new THREE.BoxGeometry(l, h, p), l, h, p, echelles[type] || 2), type, { p: [cx, y0 + h / 2, cz] });
+    const b = monde.ajouter(cx - l / 2, y0, cz - p / 2, cx + l / 2, y0 + h, cz + p / 2, { type, ...opts });
+    if (y0 < 0.5 && !opts.traversable) murs2D.push({ x: cx - l / 2, z: cz - p / 2, l, p, h: y0 + h });
     return b;
   }
-
-  // Mur avec rebord métallique et éventuellement un néon.
-  function mur(cx, cz, l, p, h, neon = null) {
-    boite(cx, cz, l, p, h, "mur");
+  function mur(cx, cz, l, p, h, neon = null, type = "mur") {
+    boite(cx, cz, l, p, h, type);
+    M("sombre");
     fixe.ajouter(new THREE.BoxGeometry(l + 0.08, 0.14, p + 0.08), "sombre", { p: [cx, h + 0.07, cz] });
     fixe.ajouter(new THREE.BoxGeometry(l + 0.04, 0.22, p + 0.04), "sombre", { p: [cx, 0.11, cz] });
     if (neon) {
       const horiz = l > p;
-      neons.ajouter(new THREE.BoxGeometry(horiz ? l - 0.2 : l + 0.06, 0.03, horiz ? p + 0.06 : p - 0.2), "n" + neon, { p: [cx, h - 0.35, cz] });
       if (!mat["n" + neon]) mat["n" + neon] = new THREE.MeshStandardMaterial({ color: neon, emissive: neon, emissiveIntensity: 0.9 });
+      neons.ajouter(new THREE.BoxGeometry(horiz ? l - 0.2 : l + 0.06, 0.03, horiz ? p + 0.06 : p - 0.2), "n" + neon, { p: [cx, h - 0.35, cz] });
     }
   }
-
-  function caisse(cx, cz, l, p, h, couleur = "orange", y0 = 0) {
-    boite(cx, cz, l, p, h, couleur, y0);
-    // Cornières sombres sur les arêtes verticales
+  function caisse(cx, cz, l, p, h, type = "orange", y0 = 0) {
+    boite(cx, cz, l, p, h, type, y0);
     const geo = new THREE.BoxGeometry(0.08, h, 0.08);
-    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-      fixe.ajouter(geo, "sombre", { p: [cx + sx * (l / 2 - 0.03), y0 + h / 2, cz + sz * (p / 2 - 0.03)] });
-    }
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) fixe.ajouter(geo, "sombre", { p: [cx + sx * (l / 2 - 0.03), y0 + h / 2, cz + sz * (p / 2 - 0.03)] });
   }
-
   function baril(cx, cz) {
+    M("bleu");
     fixe.ajouter(new THREE.CylinderGeometry(0.55, 0.55, 1.05, 20), "bleu", { p: [cx, 0.525, cz] });
     for (const y of [0.25, 0.8]) fixe.ajouter(new THREE.TorusGeometry(0.555, 0.025, 6, 24).rotateX(Math.PI / 2), "sombre", { p: [cx, y, cz] });
     monde.ajouter(cx - 0.55, 0, cz - 0.55, cx + 0.55, 1.05, cz + 0.55, { type: "baril" });
     murs2D.push({ x: cx - 0.55, z: cz - 0.55, l: 1.1, p: 1.1, h: 1.05 });
   }
-
-  // ----- Sol -----
-  const geoSol = new THREE.PlaneGeometry(64, 44);
-  const uv = geoSol.attributes.uv;
-  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 64 / sol.echelle, uv.getY(i) * 44 / sol.echelle);
-  const plancher = new THREE.Mesh(geoSol, mat.sol);
-  plancher.rotation.x = -Math.PI / 2;
-  plancher.receiveShadow = ombres;
-  groupe.add(plancher);
-
-  // ----- Murs extérieurs -----
-  mur(0, -22.5, 66, 1, 7);
-  mur(0, 22.5, 66, 1, 7);
-  mur(-32.5, 0, 1, 44, 7);
-  mur(32.5, 0, 1, 44, 7);
-
-  // ----- Séparations des couloirs (ouvertes au centre pour les rotations) -----
-  mur(-11, -7.25, 1, 10.5, 4.5, 0xff4f8a);
-  mur(-11, 7.25, 1, 10.5, 4.5, 0xff4f8a);
-  mur(11, -7.25, 1, 10.5, 4.5, 0x3fa8ff);
-  mur(11, 7.25, 1, 10.5, 4.5, 0x3fa8ff);
-
-  // ----- Entrées côté attaque : A main, mid, B main -----
-  mur(14.75, 11, 6.5, 1, 4.5, 0x3fa8ff);
-  mur(27, 11, 10, 1, 4.5, 0x3fa8ff);
-  mur(-14.75, 11, 6.5, 1, 4.5, 0xff4f8a);
-  mur(-27, 11, 10, 1, 4.5, 0xff4f8a);
-  mur(-7, 11, 7, 1, 4.5);
-  mur(7, 11, 7, 1, 4.5);
-
-  // ----- Fond côté défense -----
-  mur(13.75, -13, 4.5, 1, 4.5);
-  mur(28, -13, 8, 1, 4.5);
-  mur(-13.75, -13, 4.5, 1, 4.5);
-  mur(-28, -13, 8, 1, 4.5);
-  mur(-7.5, -13, 6, 1, 4.5);
-  mur(7.5, -13, 6, 1, 4.5);
-
-  // ----- Site A -----
-  caisse(25, -3, 2.6, 6, 2.6, "orange");
-  caisse(18, -6, 2, 2, 1.1, "gris");
-  caisse(18.3, -6.2, 1.3, 1.3, 1.1, "gris", 1.1);
-  caisse(14.5, 4.2, 2, 2, 1.2, "vert");
-  caisse(28.5, 6.5, 3, 2, 1.5, "bleu");
-  caisse(15.5, -10.5, 2, 2, 1.2, "orange");
-  baril(21, 2.5);
-  baril(22.2, 3.1);
-
-  // ----- Site B -----
-  caisse(-24, -4, 6, 2.6, 2.6, "bleu");
-  caisse(-17, -7, 2, 2, 1.2, "gris");
-  caisse(-17.2, -7.1, 1.4, 1.4, 1.2, "gris", 1.2);
-  caisse(-14.5, 5, 2, 3, 1.4, "orange");
-  caisse(-28, 5, 2, 2, 1.2, "vert");
-  caisse(-27, -10.5, 3, 2, 2, "orange");
-  baril(-20, 3);
-  baril(-21.2, 2.3);
-
-  // ----- Milieu -----
-  caisse(0, 0, 3, 3, 2.4, "gris");
-  caisse(-4.5, 5, 2, 2, 1.2, "orange");
-  caisse(5, -4, 2, 2, 1.2, "vert");
-  baril(3.5, 6.5);
-  boite(-6, -7.5, 4, 0.8, 2.2, "mur");
-
-  // ----- Zones de départ -----
-  caisse(-6, 16, 2, 2, 1.2, "gris");
-  caisse(7, 17, 2, 2, 1.2, "bleu");
-  caisse(-8, -17, 2, 2, 1.2, "gris");
-  caisse(9, -16.5, 3, 2, 2, "orange");
-  boite(0, -18.5, 4, 1, 1.5, "mur");
-
-  // ----- Barrière de départ (disparaît quand la manche commence) -----
-  const matBarriere = new THREE.MeshBasicMaterial({ color: 0x3fa8ff, transparent: true, opacity: 0.07, depthWrite: false, side: THREE.DoubleSide });
-  const barriereMesh = new THREE.Mesh(new THREE.PlaneGeometry(64, 7, 64, 7), matBarriere);
-  barriereMesh.position.set(0, 3.5, 12.6);
-  groupe.add(barriereMesh);
-  const grille = new THREE.LineSegments(
-    new THREE.WireframeGeometry(new THREE.PlaneGeometry(64, 7, 64, 7)),
-    new THREE.LineBasicMaterial({ color: 0x7cc4ff, transparent: true, opacity: 0.13 })
-  );
-  grille.position.copy(barriereMesh.position);
-  groupe.add(grille);
-  // Traversable pendant la construction de la grille de navigation (les bots peuvent aller partout).
-  const barriereBoite = monde.ajouter(-32, 0, 12.5, 32, 7, 12.7, { type: "barriere", traversable: true });
-  const bandeDanger = new THREE.Mesh(uvMonde(new THREE.BoxGeometry(64, 0.04, 0.5), 64, 0.04, 0.5, 1), mat.danger);
-  bandeDanger.position.set(0, 0.02, 12.6);
-  groupe.add(bandeDanger);
-
-  const barriere = {
-    activer(oui) {
-      barriereBoite.traversable = !oui;
-      barriereMesh.visible = grille.visible = oui;
-      matBarriere.opacity = 0.07;
-    },
-  };
-
-  // ----- Peintures (lettres des sites, flèches) -----
   function peinture(texte, couleur, x, y, z, rotY, taille, auSol = false) {
     const m = new THREE.Mesh(
       new THREE.PlaneGeometry(taille, taille),
-      new THREE.MeshStandardMaterial({ map: texturePeinture(texte, couleur), transparent: true, roughness: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })
+      new THREE.MeshStandardMaterial({ map: TX.texturePeinture(texte, couleur), transparent: true, roughness: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })
     );
     m.position.set(x, y, z);
     if (auSol) m.rotation.x = -Math.PI / 2;
     m.rotation.y = rotY;
     groupe.add(m);
   }
-  peinture("A", "#3fa8ff", 22, 0.02, -2, 0, 6, true);
-  peinture("B", "#ff4f8a", -21, 0.02, -1, 0, 6, true);
-  peinture("A", "#3fa8ff", 31.99, 3, -2, -Math.PI / 2, 3.2);
-  peinture("B", "#ff4f8a", -31.99, 3, -1, Math.PI / 2, 3.2);
-  peinture("A ►", "#3fa8ff", 7, 2.6, 11.51, 0, 3.2);
-  peinture("◄ B", "#ff4f8a", -7, 2.6, 11.51, 0, 3.2);
-  peinture("MID", "#9aa6b8", 0, 3.4, -21.99, 0, 4);
-
-  // ----- Lumières -----
-  const hemi = new THREE.HemisphereLight(0xa8c4ff, 0x4a3a30, 1.0);
-  scene.add(hemi);
-  const soleil = new THREE.DirectionalLight(0xffd3a8, 3.0);
-  soleil.position.set(-26, 30, 18);
-  soleil.castShadow = ombres;
-  if (ombres) {
-    soleil.shadow.mapSize.set(qualite === "haute" ? 4096 : 2048, qualite === "haute" ? 4096 : 2048);
-    Object.assign(soleil.shadow.camera, { left: -38, right: 38, top: 30, bottom: -30, near: 1, far: 100 });
-    soleil.shadow.bias = -0.0004;
-    soleil.shadow.normalBias = 0.03;
-  }
-  scene.add(soleil);
-  scene.add(soleil.target);
-
-  // Lampes murales néon (lumières colorées locales)
-  const lampes = [
-    [22, 3.6, -12.4, 0x3fa8ff], [-22, 3.6, -12.4, 0xff4f8a], [7, 3.6, 10.4, 0xffb15c], [0, 5.2, -21.9, 0xe8e8f0],
-  ];
-  for (const [x, y, z, c] of lampes) {
-    const tube = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 0.08), new THREE.MeshBasicMaterial({ color: c }));
+  let nbLampes = 0;
+  function lampe(x, y, z, couleur, rotY = 0) {
+    const tube = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 0.08).rotateY(rotY), new THREE.MeshBasicMaterial({ color: couleur }));
     tube.position.set(x, y, z);
     groupe.add(tube);
-    if (qualite !== "basse") {
-      const l = new THREE.PointLight(c, 4, 10, 1.6);
-      l.position.set(x, y - 0.3, z + (z > 0 ? -0.6 : 0.6));
+    // Peu de lumières dynamiques : chacune coûte sur chaque pixel éclairé.
+    if (riche && nbLampes < 4) {
+      nbLampes++;
+      const l = new THREE.PointLight(couleur, heure === "nuit" ? 9 : 4, heure === "nuit" ? 14 : 10, 1.6);
+      const decalX = Math.abs(rotY) > 0.1 ? (rotY > 0 ? 0.6 : -0.6) : 0;
+      l.position.set(x + decalX, y - 0.3, z + (Math.abs(rotY) > 0.1 ? 0 : (z > 0 ? -0.6 : 0.6)));
       groupe.add(l);
     }
   }
 
-  // ----- Ciel du soir -----
-  const ciel = new THREE.Mesh(
-    new THREE.SphereGeometry(450, 32, 16),
-    new THREE.ShaderMaterial({
-      side: THREE.BackSide,
-      depthWrite: false,
-      fog: false,
-      uniforms: { soleilDir: { value: soleil.position.clone().normalize() } },
-      vertexShader: "varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
-      fragmentShader: `
-        varying vec3 vDir; uniform vec3 soleilDir;
-        void main(){
-          float h = clamp(vDir.y, -0.1, 1.0);
-          vec3 zenith = vec3(0.04, 0.07, 0.17);
-          vec3 milieu = vec3(0.20, 0.24, 0.45);
-          vec3 horizon = vec3(0.98, 0.55, 0.38);
-          vec3 c = mix(horizon, milieu, smoothstep(0.0, 0.18, h));
-          c = mix(c, zenith, smoothstep(0.18, 0.7, h));
-          float s = max(dot(normalize(vDir), normalize(soleilDir)), 0.0);
-          c += vec3(1.0, 0.7, 0.45) * pow(s, 64.0) * 1.2 + vec3(1.0, 0.5, 0.3) * pow(s, 6.0) * 0.25;
-          gl_FragColor = vec4(c, 1.0);
-        }`,
-    })
-  );
-  scene.add(ciel);
-  scene.fog = new THREE.Fog(0x433e5c, 70, 230);
+  // ----- Sol -----
+  const texSol = def.sol === "paves" ? TX.texturePaves(qualite) : def.sol === "industriel" ? TX.textureSolIndustriel(qualite) : TX.textureSol(qualite);
+  const largeur = L.maxX - L.minX, profondeur = L.maxZ - L.minZ;
+  const geoSol = new THREE.PlaneGeometry(largeur, profondeur);
+  const uvs = geoSol.attributes.uv;
+  for (let i = 0; i < uvs.count; i++) uvs.setXY(i, uvs.getX(i) * largeur / texSol.echelle, uvs.getY(i) * profondeur / texSol.echelle);
+  const matSol = new THREE.MeshStandardMaterial({ map: texSol.map, normalMap: sansRelief ? null : texSol.normalMap, roughness: meteo === "pluie" ? 0.22 : 0.6, metalness: meteo === "pluie" ? 0.35 : 0.08, color: def.sol === "paves" ? 0xe8e2d8 : 0xd4d8de });
+  const plancher = new THREE.Mesh(geoSol, matSol);
+  plancher.rotation.x = -Math.PI / 2;
+  plancher.position.set((L.minX + L.maxX) / 2, 0, (L.minZ + L.maxZ) / 2);
+  plancher.receiveShadow = ombres;
+  groupe.add(plancher);
 
-  // ----- Immeubles lointains -----
-  const facades = [textureFacade(81), textureFacade(82), textureFacade(83)];
-  const ville = new Assemblage();
-  const matsVille = facades.map((t) => new THREE.MeshStandardMaterial({ color: 0x0a0d18, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.9, roughness: 1 }));
-  const rngVille = (() => { let s = 99; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
-  for (let k = 0; k < 46; k++) {
-    const a = (k / 46) * Math.PI * 2 + rngVille() * 0.08;
-    const d = 75 + rngVille() * 70;
-    const l = 10 + rngVille() * 16, h = 18 + rngVille() * 60;
-    const g = new THREE.BoxGeometry(l, h, l);
-    const uvs = g.attributes.uv;
-    for (let i = 0; i < uvs.count; i++) uvs.setXY(i, uvs.getX(i) * l / 20, uvs.getY(i) * h / 40);
-    ville.ajouter(g, k % 3, { p: [Math.cos(a) * d * 1.25, h / 2 - 1, Math.sin(a) * d], r: [0, -a, 0] });
+  // ----- Géométrie de la carte -----
+  M("mur"); M("sombre");
+  const api = { boite, mur, caisse, baril, peinture, lampe, M };
+  def.construire(api);
+  if (def.decor) {
+    for (const k of ["sombre", "bois", "pierre", "jaune", "blanc", "verre", "cable", "lampe", "ampoule", "fruitRouge", "fruitJaune", "volet", "terre", "plante", "carton", "caoutchouc"]) M(k);
+    def.decor({ A: deco, mats: mat, groupe, monde, riche });
   }
-  groupe.add(ville.construire(matsVille, false));
+
+  // ----- Barrière de départ des attaquants -----
+  let barriere = { activer() {} };
+  if (def.barriere !== null && def.barriere !== undefined) {
+    const zb = def.barriere;
+    const matBarriere = new THREE.MeshBasicMaterial({ color: 0x3fa8ff, transparent: true, opacity: 0.07, depthWrite: false, side: THREE.DoubleSide });
+    const barriereMesh = new THREE.Mesh(new THREE.PlaneGeometry(largeur, 7), matBarriere);
+    barriereMesh.position.set((L.minX + L.maxX) / 2, 3.5, zb);
+    groupe.add(barriereMesh);
+    const grille = new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.PlaneGeometry(largeur, 7, Math.round(largeur), 7)), new THREE.LineBasicMaterial({ color: 0x7cc4ff, transparent: true, opacity: 0.13 }));
+    grille.position.copy(barriereMesh.position);
+    groupe.add(grille);
+    const barriereBoite = monde.ajouter(L.minX, 0, zb - 0.1, L.maxX, 7, zb + 0.1, { type: "barriere", traversable: true });
+    M("danger");
+    fixe.ajouter(TX.uvMonde(new THREE.BoxGeometry(largeur, 0.04, 0.5), largeur, 0.04, 0.5, 1), "danger", { p: [(L.minX + L.maxX) / 2, 0.02, zb] });
+    barriere = {
+      activer(oui) {
+        barriereBoite.traversable = !oui;
+        barriereMesh.visible = grille.visible = oui;
+      },
+    };
+  }
 
   groupe.add(fixe.construire(mat, ombres));
   groupe.add(neons.construire(mat, false));
+  groupe.add(deco.construire(mat, ombres));
 
-  // ----- Habillage (architecture, équipements, signalisation, ombrage de contact) -----
-  decorer({ groupe, monde, mat, qualite, ombres });
+  // ----- Lumières -----
+  const nuages = meteo === "pluie" ? 0.45 : meteo === "brouillard" ? 0.6 : 1;
+  const hemi = new THREE.HemisphereLight(amb.hemi.ciel, amb.hemi.sol, amb.hemi.intensite * (meteo === "clair" ? 1 : 1.05) * (sansRelief ? 1.45 : 1));
+  scene.add(hemi);
+  const soleil = new THREE.DirectionalLight(amb.soleil.couleur, amb.soleil.intensite * nuages);
+  soleil.position.set(...amb.soleil.pos);
+  soleil.castShadow = ombres;
+  if (ombres) {
+    const taille = qualite === "haute" ? 4096 : 2048;
+    soleil.shadow.mapSize.set(taille, taille);
+    const demi = Math.max(largeur, profondeur) / 2 + 6;
+    Object.assign(soleil.shadow.camera, { left: -demi, right: demi, top: demi, bottom: -demi, near: 1, far: 140 });
+    soleil.shadow.bias = -0.0004;
+    soleil.shadow.normalBias = 0.03;
+    soleil.target.position.set((L.minX + L.maxX) / 2, 0, (L.minZ + L.maxZ) / 2);
+    soleil.position.add(soleil.target.position);
+  }
+  scene.add(soleil);
+  scene.add(soleil.target);
 
-  // ----- Points d'apparition et postes de défense des bots -----
-  const nav = new GrilleNav(monde, LIMITES.minX, LIMITES.maxX, LIMITES.minZ, LIMITES.maxZ, 0.5, 0.45);
+  // ----- Ciel -----
+  const c = amb.ciel;
+  const gris = meteo === "pluie" ? 0.75 : meteo === "brouillard" ? 0.55 : 0;
+  const ciel = new THREE.Mesh(
+    new THREE.SphereGeometry(450, 32, 16),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, fog: false,
+      uniforms: {
+        soleilDir: { value: new THREE.Vector3(...amb.soleil.pos).normalize() },
+        zenith: { value: new THREE.Vector3(...c.zenith) }, milieu: { value: new THREE.Vector3(...c.milieu) },
+        horizon: { value: new THREE.Vector3(...c.horizon) }, halo: { value: new THREE.Vector3(...c.halo) },
+        etoiles: { value: c.etoiles }, gris: { value: gris },
+      },
+      vertexShader: "varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
+      fragmentShader: `
+        varying vec3 vDir; uniform vec3 soleilDir, zenith, milieu, horizon, halo; uniform float etoiles, gris;
+        float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+        void main(){
+          vec3 d = normalize(vDir);
+          float h = clamp(d.y, -0.1, 1.0);
+          vec3 col = mix(horizon, milieu, smoothstep(0.0, 0.2, h));
+          col = mix(col, zenith, smoothstep(0.2, 0.75, h));
+          float s = max(dot(d, normalize(soleilDir)), 0.0);
+          col += halo * (pow(s, 600.0) * 3.0 + pow(s, 12.0) * 0.25) * (1.0 - gris);
+          if (etoiles > 0.0) { float e = hash(floor(d * 300.0)); col += vec3(step(0.997, e) * (0.6 + e * 0.4)) * smoothstep(0.05, 0.4, h); }
+          vec3 couvert = vec3(dot(col, vec3(0.3, 0.5, 0.2))) * 0.85 + 0.08;
+          gl_FragColor = vec4(mix(col, couvert, gris), 1.0);
+        }`,
+    })
+  );
+  ciel.position.set((L.minX + L.maxX) / 2, 0, (L.minZ + L.maxZ) / 2);
+  scene.add(ciel);
+  const coulBrouillard = new THREE.Color(amb.brouillard.couleur);
+  if (meteo === "pluie") coulBrouillard.lerp(new THREE.Color(0x8890a0), heure === "nuit" ? 0.1 : 0.6);
+  scene.fog = meteo === "brouillard"
+    ? new THREE.Fog(coulBrouillard.clone().lerp(new THREE.Color(0xd0d4da), heure === "nuit" ? 0.05 : 0.5), 6, 62)
+    : new THREE.Fog(coulBrouillard, meteo === "pluie" ? 25 : amb.brouillard.pres, meteo === "pluie" ? 150 : amb.brouillard.loin);
 
-  const postes = [
-    { x: 16.5, z: -2.5, vise: { x: 20, z: 11 }, zone: "A" },
-    { x: 27.8, z: 1.8, vise: { x: 20, z: 11 }, zone: "A" },
-    { x: 23.5, z: -9.5, vise: { x: 12, z: 0 }, zone: "A" },
-    { x: -16, z: -2.5, vise: { x: -20, z: 11 }, zone: "B" },
-    { x: -28.5, z: 1.5, vise: { x: -20, z: 11 }, zone: "B" },
-    { x: -21.5, z: -9.5, vise: { x: -12, z: 0 }, zone: "B" },
-    { x: 0.5, z: -4, vise: { x: 0, z: 11 }, zone: "MID" },
-    { x: -6, z: -9.5, vise: { x: -2, z: 11 }, zone: "MID" },
-    { x: 6.5, z: -10, vise: { x: 6, z: 11 }, zone: "MID" },
-  ];
+  // ----- Ville au loin -----
+  if (def.ville) {
+    const facades = [TX.textureFacade(81), TX.textureFacade(82), TX.textureFacade(83)];
+    const ville = new Assemblage();
+    const matsVille = facades.map((t) => new THREE.MeshStandardMaterial({ color: amb.facade, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: amb.fenetres, roughness: 0.9 }));
+    const rng = (() => { let s = 99; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
+    const nb = qualite === "basse" ? 28 : 46;
+    for (let k = 0; k < nb; k++) {
+      const a = (k / nb) * Math.PI * 2 + rng() * 0.08;
+      const d = 75 + rng() * 70;
+      const l = 10 + rng() * 16, h = 18 + rng() * 60;
+      const g = new THREE.BoxGeometry(l, h, l);
+      const u = g.attributes.uv;
+      for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * l / 20, u.getY(i) * h / 40);
+      ville.ajouter(g, k % 3, { p: [Math.cos(a) * d * 1.25 + (L.minX + L.maxX) / 2, h / 2 - 1, Math.sin(a) * d + (L.minZ + L.maxZ) / 2], r: [0, -a, 0] });
+    }
+    groupe.add(ville.construire(matsVille, false));
+  }
+
+  // ----- Habillage commun (+ spécifique à Nexus) -----
+  M("gris");
+  decorer({ groupe, monde, mat, qualite, ombres, nexus: def.id === "nexus" });
+
+  // ----- Pluie : traits recyclés autour de la caméra -----
+  let pluie = null;
+  if (meteo === "pluie") {
+    const n = qualite === "basse" ? 700 : 1600;
+    const pos = new Float32Array(n * 6);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    const lignes = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: heure === "nuit" ? 0x7f8faa : 0xb8c4d4, transparent: true, opacity: 0.45, depthWrite: false }));
+    lignes.frustumCulled = false;
+    scene.add(lignes);
+    const gouttes = [];
+    for (let i = 0; i < n; i++) gouttes.push({ x: (Math.random() - 0.5) * 30, y: Math.random() * 14, z: (Math.random() - 0.5) * 30 });
+    pluie = { lignes, gouttes, pos };
+  }
+
+  // ----- PC modeste : matériaux Lambert (éclairage bien moins coûteux, mêmes textures) -----
+  if (sansRelief) simplifierMateriaux(groupe);
+
+  // ----- Navigation des bots -----
+  const nav = new GrilleNav(monde, L.minX, L.maxX, L.minZ, L.maxZ, 0.5, 0.45);
+
+  function pointDans(zone) {
+    return nav.aleatoire(Math.random, zone) || { x: (zone.minX + zone.maxX) / 2, z: (zone.minZ + zone.maxZ) / 2 };
+  }
+
+  const ajouts = [groupe, hemi, soleil, soleil.target, ciel];
+  if (pluie) ajouts.push(pluie.lignes);
 
   return {
-    monde, nav, barriere, postes, murs2D, soleil, ciel,
-    zoneDepartBots: { minX: -11, maxX: 11, minZ: -21, maxZ: -14 },
-    departJoueur() {
-      const p = nav.aleatoire(Math.random, { minX: -4, maxX: 4, minZ: 18, maxZ: 20.5 });
-      return p || { x: 0, z: 19 };
+    // Retire la carte de la scène et libère la mémoire (changement de carte)
+    detruire() {
+      for (const o of ajouts) {
+        scene.remove(o);
+        o.traverse((m) => {
+          if (m.geometry) m.geometry.dispose();
+          const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
+          for (const x of mats) { for (const k of ["map", "normalMap", "roughnessMap", "emissiveMap"]) if (x[k]) x[k].dispose(); x.dispose(); }
+        });
+      }
+      if (soleil.shadow && soleil.shadow.map) soleil.shadow.map.dispose();
+      scene.fog = null;
+    },
+    def, id: def.id, nom: def.nom, limites: L, monde, nav, barriere, murs2D, soleil, ciel,
+    postes: def.postes, sites: def.sites, apresPose: def.apresPose,
+    zoneDepartBots: def.departDefense, zoneDepartAttaque: def.departAttaque,
+    ambiance: { heure, meteo, exposition: amb.exposition, env: amb.env, torche: amb.torche },
+    departJoueur(camp = "attaque") { return pointDans(camp === "attaque" ? def.departAttaque : def.departDefense); },
+    pointDans,
+    // Point libre loin d'une position (réapparition en deathmatch)
+    pointLibreLoinDe(x, z, distMin = 14) {
+      for (let k = 0; k < 60; k++) {
+        const p = nav.aleatoire(Math.random, { minX: L.minX + 1, maxX: L.maxX - 1, minZ: L.minZ + 1, maxZ: L.maxZ - 1 });
+        if (p && Math.hypot(p.x - x, p.z - z) > distMin) return p;
+      }
+      return pointDans(def.departDefense);
+    },
+    majAmbiance(dt, camera) {
+      if (!pluie) return;
+      const { gouttes, pos } = pluie;
+      const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
+      for (let i = 0; i < gouttes.length; i++) {
+        const g = gouttes[i];
+        g.y -= 16 * dt;
+        if (g.y < 0) { g.y = 10 + Math.random() * 4; g.x = (Math.random() - 0.5) * 30; g.z = (Math.random() - 0.5) * 30; }
+        const x = cx + g.x, y = cy - 3 + g.y, z = cz + g.z;
+        pos[i * 6] = x; pos[i * 6 + 1] = y; pos[i * 6 + 2] = z;
+        pos[i * 6 + 3] = x + 0.03; pos[i * 6 + 4] = y + 0.45; pos[i * 6 + 5] = z + 0.02;
+      }
+      pluie.lignes.geometry.attributes.position.needsUpdate = true;
     },
   };
+}
+
+// Remplace les matériaux PBR par des matériaux Lambert équivalents (rendu bien plus léger).
+const CHAMPS = ["color", "map", "emissive", "emissiveMap", "emissiveIntensity", "transparent", "opacity", "side", "depthWrite", "polygonOffset", "polygonOffsetFactor", "vertexColors", "alphaTest"];
+function simplifierMateriaux(racine) {
+  const cache = new Map();
+  racine.traverse((o) => {
+    if (!o.isMesh || !o.material || !o.material.isMeshStandardMaterial) return;
+    const m = o.material;
+    if (!cache.has(m)) {
+      const l = new THREE.MeshLambertMaterial();
+      for (const k of CHAMPS) if (m[k] !== undefined) l[k] = m[k] && m[k].clone && !m[k].isTexture ? m[k].clone() : m[k];
+      // Un peu de brillance perdue : on éclaircit légèrement les métaux
+      if (m.metalness > 0.5) l.color.multiplyScalar(1.25);
+      cache.set(m, l);
+      m.dispose();
+    }
+    o.material = cache.get(m);
+  });
 }
