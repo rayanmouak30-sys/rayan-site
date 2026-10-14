@@ -71,13 +71,15 @@ jobs:
           cp neon-strike-godot/LISEZMOI.md paquet/NeonStrike-Windows/LISEZMOI.txt
           cp neon-strike-godot/assets/polices/LICENCE_*.txt paquet/NeonStrike-Windows/
           (cd paquet && zip -q -9 -r ../telechargements/NeonStrike-Windows.zip NeonStrike-Windows)
+          # Projet Godot complet (à importer dans Godot : Gestionnaire de projets > Importer > ce zip)
+          zip -q -9 -r telechargements/NeonStrike-Projet-Godot.zip neon-strike-godot -x 'neon-strike-godot/.godot/*' -x '*/__pycache__/*'
           ls -la telechargements
 
       - name: Garder le zip comme artefact
         uses: actions/upload-artifact@v4
         with:
           name: NeonStrike-Windows
-          path: telechargements/NeonStrike-Windows.zip
+          path: telechargements/*.zip
           retention-days: 30
 
       - name: Installer lftp
@@ -99,7 +101,8 @@ jobs:
             set net:timeout 60;
             open --env-password -u \"$FTP_USERNAME\" \"$FTP_SERVER\";
             mkdir -p -f /www/telechargements;
-            put -O /www/telechargements telechargements/NeonStrike-Windows.zip
+            put -O /www/telechargements telechargements/NeonStrike-Windows.zip;
+            put -O /www/telechargements telechargements/NeonStrike-Projet-Godot.zip
           "
 
       - name: Verifier le telechargement

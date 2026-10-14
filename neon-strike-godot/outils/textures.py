@@ -1,8 +1,8 @@
 """Textures PBR des cartes, générées (aucune image externe) et raccordables (bords qui se répètent sans couture).
 
 Usage : python3 outils/textures.py [nom ...]
-Pour chaque matériau : assets/textures/<nom>_alb.png (couleur), _nrm.png (normales, convention OpenGL),
-_orm.png (R occlusion, V rugosité, B métal). Résolution 512 px.
+Pour chaque matériau : assets/textures/<nom>_alb.jpg (couleur), _nrm.jpg (normales, convention OpenGL),
+_orm.jpg (R occlusion, V rugosité, B métal). Résolution 512 px.
 """
 import os
 import sys
@@ -85,12 +85,12 @@ def ecrire(nom, alb, h, rug, metal, force_n=4.0, ao=None):
     if ao is None:
         ao = occlusion(h)
     alb = alb * (0.65 + 0.35 * ao[..., None])
-    Image.fromarray((np.clip(alb, 0, 1) ** (1 / 1.0) * 255).astype(np.uint8)).save(os.path.join(SORTIE, nom + "_alb.png"))
-    Image.fromarray(normales(h, force_n)).save(os.path.join(SORTIE, nom + "_nrm.png"))
+    Image.fromarray((np.clip(alb, 0, 1) ** (1 / 1.0) * 255).astype(np.uint8)).save(os.path.join(SORTIE, nom + "_alb.jpg"), quality=90)
+    Image.fromarray(normales(h, force_n)).save(os.path.join(SORTIE, nom + "_nrm.jpg"), quality=94)
     rug = np.broadcast_to(np.asarray(rug, dtype=float), (N, N))
     metal = np.broadcast_to(np.asarray(metal, dtype=float), (N, N))
     orm = np.stack([ao, np.clip(rug, 0.03, 1), np.clip(metal, 0, 1)], axis=-1)
-    Image.fromarray((orm * 255).astype(np.uint8)).save(os.path.join(SORTIE, nom + "_orm.png"))
+    Image.fromarray((orm * 255).astype(np.uint8)).save(os.path.join(SORTIE, nom + "_orm.jpg"), quality=90)
     print("texture", nom)
 
 

@@ -38,17 +38,17 @@ static func obtenir(nom: String, teinte := Color(1, 1, 1)) -> Material:
 	var d: Array = DEFS.get(nom, DEFS["beton"])
 	var m := StandardMaterial3D.new()
 	m.resource_name = nom
-	var alb := DOSSIER + nom + "_alb.png"
+	var alb := DOSSIER + nom + "_alb.jpg"
 	var a_texture := ResourceLoader.exists(alb)
 	if a_texture:
 		m.albedo_texture = load(alb)
 		m.albedo_color = teinte
-		var nrm := DOSSIER + nom + "_nrm.png"
+		var nrm := DOSSIER + nom + "_nrm.jpg"
 		if ResourceLoader.exists(nrm):
 			m.normal_enabled = true
 			m.normal_texture = load(nrm)
 			m.normal_scale = 1.0
-		var orm := DOSSIER + nom + "_orm.png"
+		var orm := DOSSIER + nom + "_orm.jpg"
 		if ResourceLoader.exists(orm):
 			# Occlusion (R), rugosité (V), métal (B)
 			var t: Texture2D = load(orm)

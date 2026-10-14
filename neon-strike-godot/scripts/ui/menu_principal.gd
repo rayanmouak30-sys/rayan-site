@@ -40,11 +40,9 @@ func _ready() -> void:
 func _musique() -> void:
 	musique = AudioStreamPlayer.new()
 	musique.bus = "Musique"
-	if ResourceLoader.exists("res://assets/sons/musique_menu.wav"):
-		var flux: AudioStreamWAV = load("res://assets/sons/musique_menu.wav")
-		flux.loop_mode = AudioStreamWAV.LOOP_FORWARD
-		flux.loop_begin = 0
-		flux.loop_end = flux.get_length() * flux.mix_rate
+	if ResourceLoader.exists("res://assets/sons/musique_menu.ogg"):
+		var flux: AudioStreamOggVorbis = load("res://assets/sons/musique_menu.ogg")
+		flux.loop = true
 		musique.stream = flux
 		musique.volume_db = -6.0
 		add_child(musique)

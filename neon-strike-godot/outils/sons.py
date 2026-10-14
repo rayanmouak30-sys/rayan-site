@@ -1,7 +1,7 @@
 """Synthèse de tous les sons du jeu (originaux, aucun échantillon externe).
 
 Usage : python3 outils/sons.py [filtre]
-Écrit des WAV 16 bits mono 44,1 kHz dans assets/sons/. Les variantes s'appellent nom_1.wav, nom_2.wav...
+Écrit des fichiers Ogg Vorbis mono 44,1 kHz dans assets/sons/. Les variantes s'appellent nom_1.wav, nom_2.wav...
 Principe des tirs : transitoire (claquement) + corps (bruit filtré qui décroît) + coup sourd grave
 (sinus à hauteur descendante) + mécanique (petits clics) + queue de réverbération (convolution avec
 une réponse impulsionnelle synthétique), puis saturation douce et normalisation.
@@ -139,12 +139,9 @@ def couper_silence(x, seuil=0.0008):
 def ecrire(nom, x, crete_db=-1.0):
     x = normaliser(couper_silence(fondu_fin(np.asarray(x, dtype=np.float64))), crete_db)
     os.makedirs(SORTIE, exist_ok=True)
-    data = (np.clip(x, -1, 1) * 32767).astype("<i2")
-    with wave.open(os.path.join(SORTIE, nom + ".wav"), "wb") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(SR)
-        w.writeframes(data.tobytes())
+    # Ogg Vorbis (bien plus léger que le WAV, lu nativement par Godot)
+    import soundfile
+    soundfile.write(os.path.join(SORTIE, nom + ".ogg"), np.clip(x, -1, 1).astype(np.float32), SR, format="OGG", subtype="VORBIS")
 
 
 # ---------------------------------------------------------------------------
