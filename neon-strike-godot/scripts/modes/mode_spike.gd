@@ -194,7 +194,7 @@ func _process(_dt: float) -> void:
 		var liste := []
 		for c in partie.combattants:
 			if c.equipe == eq and not (c is Cible):
-				liste.append({"nom": c.nom_affiche, "vivant": c.vivant, "couleur": DonneesHeros.couleur_categorie(String(DonneesHeros.heros(c.heros).get("categorie", "assaut")))})
+				liste.append({"nom": c.nom_affiche, "vivant": c.vivant, "couleur": DonneesHeros.couleur_categorie(c.heros)})
 		l.append(liste)
 	partie.hud.maj_vivants(l[0], l[1])
 	_spectateur()

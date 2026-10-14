@@ -84,7 +84,7 @@ func ajouter_combattant(c: Combattant) -> void:
 func _preparer_hud_capacites() -> void:
 	var liste := []
 	var noms := {"c": "capacite_c", "q": "capacite_q", "e": "capacite_e", "x": "ultime"}
-	var couleur := DonneesHeros.couleur_categorie(String(DonneesHeros.heros(joueur.heros).get("categorie", "assaut")))
+	var couleur := DonneesHeros.couleur_categorie(joueur.heros)
 	for empl in ["c", "q", "e", "x"]:
 		if joueur.etat_cap.ids.has(empl):
 			var d := joueur.etat_cap.def(empl)
@@ -215,9 +215,35 @@ func ressusciter(victime: Combattant, _par: Combattant, vie_rendue: float) -> vo
 		mode.call("sur_resurrection", victime)
 
 
+var tableau: Control
+var fin_affichee := false
+
+
 func _process(_dt: float) -> void:
 	if is_instance_valid(joueur) and joueur.etat_cap:
 		hud.maj_capacites(joueur.etat_cap.etat_hud())
+	var montrer := Input.is_action_pressed("tableau") and not fin_affichee
+	if montrer and tableau == null:
+		tableau = load("res://scripts/ui/tableau_scores.gd").new()
+		tableau.set("partie", self)
+		couche_ui.add_child(tableau)
+	if tableau:
+		if montrer and not tableau.visible:
+			tableau.call("actualiser")
+		tableau.visible = montrer
+
+
+## Fin de partie : écran de résultats après quelques secondes
+func fin_de_partie(victoire: bool) -> void:
+	if fin_affichee:
+		return
+	fin_affichee = true
+	joueur.controle = false
+	await get_tree().create_timer(4.0).timeout
+	var e: Control = load("res://scripts/ui/ecran_fin.gd").new()
+	e.set("partie", self)
+	e.set("victoire", victoire)
+	couche_ui.add_child(e)
 
 
 func _unhandled_input(event: InputEvent) -> void:

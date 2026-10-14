@@ -40,3 +40,7 @@ static func skin(id_heros: String, id_skin: String) -> Dictionary:
 		if s["id"] == id_skin:
 			return s
 	return heros(id_heros)["skins"][0]
+
+
+static func couleur_de(categorie: String) -> Color:
+	return Color(CATEGORIES.get(categorie, {"couleur": "#ffffff"})["couleur"])

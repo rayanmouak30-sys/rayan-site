@@ -68,6 +68,14 @@ static func theme() -> Theme:
 	t.set_color("font_disabled_color", "Button", TEXTE2 * Color(1, 1, 1, 0.6))
 	t.set_font("font", "Button", police(600, true))
 	t.set_font_size("font_size", "Button", 20)
+	# Cases à cocher : pas de fond
+	var vide := StyleBoxEmpty.new()
+	for etat in ["normal", "hover", "pressed", "focus", "hover_pressed", "disabled"]:
+		t.set_stylebox(etat, "CheckButton", vide)
+		t.set_stylebox(etat, "CheckBox", vide)
+	t.set_color("font_color", "CheckButton", TEXTE)
+	t.set_color("font_hover_color", "CheckButton", Color.WHITE)
+	t.set_color("font_pressed_color", "CheckButton", ACCENT)
 	# Panneaux
 	t.set_stylebox("panel", "PanelContainer", boite(PANNEAU, 8, LIGNE, 1, 16))
 	t.set_stylebox("panel", "Panel", boite(PANNEAU, 8, LIGNE, 1, 16))
@@ -140,3 +148,42 @@ static func ombre(l: Label, taille := 2) -> Label:
 	l.add_theme_constant_override("shadow_offset_y", taille)
 	l.add_theme_constant_override("shadow_outline_size", taille + 2)
 	return l
+
+
+
+## Bouton de menu (texte en capitales, police de titre)
+static func bouton(texte: String, taille := 22, largeur := 0.0, hauteur := 52.0) -> Button:
+	var b := Button.new()
+	b.text = texte
+	b.add_theme_font_size_override("font_size", taille)
+	b.custom_minimum_size = Vector2(largeur, hauteur)
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_entered.connect(func() -> void: Sons.jouer("ui_survol", -12.0, 1.0, "Interface"))
+	b.pressed.connect(func() -> void: Sons.jouer("ui_clic", -6.0, 1.0, "Interface"))
+	return b
+
+
+## Bouton plat de navigation (menu de gauche) avec liseré à la sélection
+static func bouton_nav(texte: String) -> Button:
+	var b := bouton(texte, 30, 320, 58)
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.add_theme_stylebox_override("normal", boite(Color(0, 0, 0, 0), 0, Color(0, 0, 0, 0), 0, 18))
+	var survol := boite(Color(1, 1, 1, 0.06), 4, ACCENT, 0, 18)
+	survol.border_width_left = 4
+	survol.border_color = ACCENT
+	b.add_theme_stylebox_override("hover", survol)
+	b.add_theme_stylebox_override("pressed", survol)
+	b.add_theme_color_override("font_hover_color", ACCENT)
+	return b
+
+
+## Étiquette de catégorie / badge coloré
+static func badge(texte: String, couleur: Color, taille := 14) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := boite(Color(couleur.r, couleur.g, couleur.b, 0.18), 4, couleur, 1, 8)
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 2
+	p.add_theme_stylebox_override("panel", sb)
+	p.add_child(etiquette(texte, taille, couleur, true, 700))
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return p
