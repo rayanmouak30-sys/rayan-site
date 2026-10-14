@@ -1,7 +1,15 @@
 # Neon Strike — guide
 
-FPS tactique en 3D qui tourne directement dans le navigateur (aucune installation).
+FPS tactique en 3D qui tourne directement dans le navigateur.
 Adresse : https://mou.alwaysdata.net/jeu/
+
+## Lancer le jeu
+
+- **En ligne (le plus simple)** : ouvrir https://mou.alwaysdata.net/jeu/ dans Chrome, Edge ou Firefox.
+- **Sur un PC Windows, même sans Internet** : installer [Node.js](https://nodejs.org) (version LTS), puis double-cliquer sur `LANCER-NEON-STRIKE.bat` (dans le dossier du jeu ou du ZIP). Le navigateur s'ouvre sur `http://localhost:8080/`. Détails dans `LISEZMOI-WINDOWS.txt`.
+- Ouvrir `index.html` directement (double-clic) ne marche pas : les navigateurs bloquent les modules JavaScript en `file://`.
+
+La bibliothèque 3D (Three.js 0.186.1, licence MIT) est copiée dans `vendor/three/` : aucun CDN n'est nécessaire.
 
 ## Modes de jeu
 
@@ -9,84 +17,139 @@ Adresse : https://mou.alwaysdata.net/jeu/
 |---|---|
 | **Spike** | Attaque / défense en 5 contre 5. Les attaquants posent le spike sur le site A ou B (maintenir F, 4 s), les défenseurs le désamorcent (7 s, la progression est gardée à mi-chemin). 1re équipe à 5 manches, changement de camp après la manche 4. |
 | **Élimination** | Même chose sans spike : il faut éliminer toute l'équipe adverse. |
-| **Deathmatch** | Chacun pour soi, réapparition au bout de 3 s. Premier à 30 éliminations (ou meilleur score après 8 min). |
-| **Stand de tir** | Entraînement libre + 4 défis chronométrés (Réflexes, Cibles mobiles, Que des têtes, Longue distance). Les records sont gardés. |
+| **Deathmatch** | Chacun pour soi, réapparition au bout de 3 s. Premier à 30 éliminations (ou meilleur score après 8 min). Caisses de munitions sur la carte. |
+| **Stand de tir** | Entraînement libre + 4 défis chronométrés. Les capacités touchent aussi les cibles : pratique pour les essayer. |
 | **En ligne** | Deathmatch entre amis avec un code de salon (voir plus bas). |
-
-Options d'une partie : carte (Nexus, Bazar, Hangar), difficulté des bots, 5 contre 5 ou seul contre 5, heure (jour, soir, nuit avec lampe torche) et météo (clair, pluie, brouillard).
 
 ## Commandes (clavier AZERTY)
 
-Toutes les touches se changent dans **Commandes** (menu principal ou pause) : clique sur une touche puis appuie sur la nouvelle (clavier, bouton de souris ou molette). Deux touches possibles par action, « Remettre les touches d'origine » annule tout. Voici les touches de départ :
+Toutes les touches se changent dans **Commandes** (clavier, souris et manette). Touches de départ :
 
 | Touche | Action |
 |---|---|
 | Z Q S D | Se déplacer |
-| Souris / clic gauche / clic droit | Viser / tirer / viser avec la mire (coup lourd au couteau) |
+| Souris / clic gauche / clic droit | Viser / tirer / viser avec la mire |
 | 1 · 2 · 3 ou molette | Arme principale · pistolet · couteau |
 | R | Recharger |
 | Espace / Maj / Ctrl | Sauter / courir / s'accroupir |
-| C | Fumée |
-| A | Flash (détourne le regard quand elle explose !) |
-| E | Compétence signature de l'agent |
-| X | Ultime (se charge avec les éliminations, les morts et le spike) |
-| F (maintenir) | Poser / désamorcer le spike |
+| **C** | Capacité 1 du personnage |
+| **A** | Capacité 2 (touche Q d'un clavier QWERTY : sur AZERTY, Q sert à aller à gauche) |
+| **E** | Capacité signature |
+| **X** | Ultime |
+| F (maintenir) | Interagir : poser / désamorcer le spike (E est déjà pris par la signature) |
 | G | Lâcher le spike |
 | B | Boutique |
-| V puis 1 à 5 | Ordres aux coéquipiers (suivez-moi, allez sur A, allez sur B, tenez, jouez librement) |
+| V puis 1 à 5 | Ordres aux coéquipiers |
 | Tab | Tableau des scores |
 | Y | Inspecter l'arme |
 | Échap | Pause |
 
-**Manette** (Xbox / PlayStation) : sticks pour bouger et viser, RT tirer, LT viser, A sauter, B s'accroupir, X recharger (maintenir pour le spike), Y changer d'arme, LB/RB flash/fumée, croix haut/bas signature/ultime, croix gauche ordres, Select boutique, Start pause. Les menus se parcourent aussi à la manette.
+**Manette** : RT tirer, LT viser, A sauter, B s'accroupir, X recharger, Y changer d'arme, LB/RB capacités 2 et 1, croix haut/bas signature/ultime. Tout se règle dans Commandes.
+**Téléphone / tablette** : joystick à gauche, glisser à droite pour viser ; les boutons de capacités affichent les icônes du personnage.
 
-**Téléphone / tablette** : joystick à gauche, glisser à droite pour viser, boutons à l'écran. Le bouton TIR sert aussi à viser en glissant.
+## Personnages
+
+20 personnages originaux en 5 catégories. Menu **Personnages** : vitrine 3D (glisser pour tourner, molette pour zoomer), histoire, personnalité, difficulté, arme de prédilection et détail chiffré des 4 capacités ; bouton **Sélectionner** (ou double-clic sur un portrait).
+Les bots sont aussi des personnages : jamais deux fois le même dans une équipe, et ils utilisent leurs capacités selon la situation. Les coéquipiers ont un repère cyan au-dessus de la tête, et des bandes lumineuses bleues (alliés) ou rouges (adversaires) en Spike et Élimination.
+
+### Assaut — Entrent les premiers et gagnent les duels.
+
+| Personnage | Rôle | Difficulté | Arme | C | A (Q) | E (signature) | X (ultime) |
+|---|---|---|---|---|---|---|---|
+| **KAEL** | Fer de lance | ★☆☆ | Pulsar P-07 | Charge à fragmentation | Éclat aveuglant | Propulsion | Assaut total |
+| **VEXA** | Acrobate | ★★★ | NS-7 Vecteur | Saut vectoriel | Voile éclair | Pas de l'ombre | Frénésie |
+| **BRAX** | Briseur de lignes | ★☆☆ | Briseur | Grenade sonique | Plaques réactives | Charge du bélier | Onde sismique |
+| **NYRA** | Pyromancienne | ★★☆ | Pulsar P-07 | Cocktail plasma | Fusée éclairante | Cœur ardent | Supernova |
+
+### Défense — Tiennent une zone et protègent l'équipe.
+
+| Personnage | Rôle | Difficulté | Arme | C | A (Q) | E (signature) | X (ultime) |
+|---|---|---|---|---|---|---|---|
+| **TITAN** | Forteresse | ★☆☆ | Pulsar P-07 | Plaque d'acier | Bouclier déployable | Barrière titan | Rempart vivant |
+| **AEGIS** | Gardienne | ★★☆ | NS-7 Vecteur | Champ réparateur | Pulsion répulsive | Mur des Archives | Égide |
+| **ROKAN** | Ingénieur | ★★☆ | NS-7 Vecteur | Mine sismique | Grenade frag | Tourelle automatique | Barrage d'artillerie |
+| **FROST** | Tireuse cryo | ★★★ | Aiguille | Fil glacé | Grenade givrante | Mur de glace | Blizzard |
+
+### Reconnaissance — Trouvent les ennemis avant le combat.
+
+| Personnage | Rôle | Difficulté | Arme | C | A (Q) | E (signature) | X (ultime) |
+|---|---|---|---|---|---|---|---|
+| **ECHO** | Sonar vivant | ★★☆ | NS-7 Vecteur | Flèche sonar | Onde de choc | Écoute | Résonance totale |
+| **GHOST** | Infiltrateur | ★★★ | NS-7 Vecteur | Camouflage | Éclipse | Drone furtif | Ombre totale |
+| **ORION** | Pisteur | ★★☆ | Aiguille | Lyra | Balise traqueuse | Marque du chasseur | Chasse ouverte |
+| **KIRA** | Éclaireuse | ★★☆ | NS-7 Vecteur | Flash ricochet | Lame traqueuse | Pas de lumière | Tempête d'éclats |
+
+### Contrôle — Coupent les lignes de vue et ralentissent l'adversaire.
+
+| Personnage | Rôle | Difficulté | Arme | C | A (Q) | E (signature) | X (ultime) |
+|---|---|---|---|---|---|---|---|
+| **NEXUS** | Gravitationniste | ★★★ | Pulsar P-07 | Puits gravitationnel | Voile du vide | Distorsion | Trou noir |
+| **MIST** | Alchimiste | ★☆☆ | NS-7 Vecteur | Nuage | Brume toxique | Rideau de brume | Brouillard total |
+| **VOLT** | Électrocinéticien | ★★☆ | Pulsar P-07 | Grenade IEM | Arc électrique | Ruée électrique | Surcharge |
+| **SABLE** | Nomade des dunes | ★★☆ | Briseur | Tempête de sable | Sables mouvants | Mur de sable | Simoun |
+
+### Soutien — Soignent, protègent et ravitaillent.
+
+| Personnage | Rôle | Difficulté | Arme | C | A (Q) | E (signature) | X (ultime) |
+|---|---|---|---|---|---|---|---|
+| **SERAPH** | Médecin de guerre | ★☆☆ | NS-7 Vecteur | Orbe de soin | Lueur sacrée | Régénération | Résurrection |
+| **PULSE** | Rythmicien | ★★☆ | Pulsar P-07 | Stimulant | Onde basse | Battement | Crescendo |
+| **BLOOM** | Botaniste | ★★☆ | NS-7 Vecteur | Spore de soin | Lianes | Peau d'écorce | Jardin sacré |
+| **ATLAS** | Logisticien | ★☆☆ | Briseur | Caisse de ravitaillement | Fumigène | Bouclier portatif | Renouveau |
+
+## Capacités
+
+- **C et A** : en Spike et Élimination, elles s'achètent à la boutique (charges gardées d'une manche à l'autre, remises à zéro au changement de camp). En Deathmatch, au stand et en ligne, elles se rechargent toutes seules.
+- **E (signature)** : gratuite, se recharge avec le temps (et redevient prête à chaque manche).
+- **X (ultime)** : se charge avec les éliminations, les morts, la pose et le désamorçage du spike (6 à 8 points selon le personnage).
+- Une **IEM** coupe les capacités pendant quelques secondes ; une **commotion** fait trembler la vue et dérègle la visée ; les **zones de givre, de gravité ou de sable** ralentissent ; le **camouflage** empêche les bots de te repérer sauf à bout portant (tirer te révèle un instant).
+- Les flashs, explosions et zones n'affectent que les adversaires.
+- **En ligne**, seules les capacités qui ne touchent que soi (ruée, saut, téléportation, soins et bonus personnels) sont disponibles : les autres ne sont pas encore synchronisées entre joueurs.
+
+Les 80 capacités sont décrites par des données (`capacites.js`) et reposent sur une vingtaine de familles d'effets programmées une fois (`competences.js`) : grenade, zone au sol, mur, drone, piège, tourelle, sonar, bonus d'équipe, téléportation, etc.
 
 ## Armes et boutique
 
 | Arme | Prix | Points forts |
 |---|---|---|
 | Sentinelle (pistolet) | gratuit | précis, semi-automatique |
-| Briseur (pompe) | 1800 | énorme de près, réarmement à chaque tir |
+| Briseur (pompe) | 1800 | énorme de près |
 | NS-7 Vecteur (fusil) | 2900 | automatique, recul à maîtriser |
+| **Pulsar P-07** (fusil à impulsion) | 3100 | automatique, très stable, écran de munitions sur l'arme, tirs cyan |
 | Aiguille (précision) | 4700 | lunette ×3,6, tue d'un tir à la tête |
 | Lame (couteau) | — | on court plus vite ; un coup dans le dos fait 150 |
 
-Boucliers : léger (+25, 400) et lourd (+50, 1000). Fumée 100, flash 200 (2 de chaque au maximum).
-Crédits : 800 au départ, +200 par élimination, +3000 pour une manche gagnée, 1900 à 2900 pour une manche perdue, +300 si le spike a été posé. Un achat de la manche peut être revendu en recliquant dessus.
-
-## Agents
-
-| Agent | Signature (E) | Ultime (X) |
-|---|---|---|
-| Volt — Duelliste | Ruée (dash) | Surcharge : cadence et vitesse augmentées 10 s |
-| Rempart — Sentinelle | Mur d'énergie (destructible) | Bastion : +50 bouclier et +50 PV pour l'équipe |
-| Faucon — Initiateur | Drone éclaireur qui révèle les ennemis | Sonar : tous les ennemis révélés 6 s |
-| Aube — Soutien | Régénération (+50 PV) | Renouveau : toute l'équipe soignée |
+Boucliers : léger (+25, 400) et lourd (+50, 1000). L'**Arsenal** montre chaque arme en 3D avec la finition choisie.
 
 ## Progression
 
-XP et niveaux, 16 succès, 7 skins d'armes débloqués par niveau (Arsenal), viseur personnalisable (Paramètres), statistiques et records (Carrière).
-Tout est gardé dans le navigateur. Pour apparaître au **classement en ligne**, il faut être connecté avec son compte du site (page Compte) : chaque partie Spike, Élimination ou Deathmatch y est alors envoyée.
+XP et niveaux, succès, 7 finitions d'armes, viseur personnalisable, statistiques. Avec un compte du site, la progression, les touches et les réglages sont sauvegardés et reviennent sur un autre ordinateur ; le classement en ligne est mis à jour après chaque partie.
 
 ## Graphismes
 
-La qualité est choisie automatiquement selon la carte graphique (« Faible » sur les PC portables et les téléphones). La **résolution dynamique** baisse un peu la netteté quand le jeu ralentit, pour rester fluide. Le réglage **Luminosité** éclaircit l'image si besoin.
+La qualité est choisie automatiquement selon la carte graphique (« Faible » sur les PC portables et les téléphones), avec résolution dynamique. Sur « Faible », chaque personnage ne coûte que deux appels de rendu.
 
-## Multijoueur en ligne
+## Multijoueur
 
-Le jeu se connecte à un petit serveur Node.js (`jeu/serveur/serveur.js`, aucune dépendance à installer).
+Le jeu se connecte à un petit serveur Node.js (`serveur/serveur.js`, aucune dépendance).
 
 ### Avec des amis sur le même Wi-Fi
-1. Installer Node.js (https://nodejs.org) sur un PC.
-2. Dans le dossier du site : `node jeu/serveur/serveur.js`
-3. Tout le monde ouvre `http://ADRESSE-IP-DU-PC:8080/` dans le navigateur, puis En ligne. Adresse du serveur : `ws://ADRESSE-IP-DU-PC:8080/ws`.
+1. Sur un PC Windows : lancer `LANCER-NEON-STRIKE.bat` (Node.js installé). Ailleurs : `node serveur/serveur.js` dans le dossier du jeu.
+2. Les autres ouvrent `http://ADRESSE-IP-DU-PC:8080/` (l'adresse IPv4 est affichée dans la fenêtre noire), puis **En ligne**.
+3. Un joueur crée un salon, les autres tapent le code. Adresse du serveur : `ws://ADRESSE-IP-DU-PC:8080/ws`.
+4. Si le pare-feu Windows demande l'autorisation pour Node.js, accepter « Réseaux privés ».
 
 ### Sur internet avec AlwaysData
 1. Interface d'administration AlwaysData → Web → Sites → Ajouter un site.
 2. Adresse : `mou.alwaysdata.net/ws` · Type : **Node.js** · Commande : `node jeu/serveur/serveur.js` · Répertoire de travail : `www`.
-3. Dans le jeu (En ligne), l'adresse du serveur proposée est déjà `wss://mou.alwaysdata.net/ws`.
+3. Dans le jeu (En ligne), l'adresse proposée est déjà `wss://mou.alwaysdata.net/ws`.
 
-Le serveur lit le port et l'adresse fournis par l'hébergeur (variables `PORT` et `IP`). Cette configuration AlwaysData n'a pas pu être testée depuis ici : si la connexion échoue, vérifier dans AlwaysData que le site Node.js est démarré et que les WebSockets sont acceptés.
+Cette configuration AlwaysData n'a pas pu être testée depuis l'environnement de développement : si la connexion échoue, vérifier dans AlwaysData que le site Node.js est démarré.
 
-En ligne, seules les compétences Ruée et Régénération sont disponibles (les autres ne sont pas encore synchronisées entre joueurs).
+## Ce qui est procédural (pour être honnête)
+
+Tout est créé par le code, sans fichiers 3D ni sons extraits d'autres jeux :
+- **Personnages** : assemblages de volumes simples (sphères, boîtes arrondies, profils extrudés) sur un squelette animé par cinématique inverse. Chacun a sa morphologie, son visage, sa coiffure, sa tenue, son équipement dorsal et ses couleurs, mais ce ne sont pas des modèles sculptés de jeu commercial. Les portraits sont rendus à partir de ces modèles.
+- **Animations** : marche, course, visée, rechargement, chute, et 5 attitudes de repos réparties entre les 20 personnages (garde, prêt, arme sur l'épaule, inspection, décontracté) ; animation d'apparition dans la vitrine et colonne de lumière à la réapparition.
+- **Sons** : synthétisés en direct (Web Audio).
+- **Bots** : vraie vision (murs, fumées), stratégie d'équipe et usage des capacités par règles simples ; ils ne sautent pas.

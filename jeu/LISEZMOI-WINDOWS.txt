@@ -1,0 +1,29 @@
+NEON STRIKE - jouer sur un PC Windows
+=====================================
+
+Le plus simple : jouer en ligne, rien a installer
+  Ouvre https://mou.alwaysdata.net/jeu/ dans Chrome, Edge ou Firefox.
+
+Jouer depuis ce dossier (meme sans Internet)
+  1. Installe Node.js (version LTS) : https://nodejs.org
+     (une seule fois ; laisse toutes les options par defaut)
+  2. Double-clique sur LANCER-NEON-STRIKE.bat
+  3. Le navigateur s'ouvre sur http://localhost:8080/ : c'est parti.
+  Pour arreter : ferme la fenetre noire.
+
+  Remarque : ouvrir index.html en double-cliquant ne marche pas
+  (les navigateurs bloquent les modules du jeu en "file://").
+  Il faut passer par LANCER-NEON-STRIKE.bat.
+
+Jouer a plusieurs sur le meme Wi-Fi
+  1. Un seul PC lance LANCER-NEON-STRIKE.bat.
+  2. La fenetre noire affiche son adresse IPv4 (par exemple 192.168.1.20).
+  3. Les amis ouvrent http://192.168.1.20:8080/ dans leur navigateur.
+  4. Menu En ligne : un joueur cree un salon, les autres tapent le code.
+     Adresse du serveur a indiquer : ws://192.168.1.20:8080/ws
+  Si Windows affiche une alerte du pare-feu pour Node.js, accepte
+  "Reseaux prives", sinon les autres PC ne pourront pas se connecter.
+
+Le guide complet (personnages, capacites, touches, modes) est dans GUIDE.md.
+Les comptes et le classement en ligne ne marchent que sur le site (ils
+ont besoin de PHP) ; en local, la progression est gardee dans le navigateur.

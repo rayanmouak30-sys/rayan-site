@@ -87,6 +87,11 @@ export class Hud {
     pts.innerHTML = "";
     for (let i = 0; i < (CAPACITES[h.capacites[3]].points || 7); i++) pts.appendChild(document.createElement("i"));
     this.cache.ult = null;
+    // Boutons tactiles : icônes des capacités du personnage
+    ["fumee", "flash", "signature", "ultime"].forEach((action, i) => {
+      const bt = document.querySelector(`#tactile [data-action="${action}"]`);
+      if (bt) { bt.innerHTML = iconeCapacite(h.capacites[i]); bt.title = CAPACITES[h.capacites[i]].nom; bt.style.color = i === 3 ? "var(--jaune)" : cat.couleur; }
+    });
   }
 
   // Lettres des touches affichées sur les compétences (elles suivent les touches choisies par le joueur)

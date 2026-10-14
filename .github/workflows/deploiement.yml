@@ -97,6 +97,13 @@ jobs:
           else
             echo "::error::jeu/api.php ne repond pas correctement"; echec=1
           fi
+          # Copie locale de Three.js : le jeu n'a plus besoin du CDN
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$SITE/jeu/vendor/three/build/three.module.js")
+          if [ "$code" = "200" ]; then
+            echo "OK  jeu/vendor/three (Three.js local)"
+          else
+            echo "::error::jeu/vendor/three/build/three.module.js repond $code"; echec=1
+          fi
           code=$(curl -s -o /dev/null -w "%{http_code}" "$SITE/jeu/serveur/serveur.js")
           if [ "$code" = "200" ]; then
             echo "::error::le code du serveur multijoueur est lisible depuis internet"; echec=1

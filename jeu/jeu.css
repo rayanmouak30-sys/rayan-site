@@ -444,3 +444,4 @@ kbd { font-family: var(--titre); font-size: 12px; padding: 4px 9px; border: 1px 
 .arsenal-apercu span { position: absolute; left: 12px; top: 8px; z-index: 1; font-family: var(--titre); font-size: 13px; letter-spacing: 2px; color: var(--cyan); pointer-events: none; }
 .ligne-arsenal strong { cursor: pointer; }
 .ligne-arsenal.vue strong { color: var(--cyan); }
+#tactile .bt svg { width: 55%; height: 55%; display: block; margin: auto; pointer-events: none; }

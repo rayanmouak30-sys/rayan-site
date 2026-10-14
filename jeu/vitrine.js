@@ -190,7 +190,7 @@ export class Vitrine {
       this.rotationCible += dt * 0.5;
       this.arme.rotation.set(0.12, this.rotation + Math.PI / 2, 0);
       const l = this.arme.userData.longueur || 0.8;
-      this.camera.position.set(0, 0.05, l * 1.7 * this.distance);
+      this.camera.position.set(0, 0.04, l * 1.12 * this.distance);
       this.camera.lookAt(0, 0, 0);
     } else if (this.modele) {
       const m = this.modele;

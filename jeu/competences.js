@@ -316,7 +316,7 @@ export class Competences {
   effetPoint(def, p, lanceur, capId, projectile = null) {
     switch (def.effet) {
       case "fumee": this.deployerFumee(p, def.duree || 15, def.couleur); break;
-      case "flash": this.detonerFlash(p); break;
+      case "flash": this.detonerFlash(p, lanceur); break;
       case "explosion": this.exploser(p, def.degats || 80, def.rayon || 4.5, lanceur, capId, def.couleur); break;
       case "commotion": this.onde(p, def, lanceur, "commotion"); break;
       case "emp": this.onde(p, def, lanceur, "emp", capId); break;
@@ -338,7 +338,7 @@ export class Competences {
         for (let i = 0; i < n; i++) {
           const a = (i / n) * Math.PI * 2 + Math.random();
           const q = { x: p.x + Math.cos(a) * 3, y: (p.y || 0) + 2.2, z: p.z + Math.sin(a) * 3 };
-          this.differes.push({ t: 0.35 + i * 0.3, fn: () => this.detonerFlash(q) });
+          this.differes.push({ t: 0.35 + i * 0.3, fn: () => this.detonerFlash(q, lanceur) });
         }
         this.differes.push({ t: 0.3, fn: () => {
           for (const c of this.ennemis(lanceur)) if (Math.hypot(c.x - p.x, c.z - p.z) < 9) this.reveler(c, 3, lanceur.equipe);
@@ -401,7 +401,8 @@ export class Competences {
     this.audio.fumee(p);
   }
 
-  detonerFlash(p) {
+  // Les flashs n'aveuglent que les adversaires du lanceur
+  detonerFlash(p, lanceur = null) {
     this.eclat.position.set(p.x, Math.max(p.y, 0.3) + 0.2, p.z);
     this.eclat.visible = true;
     this.eclatT = 0.35;
@@ -411,7 +412,7 @@ export class Competences {
     const monde = this.carte.monde;
     const py = this.eclat.position.y;
     for (const c of this.combattants()) {
-      if (!c.vivant) continue;
+      if (!c.vivant || (lanceur && !this.estEnnemi(lanceur, c))) continue;
       const dx = p.x - c.x, dy = py - c.yeux, dz = p.z - c.z, d = Math.hypot(dx, dy, dz);
       if (d > 34 || !monde.ligneLibre(c.x, c.yeux, c.z, p.x, py, p.z)) continue;
       if (this.fumeeBloque(c.x, c.yeux, c.z, p.x, py, p.z)) continue;
@@ -501,7 +502,7 @@ export class Competences {
     const mat = (c, o) => { const m = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }); z.materiaux.push(m); return m; };
     if (!def.invisible) {
       if (effet !== "sonar") {
-        const disque = new THREE.Mesh(geoDisque, mat(couleur, effet === "frappe" ? 0.12 : 0.22));
+        const disque = new THREE.Mesh(geoDisque, mat(couleur, effet === "frappe" ? 0.12 : 0.15));
         disque.scale.setScalar(rayon);
         const bord = new THREE.Mesh(geoBord, mat(couleur, 0.8));
         bord.scale.setScalar(rayon);
@@ -571,7 +572,7 @@ export class Competences {
       const fin = Math.min(1, (z.duree - z.t) / 0.6);
       const entree = Math.min(1, z.t / 0.3);
       const k = Math.max(0, Math.min(entree, fin));
-      if (z.disque) { z.disque.material.opacity = (z.effet === "frappe" ? 0.12 + 0.25 * Math.min(1, z.t / (z.def.delai || 1.2)) : 0.22) * k; z.bord.material.opacity = 0.8 * k * (0.75 + 0.25 * Math.sin(temps * 6)); }
+      if (z.disque) { z.disque.material.opacity = (z.effet === "frappe" ? 0.12 + 0.25 * Math.min(1, z.t / (z.def.delai || 1.2)) : 0.15) * k; z.bord.material.opacity = 0.7 * k * (0.75 + 0.25 * Math.sin(temps * 6)); }
       if (z.bord && z.effet === "ralenti") z.bord.rotation.y += dt * 0.6;
       for (const s of z.sprites) {
         const u = s.userData;

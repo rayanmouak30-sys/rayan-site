@@ -166,7 +166,8 @@ const enLigne = new PartieEnLigne(jeu, reseau);
 Object.assign(jeu, { bots, joueur, competences, regles, hud });
 bots.joueur = joueur;
 bots.competences = competences;
-competences.combattants = () => bots.combattants();
+// Les capacités touchent aussi les cibles du stand de tir (entraînement)
+competences.combattants = () => (joueur ? [joueur, ...bots.liste] : bots.liste);
 competences.estEnnemi = (a, b) => bots.estEnnemi(a, b);
 competences.effets = effets;
 // Dégâts des capacités (les bots font des dégâts adaptés à la difficulté, comme avec leurs armes)
