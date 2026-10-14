@@ -3,6 +3,7 @@
 
 const ZONE_MORTE = 0.18;
 const CLE_TOUCHES = "neonstrike-touches";
+const CLE_MANETTE = "neonstrike-manette";
 const CLE_LIBELLES = "neonstrike-libelles";
 
 // Actions du jeu : [identifiant, nom affiché, "maintien" (gardée enfoncée) ou "appui" (une fois), touches par défaut]
@@ -35,6 +36,14 @@ export const ACTIONS = [
   ["inspecter", "Inspecter l'arme", "appui", ["KeyY"]],
   ["pause", "Pause (Échap marche toujours)", "appui", ["KeyP"]],
 ];
+
+// Boutons de manette (mappage standard Xbox / PlayStation) et réglage d'origine.
+// Les sticks restent fixes : gauche = se déplacer, droit = viser.
+export const BOUTONS_MANETTE = ["A", "B", "X", "Y", "LB", "RB", "LT", "RT", "Select", "Start", "L3", "R3", "Croix ↑", "Croix ↓", "Croix ←", "Croix →", "Home"];
+export const MANETTE_DEFAUT = {
+  saut: [0], accroupi: [1], recharger: [2], interagir: [2], armeSuivante: [3], flash: [4], fumee: [5], viser: [6], tir: [7],
+  boutique: [8], pause: [9], sprint: [10], arme3: [11], signature: [12], ultime: [13], ordres: [14], inspecter: [15],
+};
 
 // Libellés AZERTY par défaut (le jeu utilise la position physique des touches)
 const AZERTY = { KeyQ: "A", KeyW: "Z", KeyA: "Q", KeyZ: "W", KeyM: ",", Semicolon: "M" };
@@ -74,7 +83,22 @@ export class Controles {
     try { sauve = JSON.parse(localStorage.getItem(CLE_TOUCHES) || "{}") || {}; } catch (e) { /* stockage indisponible */ }
     this.liaisons = {};
     for (const [id, , , defaut] of ACTIONS) this.liaisons[id] = Array.isArray(sauve[id]) ? sauve[id].filter((c) => typeof c === "string").slice(0, 2) : [...defaut];
+    let manette = null;
+    try { manette = JSON.parse(localStorage.getItem(CLE_MANETTE) || "null"); } catch (e) { /* stockage indisponible */ }
+    this.liaisonsManette = {};
+    for (const [id] of ACTIONS) {
+      const v = manette && Array.isArray(manette[id]) ? manette[id] : manette ? [] : MANETTE_DEFAUT[id] || [];
+      this.liaisonsManette[id] = v.filter((b) => Number.isInteger(b) && b >= 0 && b < 17).slice(0, 1);
+    }
     this.indexer();
+  }
+
+  // Applique des liaisons venues d'ailleurs (sauvegarde du compte)
+  appliquerLiaisons(touches, manette) {
+    if (touches && typeof touches === "object") for (const [id] of ACTIONS) if (Array.isArray(touches[id])) this.liaisons[id] = touches[id].filter((c) => typeof c === "string").slice(0, 2);
+    if (manette && typeof manette === "object") for (const [id] of ACTIONS) if (Array.isArray(manette[id])) this.liaisonsManette[id] = manette[id].filter((b) => Number.isInteger(b) && b >= 0 && b < 17).slice(0, 1);
+    try { localStorage.setItem(CLE_MANETTE, JSON.stringify(this.liaisonsManette)); } catch (e) { /* stockage indisponible */ }
+    this.sauverLiaisons();
   }
 
   indexer() {
@@ -88,7 +112,30 @@ export class Controles {
   sauverLiaisons() {
     try { localStorage.setItem(CLE_TOUCHES, JSON.stringify(this.liaisons)); } catch (e) { /* stockage indisponible */ }
     this.indexer();
+    if (this.surChangement) this.surChangement();
   }
+
+  // Manette : un bouton par action ; un bouton peut servir à plusieurs actions seulement dans le réglage d'origine
+  lierManette(action, bouton) {
+    const retirees = [];
+    for (const [id, b] of Object.entries(this.liaisonsManette)) if (id !== action && b.includes(bouton)) { this.liaisonsManette[id] = []; retirees.push(id); }
+    this.liaisonsManette[action] = [bouton];
+    this.sauverManette();
+    return retirees;
+  }
+
+  effacerManette(action) {
+    this.liaisonsManette[action] = [];
+    this.sauverManette();
+  }
+
+  sauverManette() {
+    try { localStorage.setItem(CLE_MANETTE, JSON.stringify(this.liaisonsManette)); } catch (e) { /* stockage indisponible */ }
+    if (this.surChangement) this.surChangement();
+  }
+
+  etiquetteBouton(b) { return b === undefined || b === null ? "—" : BOUTONS_MANETTE[b] || "B" + b; }
+  etiquetteManette(action) { return this.etiquetteBouton((this.liaisonsManette[action] || [])[0]); }
 
   // Associe une touche à une action (emplacement 0 = principale, 1 = secondaire).
   // Retourne la liste des actions qui utilisaient déjà cette touche (elles la perdent).
@@ -113,6 +160,8 @@ export class Controles {
 
   reinitialiserLiaisons() {
     for (const [id, , , defaut] of ACTIONS) this.liaisons[id] = [...defaut];
+    for (const [id] of ACTIONS) this.liaisonsManette[id] = [...(MANETTE_DEFAUT[id] || [])];
+    try { localStorage.setItem(CLE_MANETTE, JSON.stringify(this.liaisonsManette)); } catch (e) { /* stockage indisponible */ }
     this.sauverLiaisons();
   }
 
@@ -122,6 +171,12 @@ export class Controles {
   etiquetteAction(action) {
     const codes = this.liaisons[action] || [];
     return codes.length ? this.etiquette(codes[0]) : "—";
+  }
+
+  // Libellé à afficher pour une action : bouton de manette si on joue à la manette, sinon touche du clavier
+  etiquetteActive(action) {
+    if (this.manetteActive && (this.liaisonsManette[action] || []).length) return this.etiquetteManette(action);
+    return this.etiquetteAction(action);
   }
 
   // Une action "maintien" est-elle active (une de ses touches est enfoncée) ?
@@ -228,25 +283,31 @@ export class Controles {
     const utilise = lx || ly || rx || ry || p.buttons.some((x) => x.pressed);
     if (utilise) this.manetteActive = true;
     const etat = { lx, ly, rx, ry, a: b(0), haut: appui(12), bas: appui(13), gauche: appui(14), droite: appui(15), valider: appui(0), retour: appui(1), start: appui(9) };
+    // Capture d'un bouton pour l'écran Commandes
+    if (this.captureManette) {
+      for (let i = 0; i < p.buttons.length; i++) if (appui(i)) { const f = this.captureManette; this.captureManette = null; this.precedentManette = p.buttons.map((x) => x.pressed || x.value > 0.4); f(i); return null; }
+      this.precedentManette = p.buttons.map((x) => x.pressed || x.value > 0.4);
+      return null;
+    }
     if (this.enJeu()) {
       // Regard : courbe progressive (précis au centre, rapide en bout de course)
       const vitesse = 900 * (reglages.sensibiliteManette || 1);
       this.regard.dx += Math.sign(rx) * rx * rx * vitesse * dt;
       this.regard.dy += Math.sign(ry) * ry * ry * vitesse * dt * 0.75;
-      this.manetteCmd = { avant: -ly, cote: lx, sprint: b(10) || (this.sprintManette && -ly > 0.5), accroupi: b(1), saut: b(0), tir: b(7), viser: b(6), interagir: b(2) };
-      if (appui(10)) this.sprintManette = !this.sprintManette;
+      const L = this.liaisonsManette;
+      const actif = (id) => (L[id] || []).some((i) => b(i));
+      this.manetteCmd = { avant: -ly, cote: lx, sprint: this.sprintManette && -ly > 0.5, accroupi: actif("accroupi"), saut: actif("saut"), tir: actif("tir"), viser: actif("viser"), interagir: actif("interagir"), tableau: actif("tableau") };
       if (-ly < 0.3) this.sprintManette = false;
-      if (appui(2)) this.action("recharger");
-      if (appui(3)) this.action("armeSuivante");
-      if (appui(4)) this.action("flash");
-      if (appui(5)) this.action("fumee");
-      if (appui(11)) this.action("arme3");
-      if (appui(12)) this.action("signature");
-      if (appui(13)) this.action("ultime");
-      if (appui(14)) this.action("ordres");
-      if (appui(15)) this.action("inspecter");
-      if (appui(8)) this.action("boutique");
-      if (appui(9)) this.action("pause");
+      for (let i = 0; i < p.buttons.length; i++) {
+        if (!appui(i)) continue;
+        // Menu des ordres ouvert : A, B, X, Y, LB choisissent l'ordre 1 à 5
+        if (this.menuOrdres && i <= 4) { this.action("chiffre" + (i + 1)); continue; }
+        for (const [id, bs] of Object.entries(L)) {
+          if (!bs.includes(i)) continue;
+          if (id === "sprint") this.sprintManette = !this.sprintManette;
+          else this.action(id);
+        }
+      }
     } else this.manetteCmd = null;
     this.precedentManette = p.buttons.map((x) => x.pressed || x.value > 0.4);
     return etat;
@@ -337,7 +398,7 @@ export class Controles {
     if (m) {
       if (Math.abs(m.avant) > Math.abs(c.avant)) c.avant = m.avant;
       if (Math.abs(m.cote) > Math.abs(c.cote)) c.cote = m.cote;
-      c.sprint ||= m.sprint; c.accroupi ||= m.accroupi; c.saut ||= m.saut; c.tir ||= m.tir; c.viser ||= m.viser; c.interagir ||= m.interagir;
+      c.sprint ||= m.sprint; c.accroupi ||= m.accroupi; c.saut ||= m.saut; c.tir ||= m.tir; c.viser ||= m.viser; c.interagir ||= m.interagir; c.tableau ||= m.tableau;
     }
     if (this.tactileActif) {
       const j = this.tactile.joystick;

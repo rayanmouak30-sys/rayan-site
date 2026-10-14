@@ -6,9 +6,9 @@ import { Personnage, ARCHETYPES } from "./personnages.js";
 import { ARMES, facteurDistance } from "./armes.js";
 
 export const DIFFICULTES = {
-  facile: { nom: "Facile", reaction: 0.65, erreur: 2.4, convergence: 1.3, tete: 0.06, rafale: [2, 4], facteurDegats: 0.45, vitesseDetection: 1.0, cadence: 0.16, ouie: 0.7, couvert: 0.35, pause: [0.5, 0.9], rotation: 6, utilitaires: 0.15 },
-  normal: { nom: "Normal", reaction: 0.42, erreur: 1.45, convergence: 0.85, tete: 0.16, rafale: [3, 5], facteurDegats: 0.68, vitesseDetection: 1.5, cadence: 0.13, ouie: 1, couvert: 0.6, pause: [0.35, 0.75], rotation: 9, utilitaires: 0.4 },
-  difficile: { nom: "Difficile", reaction: 0.26, erreur: 0.8, convergence: 0.5, tete: 0.32, rafale: [3, 6], facteurDegats: 0.88, vitesseDetection: 2.2, cadence: 0.11, ouie: 1.25, couvert: 0.85, pause: [0.2, 0.45], rotation: 12, utilitaires: 0.65 },
+  facile: { nom: "Facile", reaction: 0.85, erreur: 3.3, convergence: 1.7, tete: 0.04, rafale: [2, 3], facteurDegats: 0.34, vitesseDetection: 0.75, cadence: 0.19, ouie: 0.6, couvert: 0.3, pause: [0.6, 1.1], rotation: 4.5, utilitaires: 0.1 },
+  normal: { nom: "Normal", reaction: 0.58, erreur: 2.1, convergence: 1.15, tete: 0.1, rafale: [2, 4], facteurDegats: 0.5, vitesseDetection: 1.1, cadence: 0.15, ouie: 0.85, couvert: 0.5, pause: [0.45, 0.9], rotation: 6.5, utilitaires: 0.3 },
+  difficile: { nom: "Difficile", reaction: 0.38, erreur: 1.2, convergence: 0.75, tete: 0.22, rafale: [3, 5], facteurDegats: 0.7, vitesseDetection: 1.6, cadence: 0.13, ouie: 1.1, couvert: 0.75, pause: [0.3, 0.6], rotation: 9.5, utilitaires: 0.55 },
 };
 
 const DEG = Math.PI / 180;
@@ -263,7 +263,7 @@ export class GestionBots {
     bot.iChemin = 0;
     bot.etat = etat;
     bot.etatT = 0;
-    bot.vitesseCible = courir ? Math.min(5.4, ARMES[bot.arme].vitesse || 5) : 3;
+    bot.vitesseCible = courir ? Math.min(4.8, ARMES[bot.arme].vitesse || 4.4) : 2.7;
     bot.bloqueT = 0;
     bot.arriveT = null;
   }
@@ -331,7 +331,7 @@ export class GestionBots {
       const site = carte.sites[strat.site];
       if (!site) return null;
       if (strat.phase === "rassemblement") {
-        const r = carte.def.rassemblement[strat.site];
+        const r = carte.rassemblement[strat.site];
         const a = b.indice * 2.1;
         return { type: "rassemblement", x: r.x + Math.cos(a) * 1.6, z: r.z + Math.sin(a) * 1.2, vise: { x: site.x, z: site.z } };
       }
@@ -572,7 +572,7 @@ export class GestionBots {
         }
         // Certains défenseurs vont chercher le combat au bout d'un moment.
         if (this.mode !== "deathmatch" && this.camps[b.equipe] === "defense" && b.agressif && !b.tenir && b.etatT > b.pousseeT && !(this.spike && this.spike.etat === "pose")) {
-          const pts = Object.values(this.carte.def.rassemblement || {});
+          const pts = Object.values(this.carte.rassemblement || {});
           b.agressif = false;
           if (pts.length) { const p = pts[Math.floor(Math.random() * pts.length)]; this.chasser(b, p.x, p.z - 2, false); }
         }
@@ -701,7 +701,7 @@ export class GestionBots {
     // Fusil à pompe : il se rapproche avant de tirer
     if (def.bot && def.bot.portee && d > def.bot.portee && !b.tenir) {
       b.mouvementForce = { x: dx / d, z: dz / d };
-      b.vitesseCible = 4.5;
+      b.vitesseCible = 4;
       return;
     }
 
@@ -714,7 +714,7 @@ export class GestionBots {
       if (b.lateralT <= 0) { b.lateral = -b.lateral; b.lateralT = alea(0.3, 0.6); }
       const ang = b.yaw + Math.PI / 2;
       b.mouvementForce = { x: Math.sin(ang) * b.lateral, z: Math.cos(ang) * b.lateral };
-      b.vitesseCible = 3.2;
+      b.vitesseCible = 2.8;
       return;
     }
     b.mouvementForce = null;

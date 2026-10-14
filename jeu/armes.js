@@ -11,14 +11,14 @@ const DEG = Math.PI / 180;
 export const ARMES = {
   couteau: {
     id: "couteau", nom: "Lame tactique", type: "melee", emplacement: 3, prix: 0,
-    degatsLeger: 50, degatsLourd: 75, portee: 2.3, cadence: 0.42, cadenceLourde: 1.0, vitesse: 6.2, equipement: 0.35,
+    degatsLeger: 50, degatsLourd: 75, portee: 2.3, cadence: 0.42, cadenceLourde: 1.0, vitesse: 5.5, equipement: 0.35,
     bot: null,
   },
   pistolet: {
     id: "pistolet", nom: "Sentinelle", type: "semi", emplacement: 2, prix: 0,
     chargeur: 12, reserve: 36, cadence: 0.15, equipement: 0.5, rechargement: 1.5, rechargementVide: 1.8,
     degats: { tete: 78, corps: 26, jambes: 22 }, chute: { debut: 20, fin: 40, min: 0.75 },
-    precision: 0.35, mouvement: 1.6, air: 4, serie: 0.45, visee: 0.7, zoom: 1.15, vitesse: 5.2,
+    precision: 0.35, mouvement: 1.6, air: 4, serie: 0.45, visee: 0.7, zoom: 1.15, vitesse: 4.6,
     recul: (i) => [Math.min(0.9 * (i + 1), 3.2), (i % 2 ? 0.25 : -0.25)], recuperation: 10,
     bot: { cadence: 0.32, rafale: [1, 3], facteur: 0.72 },
   },
@@ -26,7 +26,7 @@ export const ARMES = {
     id: "pompe", nom: "Briseur", type: "pompe", emplacement: 1, prix: 1800,
     chargeur: 6, reserve: 18, cadence: 0.9, equipement: 0.8, rechargement: 2.4, rechargementVide: 2.8, plombs: 12, dispersion: 4.2,
     degats: { tete: 30, corps: 14, jambes: 11 }, chute: { debut: 6, fin: 16, min: 0.3 },
-    precision: 0.2, mouvement: 0.6, air: 2, serie: 0, visee: 0.85, zoom: 1.1, vitesse: 5.0,
+    precision: 0.2, mouvement: 0.6, air: 2, serie: 0, visee: 0.85, zoom: 1.1, vitesse: 4.4,
     recul: () => [3.2, 0], recuperation: 7,
     bot: { cadence: 0.95, rafale: [1, 1], facteur: 1.0, portee: 10 },
   },
@@ -34,7 +34,7 @@ export const ARMES = {
     id: "fusil", nom: "NS-7 Vecteur", type: "auto", emplacement: 1, prix: 2900,
     chargeur: 25, reserve: 75, cadence: 0.1, equipement: 0.75, rechargement: 2.1, rechargementVide: 2.6,
     degats: { tete: 160, corps: 40, jambes: 34 }, chute: null,
-    precision: 0.2, mouvement: 3.6, air: 6, serie: 0.13, visee: 0.55, zoom: 1.3, vitesse: 5.0,
+    precision: 0.2, mouvement: 3.6, air: 6, serie: 0.13, visee: 0.55, zoom: 1.3, vitesse: 4.4,
     recul: (i) => {
       const M = [[0, 0], [0.42, 0.02], [0.86, -0.04], [1.32, 0.05], [1.78, -0.02], [2.22, 0.06], [2.62, 0.0], [2.98, -0.08], [3.28, -0.25], [3.5, -0.55]];
       if (i < M.length) return M[i];
@@ -48,7 +48,7 @@ export const ARMES = {
     id: "sniper", nom: "Aiguille", type: "verrou", emplacement: 1, prix: 4700,
     chargeur: 5, reserve: 10, cadence: 1.35, equipement: 0.9, rechargement: 2.9, rechargementVide: 3.3,
     degats: { tete: 255, corps: 150, jambes: 120 }, chute: null,
-    precision: 5.5, precisionVisee: 0.04, mouvement: 6, air: 10, serie: 0, visee: 1, zoom: 3.6, lunette: true, vitesse: 4.6,
+    precision: 5.5, precisionVisee: 0.04, mouvement: 6, air: 10, serie: 0, visee: 1, zoom: 3.6, lunette: true, vitesse: 4.05,
     recul: () => [4, 0], recuperation: 5,
     bot: { cadence: 1.6, rafale: [1, 1], facteur: 2.1, reactionBonus: 0.25 },
   },

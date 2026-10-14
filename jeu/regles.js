@@ -58,6 +58,7 @@ export class Regles {
     this.spike = null;
     this.modeleSpike = null;
     this.reapparitions = [];
+    this.munitions = [];
     this.defi = null;
     this.fini = false;
   }
@@ -80,6 +81,7 @@ export class Regles {
     this.historique = [];
     this.chronoDM = DUREE_DM;
     bots.vider();
+    this.retirerMunitions();
     bots.mode = this.mode;
     bots.diff = jeu.difficulte;
     this.retirerSpike();
@@ -113,6 +115,7 @@ export class Regles {
       joueur.donnerArme(this.chargementDM, false);
       joueur.placer(p.x, p.z, this.lacetVersCentre(p));
       for (const b of bots.liste) { const q = this.pointReapparition(b); bots.placer(b, q.x, q.z, this.lacetVersCentre(q) + Math.PI); }
+      this.creerMunitions();
       this.carte.barriere.activer(false);
       jeu.hud.annonce("DEATHMATCH", `Premier à ${OBJECTIF_DM} éliminations`, "#ffd166", 2.6);
       jeu.audio.annonce("debut");
@@ -303,6 +306,86 @@ export class Regles {
   retirerSpike() {
     if (this.modeleSpike) { this.jeu.scene.remove(this.modeleSpike.groupe); this.modeleSpike = null; }
     if (this.joueur) this.joueur.porteSpike = false;
+  }
+
+  // Tout ce que les règles ont ajouté à la scène (retour au menu)
+  nettoyer() {
+    this.retirerSpike();
+    this.retirerMunitions();
+  }
+
+  // ----- Caisses de munitions (deathmatch uniquement) -----
+  creerMunitions() {
+    this.retirerMunitions();
+    const carte = this.carte, scene = this.jeu.scene;
+    // Emplacements répartis sur la carte : postes, abords des sites, points de rassemblement
+    const candidats = [...carte.postes, ...Object.values(carte.apresPose).flat(), ...Object.values(carte.rassemblement)].filter((p) => carte.nav.estLibre(p.x, p.z));
+    const choisis = [];
+    for (const p of candidats.sort(() => Math.random() - 0.5)) {
+      if (choisis.every((c) => Math.hypot(c.x - p.x, c.z - p.z) > 9)) choisis.push(p);
+      if (choisis.length >= 8) break;
+    }
+    if (!this.matsMunitions) {
+      const c = document.createElement("canvas");
+      c.width = 128; c.height = 64;
+      const g = c.getContext("2d");
+      g.fillStyle = "#4a5236"; g.fillRect(0, 0, 128, 64);
+      g.fillStyle = "#ffd166"; g.fillRect(0, 24, 128, 16);
+      g.fillStyle = "#2a2e20";
+      for (let i = 0; i < 3; i++) { g.fillRect(44 + i * 14, 18, 8, 26); g.beginPath(); g.arc(48 + i * 14, 18, 4, Math.PI, 0); g.fill(); }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      this.matsMunitions = {
+        caisse: new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, metalness: 0.2 }),
+        bande: new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0xffb020, emissiveIntensity: 0.9 }),
+        faisceau: new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.18, depthWrite: false, blending: THREE.AdditiveBlending }),
+        geo: new THREE.BoxGeometry(0.62, 0.36, 0.42),
+        geoBande: new THREE.BoxGeometry(0.64, 0.05, 0.44),
+        geoFaisceau: new THREE.CylinderGeometry(0.28, 0.28, 3.2, 12, 1, true),
+      };
+    }
+    const M = this.matsMunitions;
+    this.munitions = choisis.map((p) => {
+      const groupe = new THREE.Group();
+      const caisse = new THREE.Mesh(M.geo, M.caisse);
+      const bande = new THREE.Mesh(M.geoBande, M.bande);
+      bande.position.y = 0.06;
+      const objet = new THREE.Group();
+      objet.add(caisse, bande);
+      objet.position.y = 0.45;
+      const faisceau = new THREE.Mesh(M.geoFaisceau, M.faisceau);
+      faisceau.position.y = 1.6;
+      groupe.add(objet, faisceau);
+      groupe.position.set(p.x, 0, p.z);
+      scene.add(groupe);
+      return { x: p.x, z: p.z, groupe, objet, attente: 0 };
+    });
+  }
+
+  retirerMunitions() {
+    for (const m of this.munitions || []) this.jeu.scene.remove(m.groupe);
+    this.munitions = [];
+  }
+
+  majMunitions(dt) {
+    const j = this.joueur;
+    for (const m of this.munitions) {
+      if (m.attente > 0) {
+        m.attente -= dt;
+        m.groupe.visible = m.attente <= 0;
+        continue;
+      }
+      m.objet.rotation.y += dt * 1.4;
+      m.objet.position.y = 0.45 + Math.sin(performance.now() / 400 + m.x) * 0.06;
+      if (!j.vivant || Math.hypot(j.x - m.x, j.z - m.z) > 1.3 || j.y > 1.5) continue;
+      const armes = Object.values(j.logiques);
+      if (armes.every((l) => l.reserve >= l.def.reserve)) continue;
+      for (const l of armes) l.reserve = l.def.reserve;
+      m.attente = 18;
+      m.groupe.visible = false;
+      this.jeu.audio.ramassage();
+      this.jeu.hud.fil("", "Munitions récupérées", false, "info");
+    }
   }
 
   siteDe(x, z) {
@@ -625,6 +708,7 @@ export class Regles {
 
     if (this.mode === "deathmatch") {
       this.chrono -= dt;
+      this.majMunitions(dt);
       for (const r of this.reapparitions) {
         r.t -= dt;
         if (r.t > 0) continue;

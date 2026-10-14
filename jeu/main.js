@@ -20,7 +20,7 @@ import { Effets } from "./effets.js";
 import { Competences, AGENTS, CAPACITES } from "./competences.js";
 import { Joueur, nouvellesStats } from "./joueur.js";
 import { Regles, MODES, DEFIS, ARTICLES, OBJECTIF_DM } from "./regles.js";
-import { Profil, SUCCES, NIVEAUX_SKINS, etatCompte, envoyerResultat, classement } from "./profil.js";
+import { Profil, SUCCES, NIVEAUX_SKINS, etatCompte, envoyerResultat, classement, connexion, inscription, deconnexion, chargerSauvegarde, envoyerSauvegarde } from "./profil.js";
 import { Controles, ACTIONS } from "./controles.js";
 import { Reseau, PartieEnLigne, adresseParDefaut } from "./reseau.js";
 
@@ -42,6 +42,7 @@ if (!MODES[reglages.mode]) reglages.mode = "spike";
 if (!CARTES_JOUABLES.includes(reglages.carte)) reglages.carte = "nexus";
 function sauverReglages() {
   try { localStorage.setItem("neonstrike-reglages", JSON.stringify(reglages)); } catch (e) { /* stockage indisponible */ }
+  if (typeof planifierSauvegarde === "function") planifierSauvegarde();
 }
 
 // ===== Qualité : détection automatique de la carte graphique =====
@@ -505,6 +506,7 @@ jeu.finPartie = () => {
   if (mode === "stand") Object.assign(resultat, { termine: regles.defi.etat === "fini" && regles.defi.id !== "libre", defi: regles.defi.id, score: regles.defi.score, typeScore: DEFIS[regles.defi.id].score });
   const avantNiveau = profilJ.d.niveau;
   const { xp, niveaux } = profilJ.terminerPartie(resultat);
+  sauvegarderCompte();
   const finXp = $("fin-xp");
   finXp.innerHTML = "<div class='xp-ligne'><span></span><span></span></div><div class='xp-barre'><i></i></div>";
   finXp.querySelectorAll("span")[0].textContent = `+${xp} XP`;
@@ -609,7 +611,8 @@ function basculerOrdres(ouvert) {
     if (!allies || !MODES[regles.mode].equipes || partie.mode === "enligne") { hud.annonce("", "Pas de coéquipiers dans ce mode", "#94a7c9", 1.2); return; }
   }
   ordresOuverts = ouvert;
-  hud.ordres(ouvert, listeOrdres());
+  controles.menuOrdres = ouvert;
+  hud.ordres(ouvert, listeOrdres(), controles.manetteActive);
 }
 function donnerOrdre(n) {
   const types = [{ type: "suivre" }, { type: "site", site: "A" }, { type: "site", site: "B" }, { type: "tenir" }, null];
@@ -867,6 +870,7 @@ function majVisuels(dt, alpha) {
     aveugle: joueur.aveugleT > 0 ? Math.min(1, joueur.aveugleT / Math.min(1.2, joueur.aveugleMax)) : 0,
     teinte: teinteT > 0 || joueur.surchargeT > 0 ? teinteCouleur : null,
     fumees: competences.fumees, spike: resume.spike,
+    munitions: regles.mode === "deathmatch" && partie.mode !== "enligne" ? regles.munitions.filter((m) => m.attente <= 0) : [],
     allies: allies.filter((b) => b.vivant).map((b) => ({ x: b.x, z: b.z, porteSpike: !!(regles.spike && regles.spike.porteur === b) })),
     ennemisVus,
     vue: joueur.vivant ? { x: joueur.x, z: joueur.z, lacet: joueur.lacet } : null,
@@ -893,6 +897,7 @@ function donneesTableau() {
 
 // ===== Boucle =====
 const horloge = new THREE.Timer();
+let manetteAvant = false;
 let accumulateur = 0;
 let fpsT = 0, fpsN = 0;
 let orbite = 0;
@@ -904,6 +909,7 @@ function boucle(t) {
   fpsT += dt; fpsN++;
   if (fpsT >= 0.5) { if (reglages.fps) $("fps").textContent = Math.round(fpsN / fpsT) + " FPS · " + Math.round(dyn.echelle * 100) + " %"; fpsT = 0; fpsN = 0; }
   const manette = controles.maj(dt, reglages);
+  if (controles.manetteActive !== manetteAvant) { manetteAvant = controles.manetteActive; hud.etiquettesTouches(toucheCourte); }
   if (manette && partie.etat !== "jeu") navigationManette(manette);
   traiterActions();
 
@@ -942,7 +948,7 @@ function verrouiller() {
   if (controles.tactileActif) return;
   try {
     const p = canvas.requestPointerLock({ unadjustedMovement: true });
-    if (p && p.catch) p.catch(() => { try { canvas.requestPointerLock(); } catch (e) { /* refusé */ } });
+    if (p && p.catch) p.catch(() => { try { const q = canvas.requestPointerLock(); if (q && q.catch) q.catch(() => {}); } catch (e) { /* refusé : un clic dans le jeu verrouillera la souris */ } });
   } catch (e) {
     try { canvas.requestPointerLock(); } catch (e2) { /* refusé : on joue quand même */ }
   }
@@ -991,7 +997,7 @@ document.addEventListener("pointerlockchange", () => {
 controles.enJeu = () => partie.etat === "jeu";
 controles.installerTactile($("tactile"));
 function etiquette(code) { return controles.etiquette(code); }
-function touche(action) { return controles.etiquetteAction(action); }
+function touche(action) { return controles.etiquetteActive(action); }
 // Version courte pour les petites cases du HUD
 function toucheCourte(action) {
   const t = touche(action);
@@ -1018,12 +1024,14 @@ const pile = [];
 const qualiteChoisieAuDemarrage = reglages.qualite;
 function afficherEcran(id) {
   if (capture) { capture = null; $("note-touches").textContent = ""; }
+  if (captureManette) { captureManette = null; controles.captureManette = null; }
   document.querySelectorAll(".ecran").forEach((e) => e.classList.toggle("visible", e.id === id));
   if (id === "ecran-carriere") remplirCarriere();
   if (id === "ecran-arsenal") remplirArsenal();
   if (id === "ecran-agents") remplirAgents();
   if (id === "ecran-modes") remplirModes();
   if (id === "ecran-enligne") preparerEnLigne();
+  if (id === "ecran-compte") majEcranCompte();
 }
 function ouvrirEcran(id) {
   const actuel = document.querySelector(".ecran.visible");
@@ -1178,7 +1186,8 @@ function majBadge() {
   const a = AGENTS[d.agent] || AGENTS.volt;
   const badge = $("badge-profil");
   badge.innerHTML = "<div class='badge-nom'></div><div class='xp-ligne'><span></span><span></span></div><div class='xp-barre'><i></i></div>";
-  badge.querySelector(".badge-nom").textContent = profilJ.pseudo + (profilJ.compte && profilJ.compte.connecte ? " ✓" : "");
+  badge.querySelector(".badge-nom").textContent = profilJ.pseudo + (connecte() ? " ✓" : "");
+  if (!connecte() && profilJ.compte) { const i = document.createElement("span"); i.className = "invite"; i.textContent = "Invité · se connecter"; badge.querySelector(".badge-nom").appendChild(i); }
   badge.querySelectorAll(".xp-ligne span")[0].textContent = "Niveau " + d.niveau;
   badge.querySelectorAll(".xp-ligne span")[1].textContent = `${d.xp} / ${Profil.xpNiveau(d.niveau)} XP`;
   badge.querySelector("i").style.width = Math.round(profilJ.progression * 100) + "%";
@@ -1193,6 +1202,12 @@ const NOMS_ACTIONS = Object.fromEntries(ACTIONS.map(([id, nom]) => [id, nom]));
 function remplirCommandes() {
   const el = $("liste-touches");
   el.innerHTML = "";
+  for (const t of ["Action", "Touche", "2e touche", "Manette"]) {
+    const h = document.createElement("span");
+    h.className = "entete-liaison";
+    h.textContent = t;
+    el.appendChild(h);
+  }
   for (const [id, nom] of ACTIONS) {
     const libelle = document.createElement("span");
     libelle.className = "nom-action";
@@ -1209,7 +1224,45 @@ function remplirCommandes() {
       b.addEventListener("click", () => { audio.clic(); commencerCapture(id, emplacement, b); });
       el.appendChild(b);
     }
+    const bm = document.createElement("button");
+    bm.type = "button";
+    bm.className = "liaison manette";
+    const bouton = (controles.liaisonsManette[id] || [])[0];
+    bm.textContent = controles.etiquetteBouton(bouton);
+    if (bouton === undefined) bm.classList.add("vide");
+    bm.title = "Bouton de la manette";
+    bm.addEventListener("click", () => { audio.clic(); commencerCaptureManette(id, bm); });
+    el.appendChild(bm);
   }
+}
+
+// Manette : on attend le prochain bouton appuyé (lu dans la boucle du jeu)
+function commencerCaptureManette(action, bouton) {
+  if (capture) { capture.bouton.classList.remove("attente"); capture = null; }
+  bouton.classList.add("attente");
+  bouton.textContent = "Appuie…";
+  $("note-touches").textContent = `Bouton de manette pour « ${NOMS_ACTIONS[action]} » : appuie sur un bouton de ta manette. Échap annule, Retour arrière efface.`;
+  captureManette = { action, bouton };
+  controles.captureManette = (b) => {
+    captureManette = null;
+    const retirees = controles.lierManette(action, b);
+    let note = `« ${NOMS_ACTIONS[action]} » : ${controles.etiquetteBouton(b)} (manette).`;
+    if (retirees.length) note += ` Ce bouton servait aussi à « ${retirees.map((r) => NOMS_ACTIONS[r]).join(" », « ")} » : il y a été retiré.`;
+    $("note-touches").textContent = note;
+    audio.achat(true);
+    remplirCommandes();
+    hud.etiquettesTouches(toucheCourte);
+  };
+}
+let captureManette = null;
+function annulerCaptureManette(effacer) {
+  if (!captureManette) return;
+  const { action } = captureManette;
+  captureManette = null;
+  controles.captureManette = null;
+  if (effacer) controles.effacerManette(action);
+  $("note-touches").textContent = effacer ? `« ${NOMS_ACTIONS[action]} » : bouton de manette effacé.` : "";
+  remplirCommandes();
 }
 
 function commencerCapture(action, emplacement, bouton) {
@@ -1240,6 +1293,11 @@ function terminerCapture(code) {
 
 // Pendant la capture, la touche appuyée est enregistrée au lieu d'agir normalement
 addEventListener("keydown", (e) => {
+  if (captureManette && (e.code === "Escape" || e.code === "Backspace" || e.code === "Delete")) {
+    e.preventDefault(); e.stopImmediatePropagation();
+    annulerCaptureManette(e.code !== "Escape");
+    return;
+  }
   if (!capture) return;
   e.preventDefault();
   e.stopImmediatePropagation();
@@ -1397,7 +1455,7 @@ function allerAuMenu() {
   bots.vider();
   effets.vider();
   competences.vider();
-  regles.retirerSpike();
+  regles.nettoyer();
   carte.barriere.activer(false);
   $("hud").classList.add("cache");
   $("tactile").classList.add("cache");
@@ -1422,10 +1480,12 @@ $("r-plein-ecran").addEventListener("click", pleinEcran);
 document.addEventListener("fullscreenchange", () => { $("r-plein-ecran").textContent = document.fullscreenElement ? "Quitter le plein écran" : "Passer en plein écran"; });
 
 // ===== Paramètres =====
+const rafraichisseurs = [];
 function lierReglage(id, cle, format, apres) {
   const champ = $("r-" + id), sortie = $("o-" + id);
-  champ.value = reglages[cle];
-  if (sortie) sortie.textContent = format(reglages[cle]);
+  const afficher = () => { champ.value = reglages[cle]; if (sortie) sortie.textContent = format(reglages[cle]); };
+  afficher();
+  rafraichisseurs.push(() => { afficher(); if (apres) apres(reglages[cle]); });
   champ.addEventListener("input", () => {
     reglages[cle] = parseFloat(champ.value);
     if (sortie) sortie.textContent = format(reglages[cle]);
@@ -1445,6 +1505,7 @@ lierReglage("luminosite", "luminosite", pct, (v) => { renderer.toneMappingExposu
 function lierCase(id, cle, apres) {
   const c = $("r-" + id);
   c.checked = !!reglages[cle];
+  rafraichisseurs.push(() => { c.checked = !!reglages[cle]; if (apres) apres(c.checked); });
   c.addEventListener("change", () => { reglages[cle] = c.checked; sauverReglages(); if (apres) apres(c.checked); });
 }
 lierCase("annonceur", "annonceur", (v) => { audio.annonceur = v; });
@@ -1461,25 +1522,155 @@ $("r-qualite").addEventListener("change", (e) => {
 
 // Viseur personnalisé
 function lierViseur() {
-  const v = profilJ.d.viseur;
+  const v = () => profilJ.d.viseur;
   const apercu = $("apercu-viseur");
-  const maj = () => { hud.appliquerViseur(v, apercu); hud.appliquerViseur(v); profilJ.sauver(); };
-  $("v-couleur").value = v.couleur;
-  $("v-couleur").addEventListener("input", (e) => { v.couleur = e.target.value; maj(); });
+  const maj = () => { hud.appliquerViseur(v(), apercu); hud.appliquerViseur(v()); profilJ.sauver(); };
+  const afficher = () => {
+    $("v-couleur").value = v().couleur;
+    for (const k of ["longueur", "epaisseur", "ecart"]) { $("v-" + k).value = v()[k]; $("ov-" + k).textContent = v()[k]; }
+    for (const k of ["point", "contour", "dynamique"]) $("v-" + k).checked = !!v()[k];
+    hud.appliquerViseur(v(), apercu);
+    hud.appliquerViseur(v());
+  };
+  $("v-couleur").addEventListener("input", (e) => { v().couleur = e.target.value; maj(); });
   for (const k of ["longueur", "epaisseur", "ecart"]) {
     const c = $("v-" + k);
-    c.value = v[k];
-    $("ov-" + k).textContent = v[k];
-    c.addEventListener("input", () => { v[k] = Number(c.value); $("ov-" + k).textContent = v[k]; maj(); });
+    c.addEventListener("input", () => { v()[k] = Number(c.value); $("ov-" + k).textContent = v()[k]; maj(); });
   }
   for (const k of ["point", "contour", "dynamique"]) {
     const c = $("v-" + k);
-    c.checked = !!v[k];
-    c.addEventListener("change", () => { v[k] = c.checked; maj(); });
+    c.addEventListener("change", () => { v()[k] = c.checked; maj(); });
   }
-  maj();
+  afficher();
+  rafraichisseurs.push(afficher);
 }
 lierViseur();
+
+// ===== Compte : connexion, création, sauvegarde de la progression sur le serveur =====
+const CLE_SANS_COMPTE = "neonstrike-sans-compte";
+function connecte() { return !!(profilJ.compte && profilJ.compte.connecte); }
+let minuterieSauvegarde = null;
+let synchroEnCours = false;
+
+// Ce qui est gardé sur le compte (la qualité graphique dépend de l'appareil : elle reste locale)
+function reglagesPartages() {
+  const r = { ...reglages };
+  for (const k of ["qualite", "resolutionDynamique", "serveur"]) delete r[k];
+  return r;
+}
+
+function planifierSauvegarde() {
+  if (!connecte() || synchroEnCours) return;
+  clearTimeout(minuterieSauvegarde);
+  minuterieSauvegarde = setTimeout(sauvegarderCompte, 2500);
+}
+
+async function sauvegarderCompte() {
+  clearTimeout(minuterieSauvegarde);
+  if (!connecte()) return;
+  const r = await envoyerSauvegarde({ profil: profilJ.d, reglages: reglagesPartages(), touches: controles.liaisons, manette: controles.liaisonsManette });
+  $("compte-synchro").textContent = r && r.ok ? "Progression sauvegardée sur ton compte." : (r && r.erreur) || "";
+}
+
+// À la connexion : on récupère la sauvegarde du compte (ou on y envoie la progression de cet appareil)
+async function synchroniserCompte() {
+  if (!connecte()) return;
+  synchroEnCours = true;
+  const r = await chargerSauvegarde();
+  const pseudo = profilJ.compte.pseudo;
+  const sv = r && !r.erreur ? r.sauvegarde : null;
+  const local = profilJ.d;
+  let message = "";
+  if (sv && sv.profil) {
+    const distant = Profil.normaliser(sv.profil);
+    // Progression d'invité plus avancée que celle du compte : on la garde (elle rejoint le compte)
+    const invitePlusAvance = !local.compte && (local.niveau > distant.niveau || (local.niveau === distant.niveau && local.xp > distant.xp));
+    if (!invitePlusAvance) {
+      profilJ.d = distant;
+      if (sv.reglages && typeof sv.reglages === "object") {
+        for (const [k, v] of Object.entries(sv.reglages)) if (k in DEFAUTS && typeof v === typeof DEFAUTS[k] && !["qualite", "resolutionDynamique", "serveur"].includes(k)) reglages[k] = v;
+        try { localStorage.setItem("neonstrike-reglages", JSON.stringify(reglages)); } catch (e) { /* stockage indisponible */ }
+      }
+      if (sv.touches || sv.manette) controles.appliquerLiaisons(sv.touches, sv.manette);
+      message = `Progression récupérée : niveau ${distant.niveau}.`;
+    } else message = "Ta progression de cet appareil a été ajoutée à ton compte.";
+  } else message = "Ta progression est maintenant sauvegardée sur ton compte.";
+  profilJ.d.compte = pseudo;
+  profilJ.d.pseudo = pseudo;
+  synchroEnCours = false;
+  profilJ.sauver();
+  await sauvegarderCompte();
+  for (const f of rafraichisseurs) f();
+  remplirCommandes();
+  hud.etiquettesTouches(toucheCourte);
+  majBadge();
+  $("compte-synchro").textContent = message;
+}
+
+function majEcranCompte() {
+  const ok = connecte();
+  $("compte-connecte").hidden = !ok;
+  $("compte-formulaires").hidden = !ok ? false : true;
+  $("compte-sans").hidden = ok;
+  if (ok) $("compte-pseudo").textContent = profilJ.compte.pseudo;
+}
+
+function ongletCompte(inscrire) {
+  $("onglet-connexion").setAttribute("aria-checked", String(!inscrire));
+  $("onglet-inscription").setAttribute("aria-checked", String(inscrire));
+  $("form-connexion").hidden = inscrire;
+  $("form-inscription").hidden = !inscrire;
+  $("compte-message").textContent = "";
+}
+$("onglet-connexion").addEventListener("click", () => { audio.clic(); ongletCompte(false); });
+$("onglet-inscription").addEventListener("click", () => { audio.clic(); ongletCompte(true); });
+
+async function apresConnexion(r) {
+  if (!r || r.erreur) { $("compte-message").textContent = (r && r.erreur) || "Erreur inconnue."; audio.refus(); return; }
+  profilJ.compte = { connecte: true, pseudo: r.pseudo };
+  try { localStorage.removeItem(CLE_SANS_COMPTE); } catch (e) { /* stockage indisponible */ }
+  $("compte-message").textContent = "";
+  audio.achat(true);
+  majEcranCompte();
+  $("compte-synchro").textContent = "Synchronisation…";
+  await synchroniserCompte();
+}
+
+$("form-connexion").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  $("compte-message").textContent = "Connexion…";
+  apresConnexion(await connexion(f.identifiant.value.trim(), f.mdp.value));
+  f.mdp.value = "";
+});
+$("form-inscription").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  if (f.mdp.value !== f.confirmation.value) { $("compte-message").textContent = "Les deux mots de passe ne correspondent pas."; return; }
+  $("compte-message").textContent = "Création du compte…";
+  apresConnexion(await inscription(f.pseudo.value.trim(), f.email.value.trim(), f.mdp.value));
+  f.mdp.value = f.confirmation.value = "";
+});
+$("compte-deconnexion").addEventListener("click", async () => {
+  audio.clic();
+  await sauvegarderCompte();
+  await deconnexion();
+  profilJ.compte = { connecte: false, pseudo: null };
+  // La progression locale reste liée à ce compte : un autre compte ne pourra pas la récupérer
+  profilJ.sauver();
+  majEcranCompte();
+  majBadge();
+  $("compte-message").textContent = "Tu es déconnecté. Ta progression reste sauvegardée sur ton compte.";
+});
+$("compte-continuer").addEventListener("click", () => { audio.clic(); pile.length = 0; afficherEcran("ecran-menu"); });
+$("compte-sans").addEventListener("click", () => {
+  audio.clic();
+  try { localStorage.setItem(CLE_SANS_COMPTE, "1"); } catch (e) { /* stockage indisponible */ }
+  pile.length = 0;
+  afficherEcran("ecran-menu");
+});
+profilJ.surSauvegarde = planifierSauvegarde;
+controles.surChangement = planifierSauvegarde;
 
 // ===== En ligne =====
 function statut(t) { $("enligne-statut").textContent = t; }
@@ -1589,7 +1780,15 @@ hud.etiquettesTouches(toucheCourte);
 requestAnimationFrame(boucle);
 // Premier geste de l'utilisateur : on peut démarrer le son (règle des navigateurs)
 addEventListener("pointerdown", () => { audio.demarrer(); musique.demarrer(); if (partie.etat === "menu") musique.etat("menu"); }, { once: true });
-etatCompte().then((c) => { profilJ.compte = c; majBadge(); });
+etatCompte().then((c) => {
+  profilJ.compte = c;
+  majBadge();
+  if (!c) return; // pas d'API (jeu lancé hors du site) : pas de compte
+  if (c.connecte) { synchroniserCompte(); return; }
+  let sansCompte = false;
+  try { sansCompte = !!localStorage.getItem(CLE_SANS_COMPTE); } catch (e) { /* stockage indisponible */ }
+  if (!sansCompte && partie.etat === "menu" && document.querySelector("#ecran-menu.visible")) ouvrirEcran("ecran-compte");
+});
 if (matchMedia("(pointer: coarse)").matches) controles.tactileActif = true;
 
 // Accès pour les tests automatiques uniquement (adresse ...?test)

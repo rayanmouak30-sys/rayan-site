@@ -294,8 +294,32 @@ export function construireCarte(scene, qualite, idCarte = "nexus", options = {})
   // ----- PC modeste : matériaux Lambert (éclairage bien moins coûteux, mêmes textures) -----
   if (sansRelief) simplifierMateriaux(groupe);
 
+  // ----- Agrandissement : la carte est dessinée à l'échelle 1 puis élargie (hauteurs inchangées) -----
+  const K = def.echelle || 1;
+  const Lk = { minX: L.minX * K, maxX: L.maxX * K, minZ: L.minZ * K, maxZ: L.maxZ * K };
+  const zone = (zo) => zo && { ...zo, minX: zo.minX * K, maxX: zo.maxX * K, minZ: zo.minZ * K, maxZ: zo.maxZ * K, ...(zo.x !== undefined ? { x: zo.x * K, z: zo.z * K } : {}) };
+  const point = (pt) => ({ ...pt, x: pt.x * K, z: pt.z * K, ...(pt.vise ? { vise: { x: pt.vise.x * K, z: pt.vise.z * K } } : {}) });
+  if (K !== 1) {
+    groupe.scale.set(K, 1, K);
+    for (const b of monde.boites) { b.minX *= K; b.maxX *= K; b.minZ *= K; b.maxZ *= K; }
+    for (const m of murs2D) { m.x *= K; m.z *= K; m.l *= K; m.p *= K; }
+    ciel.position.x *= K; ciel.position.z *= K;
+    if (ombres) {
+      soleil.target.position.x *= K; soleil.target.position.z *= K;
+      soleil.position.set(...amb.soleil.pos).add(soleil.target.position);
+      const cam = soleil.shadow.camera;
+      cam.left *= K; cam.right *= K; cam.top *= K; cam.bottom *= K;
+      cam.updateProjectionMatrix();
+    }
+  }
+  const sites = Object.fromEntries(Object.entries(def.sites).map(([n, z]) => [n, zone(z)]));
+  const postes = def.postes.map(point);
+  const apresPose = Object.fromEntries(Object.entries(def.apresPose || {}).map(([n, l]) => [n, l.map(point)]));
+  const rassemblement = Object.fromEntries(Object.entries(def.rassemblement || {}).map(([n, pt]) => [n, point(pt)]));
+  const departAttaque = zone(def.departAttaque), departDefense = zone(def.departDefense);
+
   // ----- Navigation des bots -----
-  const nav = new GrilleNav(monde, L.minX, L.maxX, L.minZ, L.maxZ, 0.5, 0.45);
+  const nav = new GrilleNav(monde, Lk.minX, Lk.maxX, Lk.minZ, Lk.maxZ, 0.5, 0.45);
 
   function pointDans(zone) {
     return nav.aleatoire(Math.random, zone) || { x: (zone.minX + zone.maxX) / 2, z: (zone.minZ + zone.maxZ) / 2 };
@@ -318,19 +342,19 @@ export function construireCarte(scene, qualite, idCarte = "nexus", options = {})
       if (soleil.shadow && soleil.shadow.map) soleil.shadow.map.dispose();
       scene.fog = null;
     },
-    def, id: def.id, nom: def.nom, limites: L, monde, nav, barriere, murs2D, soleil, ciel,
-    postes: def.postes, sites: def.sites, apresPose: def.apresPose,
-    zoneDepartBots: def.departDefense, zoneDepartAttaque: def.departAttaque,
+    def, id: def.id, nom: def.nom, limites: Lk, monde, nav, barriere, murs2D, soleil, ciel,
+    postes, sites, apresPose, rassemblement,
+    zoneDepartBots: departDefense, zoneDepartAttaque: departAttaque,
     ambiance: { heure, meteo, exposition: amb.exposition, env: amb.env, torche: amb.torche },
-    departJoueur(camp = "attaque") { return pointDans(camp === "attaque" ? def.departAttaque : def.departDefense); },
+    departJoueur(camp = "attaque") { return pointDans(camp === "attaque" ? departAttaque : departDefense); },
     pointDans,
     // Point libre loin d'une position (réapparition en deathmatch)
     pointLibreLoinDe(x, z, distMin = 14) {
       for (let k = 0; k < 60; k++) {
-        const p = nav.aleatoire(Math.random, { minX: L.minX + 1, maxX: L.maxX - 1, minZ: L.minZ + 1, maxZ: L.maxZ - 1 });
+        const p = nav.aleatoire(Math.random, { minX: Lk.minX + 1, maxX: Lk.maxX - 1, minZ: Lk.minZ + 1, maxZ: Lk.maxZ - 1 });
         if (p && Math.hypot(p.x - x, p.z - z) > distMin) return p;
       }
-      return pointDans(def.departDefense);
+      return pointDans(departDefense);
     },
     majAmbiance(dt, camera) {
       if (!pluie) return;

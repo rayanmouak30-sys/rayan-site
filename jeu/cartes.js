@@ -7,6 +7,7 @@ import { textureBache } from "./textures.js";
 // ======================= NEXUS (port logistique) =======================
 const nexus = {
   id: "nexus",
+  echelle: 1.15, // carte élargie de 15 % (positions et largeurs ; les hauteurs ne changent pas)
   nom: "Nexus",
   description: "Port logistique : conteneurs, longs murs de béton, trois couloirs.",
   limites: { minX: -32, maxX: 32, minZ: -22, maxZ: 22 },
@@ -68,6 +69,7 @@ const nexus = {
 // ======================= BAZAR (marché couvert de bâches) =======================
 const bazar = {
   id: "bazar",
+  echelle: 1.15, // carte élargie de 15 % (positions et largeurs ; les hauteurs ne changent pas)
   nom: "Bazar",
   description: "Marché aux ruelles étroites : étals, bâches colorées, fontaine au milieu.",
   limites: { minX: -28, maxX: 28, minZ: -24, maxZ: 24 },
@@ -180,6 +182,7 @@ const bazar = {
 // ======================= HANGAR (zone industrielle) =======================
 const hangar = {
   id: "hangar",
+  echelle: 1.15, // carte élargie de 15 % (positions et largeurs ; les hauteurs ne changent pas)
   nom: "Hangar",
   description: "Entrepôt industriel : site A sous la halle, site B au milieu des conteneurs.",
   limites: { minX: -32, maxX: 32, minZ: -24, maxZ: 24 },

@@ -40,13 +40,30 @@ export class Profil {
     this.d = profilVide();
     try {
       const sauve = JSON.parse(localStorage.getItem(CLE) || "null");
-      if (sauve) this.d = { ...profilVide(), ...sauve, stats: { ...profilVide().stats, ...(sauve.stats || {}) }, viseur: { ...VISEUR_DEFAUT, ...(sauve.viseur || {}) } };
+      if (sauve) this.d = Profil.normaliser(sauve);
     } catch (e) { /* stockage indisponible */ }
     this.compte = null;
+    this.surSauvegarde = null;
+  }
+
+  // Remet un profil (local ou venu du serveur) dans une forme sûre : bons types, valeurs par défaut
+  static normaliser(brut) {
+    const vide = profilVide();
+    const objet = (v) => (v && typeof v === "object" && !Array.isArray(v) ? v : {});
+    const d = { ...vide, ...objet(brut) };
+    d.stats = { ...vide.stats, ...objet(d.stats) };
+    d.viseur = { ...VISEUR_DEFAUT, ...objet(d.viseur) };
+    for (const k of ["skins", "succes", "defis", "armes"]) d[k] = { ...objet(d[k]) };
+    d.xp = Math.max(0, Number(d.xp) || 0);
+    d.niveau = Math.max(1, Math.floor(Number(d.niveau) || 1));
+    d.pseudo = String(d.pseudo || "").slice(0, 16);
+    if (typeof d.agent !== "string") d.agent = vide.agent;
+    return d;
   }
 
   sauver() {
     try { localStorage.setItem(CLE, JSON.stringify(this.d)); } catch (e) { /* stockage indisponible */ }
+    if (this.surSauvegarde) this.surSauvegarde();
   }
 
   get pseudo() { return (this.compte && this.compte.pseudo) || this.d.pseudo || "Joueur"; }
@@ -141,3 +158,22 @@ export async function classement() {
     return r.ok ? await r.json() : null;
   } catch (e) { return null; }
 }
+
+// ----- Compte du site depuis le jeu -----
+async function appelApi(action, corps = null) {
+  try {
+    const r = await fetch("api.php?action=" + action, {
+      method: corps ? "POST" : "GET", credentials: "same-origin",
+      headers: corps ? { ...ENTETES, "Content-Type": "application/json" } : ENTETES,
+      body: corps ? JSON.stringify(corps) : undefined,
+    });
+    const donnees = await r.json().catch(() => ({}));
+    return r.ok ? donnees : { erreur: donnees.erreur || "Le serveur ne répond pas (" + r.status + ")." };
+  } catch (e) { return { erreur: "Connexion impossible : le compte ne marche que sur le site en ligne." }; }
+}
+
+export const connexion = (identifiant, mdp) => appelApi("connexion", { identifiant, mdp });
+export const inscription = (pseudo, email, mdp) => appelApi("inscription", { pseudo, email, mdp });
+export const deconnexion = () => appelApi("deconnexion", {});
+export const chargerSauvegarde = () => appelApi("profil");
+export const envoyerSauvegarde = (donnees) => appelApi("sauver", donnees);

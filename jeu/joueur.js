@@ -140,7 +140,7 @@ export class Joueur {
     const n = Math.hypot(wx, wz);
     this.sprint = cmd.sprint && avant > 0.3 && !this.accroupi && !this.visee;
     const base = (def.vitesse || 5) * (this.surchargeT > 0 ? 1.15 : 1);
-    const vitesseMax = this.accroupi ? 2.3 : this.visee ? base * (def.lunette ? 0.55 : 0.72) : this.sprint ? base * 1.3 : base;
+    const vitesseMax = this.accroupi ? 2.0 : this.visee ? base * (def.lunette ? 0.55 : 0.72) : this.sprint ? base * 1.3 : base;
     if (n > 0) { const k = Math.min(1, n); wx = wx / n * vitesseMax * k; wz = wz / n * vitesseMax * k; }
 
     if (this.rueeT > 0) {

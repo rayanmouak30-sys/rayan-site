@@ -131,7 +131,7 @@
 <div id="ecran-menu" class="ecran">
   <div class="panneau-menu">
     <div class="logo-jeu">NEON<span>STRIKE</span></div>
-    <div class="badge-profil" id="badge-profil"></div>
+    <button type="button" class="badge-profil" id="badge-profil" data-ouvre="ecran-compte" title="Ton compte"></button>
     <button type="button" class="bouton-principal" data-ouvre="ecran-modes">JOUER</button>
     <div class="grille-menu">
       <button type="button" class="tuile" data-ouvre="ecran-enligne"><strong>En ligne</strong><span>Joue avec tes amis</span></button>
@@ -144,6 +144,39 @@
       <button type="button" class="bouton-lien" data-ouvre="ecran-commandes">Commandes</button>
       <a class="bouton-lien" href="../index.html">Retour au site</a>
     </div>
+  </div>
+</div>
+
+<div id="ecran-compte" class="ecran">
+  <div class="panneau-menu">
+    <h2>TON COMPTE</h2>
+    <p class="accroche">Avec un compte, ton niveau, tes XP, tes succès, tes touches et tes réglages sont sauvegardés et te suivent sur tous tes appareils. Tu apparais aussi au classement.</p>
+    <div id="compte-connecte" hidden>
+      <p class="accroche">Connecté : <strong id="compte-pseudo"></strong></p>
+      <p class="astuce" id="compte-synchro"></p>
+      <button type="button" class="bouton-principal petit" id="compte-continuer">CONTINUER</button>
+      <button type="button" class="bouton-lien" id="compte-deconnexion">Se déconnecter</button>
+    </div>
+    <div id="compte-formulaires">
+      <div class="choix" role="tablist">
+        <button type="button" id="onglet-connexion" role="tab" aria-checked="true">Se connecter</button>
+        <button type="button" id="onglet-inscription" role="tab" aria-checked="false">Créer un compte</button>
+      </div>
+      <form id="form-connexion" class="formulaire-compte">
+        <label class="champ">Pseudo ou email <input type="text" name="identifiant" autocomplete="username" required maxlength="80"></label>
+        <label class="champ">Mot de passe <input type="password" name="mdp" autocomplete="current-password" required></label>
+        <button type="submit" class="bouton-principal petit">SE CONNECTER</button>
+      </form>
+      <form id="form-inscription" class="formulaire-compte" hidden>
+        <label class="champ">Pseudo (3 à 20 lettres, chiffres, - ou _) <input type="text" name="pseudo" autocomplete="username" required minlength="3" maxlength="20" pattern="[A-Za-z0-9_\-]{3,20}"></label>
+        <label class="champ">Email <input type="email" name="email" autocomplete="email" required maxlength="120"></label>
+        <label class="champ">Mot de passe (8 caractères minimum) <input type="password" name="mdp" autocomplete="new-password" required minlength="8"></label>
+        <label class="champ">Confirme le mot de passe <input type="password" name="confirmation" autocomplete="new-password" required minlength="8"></label>
+        <button type="submit" class="bouton-principal petit">CRÉER MON COMPTE</button>
+      </form>
+    </div>
+    <p class="astuce" id="compte-message" aria-live="polite"></p>
+    <button type="button" class="bouton-lien" id="compte-sans">Jouer sans compte (progression gardée seulement sur cet appareil)</button>
   </div>
 </div>
 

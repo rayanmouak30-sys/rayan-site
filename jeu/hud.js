@@ -197,14 +197,14 @@ export class Hud {
     this.el.killcam.classList.toggle("visible", !!texte);
   }
 
-  ordres(visible, liste = []) {
+  ordres(visible, liste = [], manette = false) {
     const el = this.el.ordres;
     el.classList.toggle("visible", visible);
     if (!visible) return;
     el.innerHTML = "<div class='ordres-titre'>ORDRES À L'ÉQUIPE</div>";
     liste.forEach((o, i) => {
       const d = document.createElement("div");
-      const k = document.createElement("kbd"); k.textContent = String(i + 1);
+      const k = document.createElement("kbd"); k.textContent = manette ? ["A", "B", "X", "Y", "LB"][i] : String(i + 1);
       const s = document.createElement("span"); s.textContent = o;
       d.append(k, s);
       el.appendChild(d);
@@ -418,6 +418,9 @@ export class Hud {
       ctx.arc(px(f.x), py(f.z), f.rayon * k, 0, Math.PI * 2);
       ctx.fill();
     }
+    // Caisses de munitions (deathmatch)
+    ctx.fillStyle = "#ffd166";
+    for (const m of e.munitions || []) ctx.fillRect(px(m.x) - 3, py(m.z) - 2, 6, 4);
     // Spike
     if (e.spike && (e.spike.etat === "sol" || e.spike.etat === "pose")) {
       ctx.fillStyle = e.spike.etat === "pose" ? "#ff4f5e" : "#ffd166";

@@ -342,6 +342,13 @@ export class Audio {
     else this.oscillo(this.maitre, "triangle", 900, 600, 0.12, 0.12);
   }
 
+  ramassage() {
+    if (!this.ctx) return;
+    this.cliquetis(0, 1600);
+    this.cliquetis(0.07, 2200);
+    [880, 1320].forEach((f, i) => this.oscillo(this.maitre, "triangle", f, f, 0.12, 0.12, 0.1 + i * 0.07));
+  }
+
   refus() {
     if (!this.ctx) return;
     this.oscillo(this.maitre, "square", 160, 140, 0.15, 0.1);

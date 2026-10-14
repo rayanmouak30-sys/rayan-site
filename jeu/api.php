@@ -3,6 +3,8 @@
 // GET  ?action=etat        -> joueur connecté ?
 // POST ?action=resultat    -> enregistre le résultat d'une partie (compte connecté obligatoire)
 // GET  ?action=classement  -> les 20 meilleurs joueurs
+// POST ?action=connexion / inscription / deconnexion -> compte du site, depuis le jeu
+// GET  ?action=profil, POST ?action=sauver -> progression du jeu gardée sur le compte
 session_start();
 require __DIR__ . "/../comptes.php";
 
@@ -80,6 +82,98 @@ if ($action === "resultat") {
     $joueurs[$id] = $j;
     ecrireDonnees("neonstrike", $joueurs);
     repondre(["ok" => true, "xpTotal" => $j["xp"]]);
+}
+
+// ----- Limitation des tentatives (par adresse IP, gardée hachée) -----
+function tentativesRestantes(string $type, int $max, int $fenetre): bool {
+    $cle = $type . ":" . substr(hash("sha256", ($_SERVER["REMOTE_ADDR"] ?? "?") . "neonstrike"), 0, 24);
+    $limites = lireDonnees("neonstrike_limites");
+    $maintenant = time();
+    $liste = array_values(array_filter($limites[$cle] ?? [], function ($t) use ($maintenant, $fenetre) { return $maintenant - (int) $t < $fenetre; }));
+    return count($liste) < $max;
+}
+
+function noterTentative(string $type): void {
+    $cle = $type . ":" . substr(hash("sha256", ($_SERVER["REMOTE_ADDR"] ?? "?") . "neonstrike"), 0, 24);
+    $limites = lireDonnees("neonstrike_limites");
+    $maintenant = time();
+    // Nettoyage des vieilles entrées (plus d'une heure)
+    foreach ($limites as $k => $liste) {
+        $limites[$k] = array_values(array_filter($liste, function ($t) use ($maintenant) { return $maintenant - (int) $t < 3600; }));
+        if (!$limites[$k]) { unset($limites[$k]); }
+    }
+    $limites[$cle][] = $maintenant;
+    ecrireDonnees("neonstrike_limites", $limites);
+}
+
+function lireCorps(): array {
+    $brut = (string) file_get_contents("php://input");
+    if (strlen($brut) > 60000) { repondre(["erreur" => "Données trop volumineuses."], 413); }
+    $corps = json_decode($brut, true);
+    return is_array($corps) ? $corps : [];
+}
+
+if ($action === "connexion") {
+    if ($_SERVER["REQUEST_METHOD"] !== "POST") { repondre(["erreur" => "Méthode non autorisée."], 405); }
+    if (!tentativesRestantes("connexion", 8, 600)) { repondre(["erreur" => "Trop d'essais. Réessaie dans quelques minutes."], 429); }
+    $corps = lireCorps();
+    $u = utilisateurParIdentifiant((string) ($corps["identifiant"] ?? ""));
+    if ($u && password_verify((string) ($corps["mdp"] ?? ""), $u["hash"])) {
+        connecterUtilisateur($u);
+        repondre(["connecte" => true, "pseudo" => $u["pseudo"]]);
+    }
+    noterTentative("connexion");
+    repondre(["erreur" => "Pseudo/email ou mot de passe incorrect."], 401);
+}
+
+if ($action === "inscription") {
+    if ($_SERVER["REQUEST_METHOD"] !== "POST") { repondre(["erreur" => "Méthode non autorisée."], 405); }
+    if (!tentativesRestantes("inscription", 4, 3600)) { repondre(["erreur" => "Trop de comptes créés depuis cet appareil. Réessaie plus tard."], 429); }
+    $corps = lireCorps();
+    $pseudo = trim((string) ($corps["pseudo"] ?? ""));
+    $email = trim((string) ($corps["email"] ?? ""));
+    $mdp = (string) ($corps["mdp"] ?? "");
+    // Mêmes règles que la page d'inscription du site
+    if (!preg_match('/^[A-Za-z0-9_-]{3,20}$/', $pseudo)) { repondre(["erreur" => "Pseudo : 3 à 20 caractères (lettres, chiffres, - ou _)."], 400); }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) { repondre(["erreur" => "Adresse email invalide."], 400); }
+    if (strlen($mdp) < 8) { repondre(["erreur" => "Le mot de passe doit faire au moins 8 caractères."], 400); }
+    if (utilisateurParIdentifiant($pseudo) || utilisateurParIdentifiant($email)) { repondre(["erreur" => "Ce pseudo ou cet email est déjà utilisé."], 409); }
+    $utilisateur = ["id" => nouvelId(), "pseudo" => $pseudo, "email" => $email, "hash" => password_hash($mdp, PASSWORD_DEFAULT), "cree" => time()];
+    $utilisateurs = lireDonnees("utilisateurs");
+    $utilisateurs[] = $utilisateur;
+    ecrireDonnees("utilisateurs", $utilisateurs);
+    noterTentative("inscription");
+    connecterUtilisateur($utilisateur);
+    repondre(["connecte" => true, "pseudo" => $pseudo]);
+}
+
+if ($action === "deconnexion") {
+    if ($_SERVER["REQUEST_METHOD"] !== "POST") { repondre(["erreur" => "Méthode non autorisée."], 405); }
+    unset($_SESSION["utilisateur_id"]);
+    session_regenerate_id(true);
+    repondre(["connecte" => false]);
+}
+
+// ----- Sauvegarde de la progression du jeu (XP, succès, touches, réglages) -----
+if ($action === "profil") {
+    if (!$utilisateur) { repondre(["erreur" => "Non connecté."], 401); }
+    $profils = lireDonnees("neonstrike_profils");
+    repondre(["sauvegarde" => $profils[$utilisateur["id"]] ?? null]);
+}
+
+if ($action === "sauver") {
+    if ($_SERVER["REQUEST_METHOD"] !== "POST") { repondre(["erreur" => "Méthode non autorisée."], 405); }
+    if (!$utilisateur) { repondre(["erreur" => "Non connecté."], 401); }
+    $corps = lireCorps();
+    $sauvegarde = [];
+    foreach (["profil", "reglages", "touches", "manette"] as $cle) {
+        if (isset($corps[$cle]) && is_array($corps[$cle])) { $sauvegarde[$cle] = $corps[$cle]; }
+    }
+    $sauvegarde["maj"] = time();
+    $profils = lireDonnees("neonstrike_profils");
+    $profils[$utilisateur["id"]] = $sauvegarde;
+    ecrireDonnees("neonstrike_profils", $profils);
+    repondre(["ok" => true]);
 }
 
 repondre(["erreur" => "Action inconnue."], 400);
