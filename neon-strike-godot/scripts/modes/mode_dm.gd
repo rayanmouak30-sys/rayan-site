@@ -11,23 +11,17 @@ var attente := {}       # combattant -> temps avant réapparition
 
 
 func demarrer() -> void:
+	demarre = true
 	minuteur = DUREE
 	var j := partie.joueur
 	j.donner_arme(Jeu.config.get("arme", DonneesHeros.heros(j.heros).get("arme", "fusil")))
 	j.credits = -1
-	var heros := DonneesHeros.liste().duplicate()
-	heros.erase(j.heros)
-	heros.shuffle()
-	var nb_allies := 4 if Jeu.config.get("allies", true) else 0
-	for i in nb_allies:
-		partie.ajouter_bot(heros.pop_back(), "bleu")
-	for i in 5:
-		partie.ajouter_bot(heros.pop_back(), "rouge")
+	remplir_bots()
 	# La navigation doit être prête (première synchronisation) avant de choisir les points
 	await partie.attendre_navigation()
 	for c in partie.combattants:
 		_placer(c)
-	partie.hud.annoncer("COMBAT À MORT", "Première équipe à %d éliminations" % OBJECTIF, Style.ACCENT, 3.0)
+	partie.annoncer("COMBAT À MORT", "Première équipe à %d éliminations" % OBJECTIF, Style.ACCENT, 3.0)
 
 
 ## Point d'apparition le plus éloigné des ennemis
@@ -55,9 +49,15 @@ func _placer(c: Combattant) -> void:
 			meilleur = tt
 	if c is Joueur:
 		(c as Joueur).reapparaitre(meilleur)
+	elif c is JoueurDistant:
+		(c as JoueurDistant).reapparaitre(meilleur)
 	elif c is Bot:
 		(c as Bot).reapparaitre(meilleur)
 		_nouvel_objectif(c as Bot)
+
+
+func etat_reseau() -> Dictionary:
+	return {"hud": partie.dernier_hud, "phase": "combat"}
 
 
 func _nouvel_objectif(b: Bot) -> void:
@@ -70,7 +70,7 @@ func _nouvel_objectif(b: Bot) -> void:
 
 
 func _process(dt: float) -> void:
-	if fini:
+	if fini or not demarre:
 		return
 	minuteur -= dt
 	for c in attente.keys():
@@ -83,7 +83,7 @@ func _process(dt: float) -> void:
 	for c in partie.combattants:
 		if c is Bot and c.vivant and (c as Bot).etat == "objectif" and c.global_position.distance_to((c as Bot).objectif) < 3.0:
 			_nouvel_objectif(c as Bot)
-	partie.hud.maj_partie(minuteur, score["bleu"], score["rouge"], "OBJECTIF %d" % OBJECTIF, minuteur < 30.0)
+	partie.maj_partie(minuteur, score["bleu"], score["rouge"], "OBJECTIF %d" % OBJECTIF, minuteur < 30.0)
 	if is_instance_valid(partie.joueur) and not partie.joueur.vivant and attente.has(partie.joueur):
 		partie.hud.montrer_mort("Réapparition dans %d" % ceili(attente[partie.joueur]))
 	else:
@@ -103,9 +103,8 @@ func _fin() -> void:
 	var gagnant := "bleu" if score["bleu"] > score["rouge"] else ("rouge" if score["rouge"] > score["bleu"] else "")
 	var moi := partie.joueur.equipe
 	var texte := "VICTOIRE" if gagnant == moi else ("ÉGALITÉ" if gagnant == "" else "DÉFAITE")
-	partie.hud.annoncer(texte, "%d - %d" % [score["bleu"], score["rouge"]], Style.OK if gagnant == moi else Style.ROUGE, 6.0)
+	partie.annoncer(texte, "%d - %d" % [score["bleu"], score["rouge"]], Style.OK if gagnant == moi else Style.ROUGE, 6.0)
 	for c in partie.combattants:
 		if c is Bot:
 			(c as Bot).actif = false
-	if partie.has_method("fin_de_partie"):
-		partie.fin_de_partie(gagnant == moi)
+	partie.fin_equipe(gagnant)

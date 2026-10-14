@@ -17,6 +17,9 @@ var capacites: SystemeCapacites
 var economie := false
 var en_pause := false
 var menu_pause: Control
+var sync: SyncPartie             # synchronisation réseau (null hors ligne)
+var par_id := {}                 # id réseau -> combattant
+var dernier_hud := [0.0, 0, 0, "", false]
 
 
 func _ready() -> void:
@@ -60,16 +63,38 @@ func _ready() -> void:
 	joueur.brancher(vue, effets)
 	hud.joueur = joueur
 	var nom_mode: String = Jeu.config.get("mode", "stand")
+	var en_ligne := Reseau.actif() and bool(Jeu.config.get("en_ligne", false))
+	if en_ligne and nom_mode == "stand":
+		nom_mode = "dm"
 	var chemin_mode := "res://scripts/modes/mode_%s.gd" % nom_mode
 	if not ResourceLoader.exists(chemin_mode):
 		chemin_mode = "res://scripts/modes/mode_stand.gd"
+	if en_ligne:
+		sync = SyncPartie.new()
+		sync.partie = self
+		add_child(sync)
+		capacites.autorite = Reseau.est_hote()
+		if not Reseau.est_hote():
+			# Chez un joueur invité : les règles tournent chez l'hôte
+			chemin_mode = "res://scripts/reseau/mode_client.gd"
 	mode = load(chemin_mode).new()
 	mode.name = "Mode"
 	mode.partie = self
+	mode.set("nom_mode", nom_mode)
 	add_child(mode)
-	mode.demarrer()
 	if not Test.actif:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if en_ligne and Reseau.est_hote():
+		hud.annoncer("EN ATTENTE DES JOUEURS", "", Style.TEXTE2, 15.0)
+		sync.creer_humains()
+		await sync.attendre_clients()
+		mode.demarrer()
+		sync.envoyer_roster()
+	elif en_ligne:
+		sync.rpc_id(1, "rpc_client_pret")
+		mode.demarrer()
+	else:
+		mode.demarrer()
 
 
 func ajouter_combattant(c: Combattant) -> void:
@@ -102,11 +127,14 @@ func utiliser_capacite(c: Combattant, empl: String, dir: Vector3, cible := Vecto
 			Sons.jouer("ui_refus", -6.0)
 		return false
 	var id: String = c.etat_cap.ids[empl]
+	capacites.autorite = Reseau.autorite()
 	if not capacites.executer(c, id, dir, cible):
 		if c == joueur:
 			Sons.jouer("ui_refus", -8.0)
 		return false
 	c.etat_cap.consommer(empl)
+	if sync and c.id_reseau != 0:
+		sync.rpc("rpc_capacite", c.id_reseau, id, dir, cible)
 	if c.statut("camo") > 0.0 and empl != "e":
 		c.statuts["camo"] = 0.0
 	if empl == "x":
@@ -117,8 +145,14 @@ func utiliser_capacite(c: Combattant, empl: String, dir: Vector3, cible := Vecto
 
 
 ## Dégâts d'un combattant sur un autre. Renvoie vrai si la victime est éliminée.
+## En ligne, seul l'hôte applique les dégâts : un joueur invité lui envoie ses touches.
 func infliger(auteur: Combattant, victime: Combattant, degats: float, tete: bool, arme: String, pos: Vector3) -> bool:
 	if not victime.vivant:
+		return false
+	if sync and not Reseau.est_hote():
+		if auteur == joueur and victime.id_reseau != 0:
+			sync.rpc_id(1, "rpc_degats", victime.id_reseau, degats, tete, arme, pos)
+			hud.viseur.touche(tete, victime.vie - degats <= 0.0)
 		return false
 	if auteur != victime and auteur.equipe == victime.equipe and not mode.tir_ami:
 		return false
@@ -130,6 +164,8 @@ func infliger(auteur: Combattant, victime: Combattant, degats: float, tete: bool
 	if victime == joueur:
 		hud.degats_recus(reel, auteur.global_position)
 		Sons.jouer("degat_recu", -6.0, randf_range(0.95, 1.05))
+	elif victime is JoueurDistant and sync:
+		sync.rpc_id((victime as JoueurDistant).peer, "rpc_degat_recu", reel, auteur.global_position)
 	if victime is Cible:
 		(victime as Cible).secouer(victime.global_position - auteur.global_position, 1.0 if not tete else 1.6)
 	var mortel := victime.vie <= 0.0
@@ -176,6 +212,8 @@ func ajouter_bot(id_heros: String, eq: String, nom := "") -> Bot:
 
 
 func eliminer(victime: Combattant, tueur: Combattant, tete: bool, arme: String) -> void:
+	if sync and Reseau.est_hote():
+		sync.rpc("rpc_elimination", victime.id_reseau, tueur.id_reseau if tueur else 0, tete, arme)
 	victime.vivant = false
 	victime.morts += 1
 	if tueur and tueur != victime:
@@ -231,6 +269,44 @@ func _process(_dt: float) -> void:
 		if montrer and not tableau.visible:
 			tableau.call("actualiser")
 		tableau.visible = montrer
+
+
+## Annonce au centre de l'écran (diffusée à tous en ligne)
+func annoncer(texte: String, sous := "", couleur := Style.TEXTE, duree := 2.5) -> void:
+	hud.annoncer(texte, sous, couleur, duree)
+	if sync and Reseau.est_hote():
+		sync.rpc("rpc_annonce", texte, sous, couleur, duree)
+
+
+## Message pour un combattant précis (le joueur local ou un joueur distant)
+func message_pour(c: Combattant, texte: String, duree := 2.0) -> void:
+	if c == joueur:
+		hud.afficher_message(texte, duree)
+	elif c is JoueurDistant and sync:
+		sync.rpc_id((c as JoueurDistant).peer, "rpc_message", texte, duree)
+
+
+## Minuteur et score de l'interface (gardés pour être envoyés aux autres joueurs)
+func maj_partie(minuteur: float, b: int, r: int, texte: String, urgent := false) -> void:
+	dernier_hud = [minuteur, b, r, texte, urgent]
+	hud.maj_partie(minuteur, b, r, texte, urgent)
+
+
+## Fin de partie annoncée par le mode avec l'équipe gagnante (chacun voit sa victoire ou sa défaite)
+func fin_equipe(gagnant: String) -> void:
+	if sync and Reseau.est_hote():
+		sync.rpc("rpc_fin", gagnant)
+	fin_de_partie(gagnant == joueur.equipe)
+
+
+## Un joueur a quitté la partie : son personnage disparaît
+func joueur_parti(id: int) -> void:
+	var c: Combattant = par_id.get(id)
+	if c:
+		combattants.erase(c)
+		par_id.erase(id)
+		annoncer("%s a quitté la partie" % c.nom_affiche, "", Style.TEXTE2, 2.0)
+		c.queue_free()
 
 
 ## Fin de partie : écran de résultats après quelques secondes

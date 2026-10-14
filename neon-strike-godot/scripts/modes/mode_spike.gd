@@ -37,14 +37,7 @@ func demarrer() -> void:
 	partie._preparer_hud_capacites()
 	if String(Jeu.config.get("camp", "attaque")) == "defense":
 		cote = {"bleu": "defense", "rouge": "attaque"}
-	var heros := DonneesHeros.liste().duplicate()
-	heros.erase(j.heros)
-	heros.shuffle()
-	var nb_allies := 4 if Jeu.config.get("allies", true) else 0
-	for i in nb_allies:
-		partie.ajouter_bot(heros.pop_back(), "bleu")
-	for i in 5:
-		partie.ajouter_bot(heros.pop_back(), "rouge")
+	remplir_bots()
 	for c in partie.combattants:
 		c.credits = 800
 		if c is Bot:
@@ -65,6 +58,14 @@ func _equipe_de(c: String) -> String:
 	return "bleu" if cote["bleu"] == c else "rouge"
 
 
+## État envoyé aux joueurs invités (phase, Spike)
+func etat_reseau() -> Dictionary:
+	var d := {"hud": partie.dernier_hud, "phase": phase}
+	if avec_spike and spike:
+		d["spike"] = [spike.etat, spike.global_position, spike.porteur.id_reseau if is_instance_valid(spike.porteur) else 0, spike.minuterie, spike.site]
+	return d
+
+
 func texte_manche() -> String:
 	return "MANCHE %d" % manche
 
@@ -82,8 +83,10 @@ func _nouvelle_manche() -> void:
 			c.armure = 0.0
 			if c.etat_cap:
 				c.etat_cap = EtatCapacites.new(c.heros, true)
+			if c is JoueurDistant:
+				partie.sync.rpc_id((c as JoueurDistant).peer, "rpc_inventaire", "capacites_neuves", "")
 		partie._preparer_hud_capacites()
-		partie.hud.annoncer("CHANGEMENT DE CÔTÉ", "Vous êtes maintenant en %s" % ("attaque" if cote["bleu"] == "attaque" else "défense"), Style.ACCENT2, 3.0)
+		partie.annoncer("CHANGEMENT DE CÔTÉ", "Vous êtes maintenant en %s" % ("attaque" if cote["bleu"] == "attaque" else "défense"), Style.ACCENT2, 3.0)
 	partie.capacites.nettoyer()
 	partie.effets.nettoyer()
 	interaction.clear()
@@ -105,15 +108,21 @@ func _nouvelle_manche() -> void:
 		elif c is Bot:
 			(c as Bot).reapparaitre(t)
 			(c as Bot).actif = false
+		elif c is JoueurDistant:
+			(c as JoueurDistant).reapparaitre(t)
 		c.vie = 100.0
 		if c.etat_cap:
 			c.etat_cap.nouvelle_manche()
 			if manche > 1:
 				c.etat_cap.ajouter_point()
+		if c is JoueurDistant:
+			partie.sync.rpc_id((c as JoueurDistant).peer, "rpc_inventaire", "nouvelle_manche", "")
 	morts_manche.clear()
 	# Le Spike : donné à un attaquant
 	if avec_spike:
 		var attaquants := _vivants(_equipe_de("attaque"))
+		if attaquants.is_empty():
+			attaquants = [partie.joueur]
 		var porteur: Combattant = attaquants[randi() % attaquants.size()]
 		if partie.joueur.equipe == _equipe_de("attaque") and randf() < 0.4:
 			porteur = partie.joueur
@@ -126,9 +135,9 @@ func _nouvelle_manche() -> void:
 	minuteur = DUREE_ACHAT
 	combat_t = 0.0
 	var camp_j: String = cote[partie.joueur.equipe]
-	partie.hud.annoncer("MANCHE %d" % manche, ("ATTAQUE" if camp_j == "attaque" else "DÉFENSE") + "  ·  Phase d'achat — %s : boutique" % Reglages.touche("boutique"), Style.TEXTE, 3.0)
-	if avec_spike and spike.porteur == partie.joueur:
-		partie.hud.afficher_message("VOUS PORTEZ LE SPIKE — posez-le sur A ou B (%s)" % Reglages.touche("interagir"), 4.0)
+	partie.annoncer("MANCHE %d" % manche, ("ATTAQUE" if camp_j == "attaque" else "DÉFENSE") + "  ·  Phase d'achat — %s : boutique" % Reglages.touche("boutique"), Style.TEXTE, 3.0)
+	if avec_spike:
+		partie.message_pour(spike.porteur, "VOUS PORTEZ LE SPIKE — posez-le sur A ou B (touche d'interaction)", 4.0)
 
 
 func _retirer_principale(c: Combattant) -> void:
@@ -141,6 +150,10 @@ func _retirer_principale(c: Combattant) -> void:
 		j.choisir_emplacement(2, true)
 	elif c is Bot:
 		(c as Bot).equiper("")
+	elif c is JoueurDistant:
+		(c as JoueurDistant).principale = ""
+		c.arme_tenue = "pistolet"
+		partie.sync.rpc_id((c as JoueurDistant).peer, "rpc_inventaire", "retirer", "")
 
 
 func _vivants(eq: String) -> Array:
@@ -159,7 +172,7 @@ func _physics_process(dt: float) -> void:
 					if c is Bot:
 						(c as Bot).actif = true
 				Sons.jouer("manche_debut", -2.0)
-				partie.hud.annoncer("COMBAT", "", Style.ACCENT, 1.2)
+				partie.annoncer("COMBAT", "", Style.ACCENT, 1.2)
 				if menu_achat and menu_achat.visible:
 					basculer_achat()
 		"combat":
@@ -188,7 +201,7 @@ func _process(_dt: float) -> void:
 		t = spike.minuterie
 		urgent = true
 		texte = "SPIKE POSÉ — " + spike.site
-	partie.hud.maj_partie(t, score["bleu"], score["rouge"], texte, urgent)
+	partie.maj_partie(t, score["bleu"], score["rouge"], texte, urgent)
 	var l := []
 	for eq in ["bleu", "rouge"]:
 		var liste := []
@@ -246,7 +259,7 @@ func _fin_manche(gagnant: String, raison: String) -> void:
 			(c as Bot).actif = false
 	interaction.clear()
 	var moi := gagnant == partie.joueur.equipe
-	partie.hud.annoncer("MANCHE GAGNÉE" if moi else "MANCHE PERDUE", raison, Style.OK if moi else Style.ROUGE, 4.0)
+	partie.annoncer("MANCHE GAGNÉE" if moi else "MANCHE PERDUE", raison, Style.OK if moi else Style.ROUGE, 4.0)
 	Sons.jouer("manche_gagnee" if moi else "manche_perdue", -2.0)
 	if avec_spike and spike.etat == "explose":
 		partie.effets.explosion(spike.global_position + Vector3.UP, 8.0, Color(1.0, 0.4, 0.3))
@@ -260,9 +273,8 @@ func _fin_partie() -> void:
 	phase = "termine"
 	var moi := partie.joueur.equipe
 	var gagne: bool = int(score[moi]) >= MANCHES_VICTOIRE
-	partie.hud.annoncer("VICTOIRE" if gagne else "DÉFAITE", "%d - %d" % [score["bleu"], score["rouge"]], Style.OK if gagne else Style.ROUGE, 8.0)
-	if partie.has_method("fin_de_partie"):
-		partie.fin_de_partie(gagne)
+	partie.annoncer("VICTOIRE" if gagne else "DÉFAITE", "%d - %d" % [score["bleu"], score["rouge"]], Style.OK if gagne else Style.ROUGE, 8.0)
+	partie.fin_equipe(moi if gagne else ("rouge" if moi == "bleu" else "bleu"))
 
 
 func sur_elimination(victime: Combattant, tueur: Combattant, _tete: bool, _arme: String) -> void:
@@ -272,8 +284,8 @@ func sur_elimination(victime: Combattant, tueur: Combattant, _tete: bool, _arme:
 	interaction.erase(victime)
 	if avec_spike and spike.etat == "porte" and spike.porteur == victime:
 		spike.lacher(victime.global_position + Vector3(0, 0.05, 0))
-		if victime.equipe == partie.joueur.equipe:
-			partie.hud.afficher_message("LE SPIKE EST TOMBÉ", 2.0)
+		for c in _vivants(victime.equipe):
+			partie.message_pour(c, "LE SPIKE EST TOMBÉ", 2.0)
 
 
 func sur_resurrection(c: Combattant) -> void:
@@ -283,7 +295,7 @@ func sur_resurrection(c: Combattant) -> void:
 func _sur_pose(nom_site: String) -> void:
 	pose_par_equipe = _equipe_de("attaque")
 	var moi_attaque: bool = cote[partie.joueur.equipe] == "attaque"
-	partie.hud.annoncer("SPIKE POSÉ", "Site " + nom_site + (" — défendez-le" if moi_attaque else " — désamorcez-le !"), Style.ROUGE, 2.5)
+	partie.annoncer("SPIKE POSÉ", "Site " + nom_site + (" — défendez-le" if moi_attaque else " — désamorcez-le !"), Style.ROUGE, 2.5)
 	for c in partie.combattants:
 		if c.etat_cap and c.equipe == pose_par_equipe:
 			pass
@@ -309,8 +321,7 @@ func _interactions(dt: float) -> void:
 		for c in _vivants(_equipe_de("attaque")):
 			if c.global_position.distance_to(spike.global_position) < 1.3:
 				spike.donner(c)
-				if c == j:
-					partie.hud.afficher_message("VOUS AVEZ LE SPIKE", 2.0)
+				partie.message_pour(c, "VOUS AVEZ LE SPIKE", 2.0)
 				break
 	# Joueur : maintenir la touche d'interaction
 	var maintien := j.vivant and Input.is_action_pressed("interagir") and j.controle
@@ -324,6 +335,23 @@ func _interactions(dt: float) -> void:
 		if it["type"] == "desamorcage" and float(it["t"]) >= Spike.DUREE_DESAMORCAGE * 0.5:
 			spike.progression_desamorcage = Spike.DUREE_DESAMORCAGE * 0.5
 		interaction.erase(j)
+	# Joueurs distants : même logique avec leur touche transmise par le réseau
+	for c in partie.combattants:
+		if not (c is JoueurDistant) or not c.vivant:
+			continue
+		var jd := c as JoueurDistant
+		if jd.maintien_interaction and not interaction.has(jd):
+			if spike.etat == "porte" and spike.porteur == jd and site_de(jd.global_position) != "":
+				interaction[jd] = {"type": "pose", "t": 0.0, "pos": jd.global_position}
+			elif spike.etat == "pose" and cote[jd.equipe] == "defense" and jd.global_position.distance_to(spike.global_position) < 1.8:
+				interaction[jd] = {"type": "desamorcage", "t": spike.progression_desamorcage, "pos": jd.global_position}
+		elif not jd.maintien_interaction and interaction.has(jd):
+			interaction.erase(jd)
+			partie.sync.rpc_id(jd.peer, "rpc_progression", "", 0.0)
+		if interaction.has(jd):
+			var itd: Dictionary = interaction[jd]
+			var tot := Spike.DUREE_POSE if itd["type"] == "pose" else Spike.DUREE_DESAMORCAGE
+			partie.sync.rpc_id(jd.peer, "rpc_progression", "POSE DU SPIKE" if itd["type"] == "pose" else "DÉSAMORÇAGE", float(itd["t"]) / tot)
 	# Avancement de toutes les interactions (joueur et bots)
 	for c in interaction.keys():
 		var it: Dictionary = interaction[c]
@@ -496,6 +524,9 @@ func acheter(c: Combattant, article: String) -> bool:
 				(c as Joueur).donner_arme(p[1])
 			elif c is Bot:
 				(c as Bot).equiper(p[1])
+			elif c is JoueurDistant:
+				(c as JoueurDistant).principale = p[1]
+				partie.sync.rpc_id((c as JoueurDistant).peer, "rpc_inventaire", "donner", p[1])
 		"bouclier":
 			var b: Array = BOUCLIERS[p[1]]
 			if c.credits < int(b[1]) or c.armure >= float(b[0]):
@@ -508,6 +539,8 @@ func acheter(c: Combattant, article: String) -> bool:
 				return false
 			c.credits -= e.prix(p[1])
 			e.charges[p[1]] += 1
+			if c is JoueurDistant:
+				partie.sync.rpc_id((c as JoueurDistant).peer, "rpc_inventaire", "charge", p[1])
 	if c is Joueur:
 		Sons.jouer("ui_achat", -4.0)
 	return true

@@ -427,6 +427,9 @@ func _tirer() -> void:
 	var couleur := Color(def.get("couleur_trace", "#ffe9b8"))
 	var touches_par_cible := {}
 	var n := 0
+	var fins_reseau := PackedVector3Array()
+	var normales_reseau := PackedVector3Array()
+	var matieres_reseau := PackedStringArray()
 	for d in decalages:
 		var dir := direction_tir(d)
 		var q := PhysicsRayQueryParameters3D.create(origine, origine + dir * 220.0, MASQUE_TIR, ex)
@@ -451,11 +454,16 @@ func _tirer() -> void:
 				effets.touche_combattant(fin, r["normal"], partie == "tete", victime.armure > 0.0)
 			else:
 				effets.impact(fin, r["normal"], Combattant.matiere_de(c), couleur)
+		fins_reseau.append(fin)
+		normales_reseau.append(r["normal"] if not r.is_empty() else Vector3.UP)
+		matieres_reseau.append("" if r.is_empty() else ("chair" if (r["collider"] is Area3D) else Combattant.matiere_de(r["collider"])))
 		# Traçante : une sur deux pour les rafales, toutes pour les armes lourdes ; pas de traçante en visée lunette
 		if not (def.get("lunette", false) and vise) and (decalages.size() > 1 or arme.serie <= 1.0 or int(arme.serie) % 2 == 0):
 			if n < 4:
 				effets.trace(depart_trace, fin, couleur, 0.03 if id == "sniper" else (0.022 if id == "pulsar" else 0.016))
 		n += 1
+	if Jeu.partie and Jeu.partie.sync:
+		Jeu.partie.sync.envoyer_tir(self, depart_trace, fins_reseau, normales_reseau, matieres_reseau, id)
 	for victime in touches_par_cible:
 		var t: Dictionary = touches_par_cible[victime]
 		infliger(victime, t["degats"], t["tete"], id, t["pos"])

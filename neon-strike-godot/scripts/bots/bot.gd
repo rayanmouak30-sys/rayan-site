@@ -45,6 +45,8 @@ var bloque_t := 0.0
 var horloge := 0.0
 var repath_t := 0.0
 var actif := true                 # faux pendant la phase d'achat / avant le début de manche
+var marionnette := false          # en réseau chez les joueurs : suit l'état envoyé par l'hôte
+var cible_reseau := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -117,6 +119,15 @@ func mourir(tueur: Combattant, _tete: bool) -> void:
 func _physics_process(dt: float) -> void:
 	horloge += dt
 	maj_statuts(dt)
+	if marionnette:
+		if vivant:
+			if global_position.distance_to(cible_reseau) > 4.0:
+				global_position = cible_reseau
+			else:
+				global_position = global_position.lerp(cible_reseau + velocity * 0.05, 1.0 - exp(-15.0 * dt))
+			rotation.y = lerp_angle(rotation.y, lacet, 1.0 - exp(-20.0 * dt))
+			animer_modele(true, accroupi, false)
+		return
 	if not vivant:
 		velocity.x = move_toward(velocity.x, 0.0, 10.0 * dt)
 		velocity.z = move_toward(velocity.z, 0.0, 10.0 * dt)
@@ -537,6 +548,9 @@ func _tirer(dt: float) -> void:
 		ex.append(z.get_rid())
 	var touches := {}
 	var n := 0
+	var fins_reseau := PackedVector3Array()
+	var normales_reseau := PackedVector3Array()
+	var matieres_reseau := PackedStringArray()
 	for o in decalages:
 		var off: Vector2 = o + Vector2(deg_to_rad(err.x), deg_to_rad(err.y))
 		var d := (base * Vector3(tan(off.x), tan(off.y), -1.0)).normalized()
@@ -562,11 +576,17 @@ func _tirer(dt: float) -> void:
 					effets.touche_combattant(fin, r["normal"], partie_corps == "tete", v.armure > 0.0)
 			elif effets:
 				effets.impact(fin, r["normal"], Combattant.matiere_de(c), couleur)
+		fins_reseau.append(fin)
+		normales_reseau.append(r["normal"] if not r.is_empty() else Vector3.UP)
+		matieres_reseau.append("" if r.is_empty() else ("chair" if (r["collider"] is Area3D) else Combattant.matiere_de(r["collider"])))
 		if effets and n < 3:
 			effets.trace(depart, fin, couleur, 0.02)
 		n += 1
 	if effets:
 		effets.flash(depart, Color(arme.def.get("couleur_flash", "#ffc27a")), 1.0)
+	var pr: Partie = Jeu.partie
+	if pr and pr.sync:
+		pr.sync.envoyer_tir(self, depart, fins_reseau, normales_reseau, matieres_reseau, arme.id)
 	Sons.jouer_3d("tir_" + arme.id, depart, -2.0, randf_range(0.96, 1.04), 90.0)
 	if modele:
 		modele.action("tir")

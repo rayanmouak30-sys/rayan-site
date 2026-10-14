@@ -12,6 +12,7 @@ const COUCHE_OBJETS := 8
 const MASQUE_TIR := COUCHE_MONDE | COUCHE_TOUCHES | COUCHE_OBJETS
 
 var nom_affiche := "Joueur"
+var id_reseau := 0                # identifiant commun à toutes les machines (0 hors ligne)
 var equipe := "bleu"
 var heros := "kael"
 var skin := "standard"
