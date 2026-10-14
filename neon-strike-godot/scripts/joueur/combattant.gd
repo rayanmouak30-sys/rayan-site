@@ -43,6 +43,51 @@ var aveugle := 0.0
 var aveugle_max := 1.0
 
 var zones_touche: Array[Area3D] = []
+var modele: Perso3D
+var arme_tenue := ""
+
+
+## Choisit le héros (taille, zones de touche) et crée son modèle 3D
+func definir_heros(id: String, id_skin := "standard", couches := 1, ombres_seules := false) -> void:
+	heros = id
+	skin = id_skin
+	var h := DonneesHeros.heros(id)
+	taille = float(h["apparence"].get("taille", 1.0))
+	hauteur_yeux = 1.62 * taille
+	creer_zones_touche()
+	if modele:
+		modele.queue_free()
+	modele = Perso3D.new()
+	modele.name = "Modele"
+	add_child(modele)
+	modele.modele_couches = couches
+	modele.arme_id = arme_tenue if arme_tenue != "" else String(h.get("arme", "fusil"))
+	modele.charger(id, id_skin, equipe)
+	modele.preparer_arbre()
+	modele.definir_couches(couches, ombres_seules)
+
+
+func tenir_arme(id: String) -> void:
+	arme_tenue = id
+	if modele:
+		modele.tenir(id, Profil.skin_arme(id) if est_joueur else "standard")
+		modele.action("equiper")
+
+
+## Animation selon le déplacement (vitesse locale) et l'état
+func animer_modele(au_sol: bool, accroupi: bool, sprint: bool) -> void:
+	if modele == null or not vivant:
+		return
+	var v := global_transform.basis.inverse() * velocity
+	var vl := Vector2(v.x, -v.z)
+	var e := "sol"
+	if not au_sol:
+		e = "air"
+	elif sprint and vl.y > 3.0:
+		e = "sprint"
+	elif accroupi:
+		e = "accroupi"
+	modele.maj_locomotion(vl, e)
 
 
 func _ready() -> void:

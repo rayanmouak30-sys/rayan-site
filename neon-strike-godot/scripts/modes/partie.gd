@@ -47,6 +47,7 @@ func _ready() -> void:
 	joueur.skin = Profil.skin_heros(joueur.heros)
 	joueur.equipe = "bleu"
 	add_child(joueur)
+	joueur.definir_heros(joueur.heros, joueur.skin, 1 << 19, true)
 	ajouter_combattant(joueur)
 	var spawns: Array = carte.apparitions["bleu"]
 	if not spawns.is_empty():
@@ -78,6 +79,8 @@ func infliger(auteur: Combattant, victime: Combattant, degats: float, tete: bool
 	if auteur != victime and auteur.equipe == victime.equipe and not mode.tir_ami:
 		return false
 	var reel := victime.appliquer_degats(degats)
+	if victime is Bot:
+		(victime as Bot).reagir_touche(auteur)
 	auteur.degats_infliges += reel
 	victime.touche_recu.emit(reel, auteur, tete)
 	if victime == joueur:
@@ -91,6 +94,41 @@ func infliger(auteur: Combattant, victime: Combattant, degats: float, tete: bool
 	if mortel:
 		eliminer(victime, auteur, tete, arme)
 	return mortel
+
+
+## Bruit (tir, pas de course, capacité) : les bots ennemis dans le rayon l'entendent
+func bruit(pos: Vector3, rayon: float, auteur: Combattant) -> void:
+	for c in combattants:
+		if c is Bot and c.vivant and c != auteur and c.global_position.distance_to(pos) < rayon:
+			(c as Bot).entendre(pos, auteur)
+
+
+## Attend que le maillage de navigation soit cuit et synchronisé
+func attendre_navigation() -> void:
+	var nav := carte.navigation
+	var t := 0
+	while nav and nav.is_baking() and t < 600:
+		await get_tree().process_frame
+		t += 1
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
+
+## Ajoute un bot (héros, équipe) à la partie
+func ajouter_bot(id_heros: String, eq: String, nom := "") -> Bot:
+	var b := Bot.new()
+	b.name = "Bot_" + id_heros + "_" + str(combattants.size())
+	b.equipe = eq
+	b.nom_affiche = nom if nom != "" else String(DonneesHeros.heros(id_heros)["nom"])
+	b.effets = effets
+	add_child(b)
+	var h := DonneesHeros.heros(id_heros)
+	b.arme_tenue = String(h.get("arme", "fusil"))
+	b.definir_heros(id_heros, "standard", 1, false)
+	b.modele.appliquer_skin("standard", eq)
+	b.equiper(b.arme_tenue)
+	ajouter_combattant(b)
+	return b
 
 
 func eliminer(victime: Combattant, tueur: Combattant, tete: bool, arme: String) -> void:

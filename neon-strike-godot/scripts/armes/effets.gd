@@ -307,6 +307,31 @@ func _base_normale(n: Vector3) -> Basis:
 	return Basis(x, y, x.cross(y))
 
 
+## Flash de bouche vu de l'extérieur (autres combattants)
+func flash(pos: Vector3, couleur: Color, force := 1.0) -> void:
+	var q := MeshInstance3D.new()
+	var m := QuadMesh.new()
+	m.size = Vector2(0.35, 0.35) * force
+	q.mesh = m
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.albedo_texture = Textures.eclat()
+	mat.albedo_color = couleur * 1.5
+	q.material_override = mat
+	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(q)
+	q.global_position = pos
+	var l := OmniLight3D.new()
+	l.light_color = couleur
+	l.light_energy = 2.0 * force
+	l.omni_range = 3.0
+	q.add_child(l)
+	get_tree().create_timer(0.05).timeout.connect(q.queue_free)
+
+
 ## Efface les trous de balles (nouvelle manche)
 func nettoyer() -> void:
 	for d in trous:

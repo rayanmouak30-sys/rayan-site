@@ -125,6 +125,8 @@ func choisir_emplacement(e: int, force := false) -> void:
 	if vue:
 		vue.equiper(id, Profil.skin_arme(id))
 	Sons.jouer("equiper_" + id if Sons.existe("equiper_" + id) else "equiper", -4.0)
+	if modele:
+		tenir_arme(id)
 	arme_changee.emit(id)
 
 
@@ -169,6 +171,8 @@ func _recharger() -> void:
 		etait_en_recharge = true
 		if vue:
 			vue.recharger(arme.recharge_vide, arme.duree_recharge)
+		if modele:
+			modele.action("rechargement", arme.duree_recharge)
 
 
 func vitesse_horizontale() -> float:
@@ -361,6 +365,7 @@ func _armes(dt: float, actif: bool) -> void:
 					sprint_bloque = 0.25
 				_tirer()
 				gachette_relachee = false
+	animer_modele(is_on_floor(), accroupi, en_sprint)
 	if vue:
 		vue.amplitude_bob = float(Reglages.lire("balancement"))
 		var souris: Vector2 = vue.get_meta("souris", Vector2.ZERO)
@@ -394,6 +399,10 @@ func _tirer() -> void:
 	vue.tir()
 	a_tire.emit(id)
 	Sons.jouer("tir_" + id, -2.0, randf_range(0.97, 1.03))
+	if Jeu.partie:
+		Jeu.partie.bruit(global_position, 45.0, self)
+	if modele:
+		modele.action("tir")
 	secousse = minf(1.0, secousse + float(VueArme.RECUL.get(id, 1.0)) * 0.12)
 	var origine := cam.global_position
 	var depart_trace := origine + cam.global_transform.basis * Vector3(0.12, -0.1, -0.6)

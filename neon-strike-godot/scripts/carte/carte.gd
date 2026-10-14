@@ -182,6 +182,8 @@ func apparition(equipe: String, pos: Vector3, regard_vers: Vector3) -> void:
 	var t := Transform3D(Basis.IDENTITY, pos)
 	var d := regard_vers - pos
 	t.basis = Basis(Vector3.UP, atan2(-d.x, -d.z))
+	if not apparitions.has(equipe):
+		apparitions[equipe] = []
 	apparitions[equipe].append(t)
 
 
