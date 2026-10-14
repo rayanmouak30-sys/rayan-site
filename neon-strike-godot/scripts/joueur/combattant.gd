@@ -148,3 +148,14 @@ func invisible() -> bool:
 func ajouter_soin(total: float, duree: float) -> void:
 	soin_restant += total
 	soin_taux = maxf(soin_taux, total / maxf(0.1, duree))
+
+
+## Matière d'une surface touchée (méta "matiere" sur le corps ou son parent) : beton, metal, bois, verre, terre, vegetal
+static func matiere_de(o: Object) -> String:
+	if o == null:
+		return "beton"
+	if o.has_meta("matiere"):
+		return o.get_meta("matiere")
+	if o is Node and (o as Node).get_parent() and (o as Node).get_parent().has_meta("matiere"):
+		return (o as Node).get_parent().get_meta("matiere")
+	return "beton"

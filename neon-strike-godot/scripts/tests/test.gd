@@ -20,6 +20,8 @@ func _ready() -> void:
 	sortie = arguments.get("sortie", OS.get_user_data_dir())
 	actif = scenario != ""
 	if actif:
+		# Rendu logiciel lent : la physique doit rattraper le temps réel pour que les durées restent justes
+		Engine.max_physics_steps_per_frame = 64
 		get_window().size = Vector2i(int(arguments.get("largeur", "1280")), int(arguments.get("hauteur", "720")))
 		_lancer.call_deferred()
 

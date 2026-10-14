@@ -4,9 +4,28 @@ extends SubViewportContainer
 ## (jamais à travers les murs), avec balancement, course, recul à ressorts, visée alignée sur le viseur,
 ## flash de bouche et écran de munitions du Pulsar.
 
-const FOV := 54.0
-const DISTANCE_VISEE := {"pulsar": 0.26, "fusil": 0.24, "pistolet": 0.36, "pompe": 0.3, "sniper": 0.2, "couteau": 0.3}
+const FOV := 64.0
+const DISTANCE_VISEE := {"pulsar": 0.33, "fusil": 0.3, "pistolet": 0.4, "pompe": 0.34, "sniper": 0.2, "couteau": 0.3}
+## Décalage de l'arme à la hanche (repère caméra) : arme un peu plus basse et à droite, façon FPS compétitif
+const DECALAGE_HANCHE := {"pulsar": Vector3(0.022, -0.018, 0.012), "fusil": Vector3(0.022, -0.016, 0.01), "pompe": Vector3(0.02, -0.014, 0.012),
+	"sniper": Vector3(0.02, -0.012, 0.012), "pistolet": Vector3(-0.012, 0.016, -0.008), "couteau": Vector3(0.0, 0.0, 0.0)}
 const RECUL := {"pulsar": 0.9, "fusil": 1.0, "pistolet": 1.3, "pompe": 2.2, "sniper": 2.4, "couteau": 0.0}
+## Sons calés sur les animations (instant relatif 0..1, nom du son) ; "*" = toutes les armes à chargeur
+const SONS_ANIM := {
+	"rechargement": {
+		"*": [[0.2, "chargeur_sortie"], [0.56, "chargeur_entree"]],
+		"pompe": [[0.12, "manip"], [0.32, "cartouche"], [0.495, "cartouche"], [0.67, "cartouche"], [0.845, "cartouche"]],
+	},
+	"rechargement_vide": {
+		"*": [[0.2, "chargeur_sortie"], [0.56, "chargeur_entree"], [0.79, "armement"]],
+		"pistolet": [[0.2, "chargeur_sortie"], [0.56, "chargeur_entree"], [0.79, "culasse_pistolet"]],
+		"sniper": [[0.06, "verrou_ouvre"], [0.2, "chargeur_sortie"], [0.56, "chargeur_entree"], [0.94, "verrou_ferme"]],
+		"pompe": [[0.12, "manip"], [0.32, "cartouche"], [0.495, "cartouche"], [0.67, "cartouche"], [0.845, "cartouche"], [0.93, "pompe"]],
+	},
+	"tir": {"pompe": [[0.42, "pompe"]], "sniper": [[0.4, "verrou_ouvre"], [0.76, "verrou_ferme"]]},
+	"sortie": {"*": [[0.0, "sortie_tissu"], [0.62, "armement_leger"]], "couteau": [[0.0, "couteau_sortie"]], "pistolet": [[0.0, "sortie_tissu"], [0.6, "culasse_pistolet"]]},
+	"inspection": {"*": [[0.1, "manip"], [0.55, "manip"]], "couteau": [[0.15, "couteau_sortie"], [0.5, "couteau_sortie"]]},
+}
 
 var vp: SubViewport
 var cam: Camera3D
@@ -32,6 +51,13 @@ var flash: Node3D
 var lumiere_flash: OmniLight3D
 var mat_flash: StandardMaterial3D
 var amplitude_bob := 1.0
+var douilles: Array[MeshInstance3D] = []   # douilles éjectées (réserve)
+var douilles_v: Array[Vector3] = []
+var douilles_rot: Array[Vector3] = []
+var douilles_t: Array[float] = []
+var i_douille := 0
+var anim_avant := 0.0       # position relative précédente de l'animation (pour les sons)
+var anim_nom_avant := ""
 
 
 class Ressort:
@@ -52,7 +78,7 @@ class Ressort:
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	stretch = true
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vp = SubViewport.new()
@@ -95,6 +121,7 @@ func _ready() -> void:
 	pivot = Node3D.new()
 	cam.add_child(pivot)
 	_creer_flash()
+	_creer_douilles()
 
 
 func _creer_flash() -> void:
@@ -128,6 +155,60 @@ func _creer_flash() -> void:
 	flash.add_child(lumiere_flash)
 
 
+func _creer_douilles() -> void:
+	var laiton := StandardMaterial3D.new()
+	laiton.albedo_color = Color(0.85, 0.62, 0.3)
+	laiton.metallic = 1.0
+	laiton.roughness = 0.28
+	var m := CylinderMesh.new()
+	m.top_radius = 0.0042
+	m.bottom_radius = 0.0045
+	m.height = 0.022
+	m.radial_segments = 10
+	m.rings = 1
+	m.material = laiton
+	for i in 8:
+		var d := MeshInstance3D.new()
+		d.mesh = m
+		d.visible = false
+		d.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		cam.add_child(d)
+		douilles.append(d)
+		douilles_v.append(Vector3.ZERO)
+		douilles_rot.append(Vector3.ZERO)
+		douilles_t.append(0.0)
+
+
+## Éjecte une douille depuis la fenêtre d'éjection (repère caméra) ; cartouche de pompe plus grosse et rouge
+func _ejecter() -> void:
+	var rep: Node3D = actuel.get("ejection")
+	if rep == null:
+		return
+	var d := douilles[i_douille]
+	var i := i_douille
+	i_douille = (i_douille + 1) % douilles.size()
+	d.visible = true
+	d.transform = cam.global_transform.affine_inverse() * rep.global_transform
+	d.scale = Vector3(2.2, 2.4, 2.2) if id_actuel == "pompe" else (Vector3(1.2, 1.6, 1.2) if id_actuel == "sniper" else Vector3.ONE)
+	d.rotate_object_local(Vector3.RIGHT, PI / 2)
+	douilles_v[i] = Vector3(randf_range(0.9, 1.4), randf_range(0.8, 1.2), randf_range(-0.1, 0.2))
+	douilles_rot[i] = Vector3(randf_range(-20, 20), randf_range(-8, 8), randf_range(10, 25))
+	douilles_t[i] = 0.7
+
+
+func _maj_douilles(dt: float) -> void:
+	for i in douilles.size():
+		if douilles_t[i] <= 0.0:
+			continue
+		douilles_t[i] -= dt
+		var d := douilles[i]
+		douilles_v[i] += Vector3(0, -6.0, 0) * dt
+		d.position += douilles_v[i] * dt
+		d.rotation += douilles_rot[i] * dt
+		if douilles_t[i] <= 0.0:
+			d.visible = false
+
+
 func _modele(id: String) -> Dictionary:
 	if modeles.has(id):
 		return modeles[id]
@@ -145,6 +226,7 @@ func _modele(id: String) -> Dictionary:
 		"viseur": racine.find_child("Repere_viseur", true, false),
 		"bouche": racine.find_child("Repere_bouche", true, false),
 		"ecran_repere": racine.find_child("Repere_ecran", true, false),
+		"ejection": racine.find_child("Repere_ejection", true, false),
 		"ads": Transform3D.IDENTITY, "ads_ok": false, "ecran": null,
 	}
 	if d["ecran_repere"] != null:
@@ -232,6 +314,13 @@ func tir(lourd := false) -> void:
 	mat_flash.albedo_color = Color(def.get("couleur_flash", "#ffc27a"))
 	lumiere_flash.light_color = mat_flash.albedo_color
 	lumiere_flash.light_energy = 3.0
+	# Douille : immédiate pour les armes semi/auto, au réarmement pour la pompe et le verrou
+	if id_actuel in ["pistolet", "fusil"]:
+		_ejecter()
+	elif id_actuel in ["pompe", "sniper"]:
+		get_tree().create_timer(DonneesArmes.arme(id_actuel)["cadence"] * 0.5).timeout.connect(func() -> void:
+			if id_actuel in ["pompe", "sniper"]:
+				_ejecter())
 
 
 func recharger(vide: bool, duree: float) -> void:
@@ -266,7 +355,7 @@ func maj(dt: float, e: Dictionary) -> void:
 		actuel["ads"] = cible * v.affine_inverse()
 		actuel["ads_ok"] = true
 	var lisse := func(k: float) -> float: return 1.0 - exp(-k * dt)
-	var vise := bool(e.get("vise", false)) and actuel["ads_ok"]
+	var vise: bool = bool(e.get("vise", false)) and bool(actuel["ads_ok"])
 	visee_k += ((1.0 if vise else 0.0) - visee_k) * lisse.call(14.0)
 	sprint_k += ((1.0 if e.get("sprint", false) else 0.0) - sprint_k) * lisse.call(9.0)
 	var vit: float = e.get("vitesse", 0.0)
@@ -289,8 +378,9 @@ func maj(dt: float, e: Dictionary) -> void:
 		rz * 0.045)
 	var rot := Vector3(rx * 0.012 + balance.y * 1.5 * hors_visee, balance.x * 2.0 * hors_visee + sin(bob_t * 0.5) * 0.01 * bob_k * a, rr * 0.01 + balance.x * 1.2 * hors_visee)
 	# Course : arme baissée et tournée
-	pos += Vector3(0.03, -0.05, 0.02) * sprint_k
-	rot += Vector3(-0.35, 0.45, 0.18) * sprint_k
+	pos += Vector3(0.015, -0.025, 0.01) * sprint_k
+	rot += Vector3(-0.16, 0.36, 0.14) * sprint_k
+	pos += (DECALAGE_HANCHE.get(id_actuel, Vector3.ZERO) as Vector3) * (1.0 - visee_k)
 	var proc := Transform3D(Basis.from_euler(rot), pos)
 	var ads: Transform3D = actuel["ads"] if actuel["ads_ok"] else Transform3D.IDENTITY
 	pivot.transform = proc * Transform3D.IDENTITY.interpolate_with(ads, visee_k)
@@ -303,6 +393,8 @@ func maj(dt: float, e: Dictionary) -> void:
 		if flash_t <= 0.0:
 			flash.visible = false
 			lumiere_flash.light_energy = 0.0
+	_sons_animation()
+	_maj_douilles(dt)
 	# Écran de munitions
 	if actuel["ecran"] != null:
 		var l: Label3D = actuel["ecran"]
@@ -311,6 +403,24 @@ func maj(dt: float, e: Dictionary) -> void:
 		if l.text != txt:
 			l.text = txt
 			l.modulate = Color(1.0, 0.35, 0.35) if m <= 5 else Color(0.45, 1.0, 1.0)
+
+
+func _sons_animation() -> void:
+	var ap: AnimationPlayer = actuel["ap"]
+	var nom := String(ap.current_animation)
+	if nom == "" or not SONS_ANIM.has(nom):
+		anim_nom_avant = nom
+		return
+	var u := ap.current_animation_position / maxf(ap.current_animation_length, 0.001)
+	if nom != anim_nom_avant or u < anim_avant - 0.01:
+		anim_avant = -0.001
+	var table: Dictionary = SONS_ANIM[nom]
+	var liste: Array = table.get(id_actuel, table.get("*", [])) if not (id_actuel == "couteau" and not table.has("couteau")) else []
+	for e in liste:
+		if anim_avant < float(e[0]) and u >= float(e[0]):
+			Sons.jouer(String(e[1]), -6.0, randf_range(0.96, 1.04))
+	anim_avant = u
+	anim_nom_avant = nom
 
 
 ## Position du canon à l'écran -> point de départ des traçantes dans le monde
