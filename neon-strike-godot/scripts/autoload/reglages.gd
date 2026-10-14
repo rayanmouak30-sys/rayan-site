@@ -166,6 +166,12 @@ func appliquer_touches() -> void:
 	_ajouter_axe("reculer", JOY_AXIS_LEFT_Y, 1.0)
 	_ajouter_axe("gauche", JOY_AXIS_LEFT_X, -1.0)
 	_ajouter_axe("droite", JOY_AXIS_LEFT_X, 1.0)
+	# Stick droit : regard (actions dédiées)
+	for r in [["regard_gauche", JOY_AXIS_RIGHT_X, -1.0], ["regard_droite", JOY_AXIS_RIGHT_X, 1.0], ["regard_haut", JOY_AXIS_RIGHT_Y, -1.0], ["regard_bas", JOY_AXIS_RIGHT_Y, 1.0]]:
+		if not InputMap.has_action(r[0]):
+			InputMap.add_action(r[0], 0.15)
+		InputMap.action_erase_events(r[0])
+		_ajouter_axe(r[0], r[1], r[2])
 	# Navigation dans les menus à la manette
 	for paire in [["ui_accept", JOY_BUTTON_A], ["ui_cancel", JOY_BUTTON_B]]:
 		var j := InputEventJoypadButton.new()

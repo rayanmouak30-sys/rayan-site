@@ -2,23 +2,11 @@ extends Node
 
 
 func executer() -> void:
-	Jeu.config["mode"] = "spike"
-	Jeu.config["camp"] = "defense"
-	Jeu.config["carte"] = "citadelle"
-	get_tree().change_scene_to_file("res://scenes/partie.tscn")
-	await Test.attendre(2.0)
-	var p: Partie = Jeu.partie
-	var j := p.joueur
-	j.set_physics_process(false)
-	j.vivant = false
-	j.global_position = Vector3(0, 40, 0)
-	Engine.time_scale = 4.0
-	for k in 14:
-		await Test.attendre(2.5)
-		var m = p.mode
-		var txt := "t=%.0f phase=%s site=%s spike=%s" % [m.combat_t, m.phase, m.site_attaque, m.spike.etat]
-		print(txt)
-		for c in p.combattants:
-			if c is Bot:
-				var b := c as Bot
-				print("   %s %s %s pos=%s obj=%s etat=%s vie=%d porteur=%s nav=%s" % [b.equipe, m.cote[b.equipe], b.nom_affiche, str(b.global_position.round()), str(b.objectif.round()), b.etat, int(b.vie), str(m.spike.porteur == b), str(b.agent.is_navigation_finished())])
+	await Test.vider_scene()
+	var c = load("res://scripts/carte/carte_citadelle.gd").new()
+	get_tree().root.add_child(c)
+	await Test.attendre_images(2)
+	for n in c.find_children("*", "MeshInstance3D", true, false):
+		var p: Vector3 = n.global_position
+		if p.distance_to(Vector3(-24, 3, -6)) < 9 and p.y > 2.0:
+			print(n.get_parent().name, " ", p, " ", (n.mesh as BoxMesh).size if n.mesh is BoxMesh else "", " ", n.material_override.resource_name if n.material_override else "")
