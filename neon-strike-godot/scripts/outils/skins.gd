@@ -118,7 +118,6 @@ const COULEURS_EQUIPE := {"bleu": Color("#4fd2ff"), "rouge": Color("#ff4655")}
 
 ## Skin de personnage : armure, tissu, secondaire, accent (+ effet du skin Prestige) ; bandes d'équipe
 static func appliquer_heros(racine: Node, id_heros: String, id_skin: String, equipe := "") -> void:
-	var h := DonneesHeros.heros(id_heros)
 	var s := DonneesHeros.skin(id_heros, id_skin)
 	var c: Dictionary = s["couleurs"]
 	var armure := Color(c["armure"])

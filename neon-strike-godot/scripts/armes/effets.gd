@@ -216,14 +216,14 @@ func impact(pos: Vector3, normale: Vector3, matiere := "beton", couleur := Color
 	var g := gerbes[i_gerbe]
 	var p := poussieres[i_gerbe]
 	i_gerbe = (i_gerbe + 1) % MAX_GERBES
-	var tr := Transform3D(_base_vers(normale), pos + normale * 0.02)
-	g.global_transform = tr
+	var repere := Transform3D(_base_vers(normale), pos + normale * 0.02)
+	g.global_transform = repere
 	var pm := g.process_material as ParticleProcessMaterial
 	g.amount = 18 if matiere == "metal" else 8
 	pm.initial_velocity_max = 8.0 if matiere == "metal" else 4.5
 	(g.draw_pass_1.surface_get_material(0) as StandardMaterial3D).albedo_color = couleur * 2.2 if matiere == "metal" else couleur * 1.4
 	g.restart()
-	p.global_transform = tr
+	p.global_transform = repere
 	var teinte := {"beton": Color(0.62, 0.6, 0.56), "metal": Color(0.4, 0.4, 0.42), "bois": Color(0.5, 0.38, 0.24), "terre": Color(0.45, 0.36, 0.26), "verre": Color(0.75, 0.85, 0.9), "vegetal": Color(0.3, 0.42, 0.22)}
 	(p.draw_pass_1.surface_get_material(0) as StandardMaterial3D).albedo_color = teinte.get(matiere, Color(0.6, 0.6, 0.6))
 	p.restart()

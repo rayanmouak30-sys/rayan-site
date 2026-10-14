@@ -1100,12 +1100,12 @@ func _maj_tourelles(dt: float) -> void:
 			var meilleur: Combattant = null
 			var dmin := float(t["def"].get("portee", 28))
 			for c in ennemis(t["lanceur"]):
-				var d := c.global_position.distance_to(o)
-				if d > dmin or c.invisible():
+				var dist := c.global_position.distance_to(o)
+				if dist > dmin or c.invisible():
 					continue
 				if not ligne_libre(o, c.yeux() - Vector3(0, 0.3, 0)) or fumee_bloque(o, c.yeux()):
 					continue
-				dmin = d
+				dmin = dist
 				meilleur = c
 			t["cible"] = meilleur
 		var c: Combattant = t["cible"]

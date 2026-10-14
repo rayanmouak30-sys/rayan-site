@@ -6,6 +6,7 @@ extends RefCounted
 var heros := ""
 var ids := {}          # emplacement -> id de capacité
 var charges := {}
+@warning_ignore("shadowed_global_identifier")
 var maxi := {}
 var recharge := {}     # secondes avant la prochaine charge
 var points := 0

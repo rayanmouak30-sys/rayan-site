@@ -155,7 +155,6 @@ func preparer_capacites(liste: Array) -> void:
 		case.custom_minimum_size = Vector2(64, 76) if empl != "x" else Vector2(78, 76)
 		case.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var fond := Panel.new()
-		fond.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 		fond.size = Vector2(case.custom_minimum_size.x, 56)
 		fond.add_theme_stylebox_override("panel", Style.boite(Color(0.08, 0.1, 0.16, 0.8), 6, Color(1, 1, 1, 0.15), 1, 0))
 		fond.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -587,7 +586,7 @@ func _dessiner_indicateurs() -> void:
 
 func maj_partie(minuteur: float, score_bleu: int, score_rouge: int, texte_manche: String, urgent := false) -> void:
 	var t := maxi(0, ceili(minuteur))
-	l_minuteur.text = "%d:%02d" % [t / 60, t % 60]
+	l_minuteur.text = "%d:%02d" % [t / 60.0, t % 60]
 	l_minuteur.add_theme_color_override("font_color", Style.ROUGE if urgent else Style.TEXTE)
 	l_score_bleu.text = str(score_bleu)
 	l_score_rouge.text = str(score_rouge)

@@ -7,6 +7,7 @@ extends Node
 var partie: Partie
 var envoi_t := 0.0
 var etat_t := 0.0
+var etat_n := 0
 var prochain_id_bot := 1000
 
 
@@ -134,7 +135,8 @@ func _physics_process(dt: float) -> void:
 		etat_t -= dt
 		if etat_t <= 0.0:
 			etat_t = 0.05
-			_envoyer_etat()
+			etat_n += 1
+			_envoyer_etat(etat_n % 3 == 0)
 
 
 @rpc("any_peer", "unreliable_ordered")
@@ -144,78 +146,114 @@ func rpc_etat_humain(id: int, pos: Vector3, lacet: float, tangage: float, vel: V
 		(c as JoueurDistant).recevoir_etat(pos, lacet, tangage, vel, drapeaux, arme)
 
 
-func _envoyer_etat() -> void:
-	var l := []
+## État rapide (20 Hz, non fiable) dans un tampon binaire compact : ~50 octets par combattant, pour rester
+## sous la taille d'un paquet (MTU) même à 10 joueurs. Le reste (crédits, scores, statuts, arme) part en fiable ~7 fois par seconde.
+func _envoyer_etat(avec_lent: bool) -> void:
+	var tampon := StreamPeerBuffer.new()
+	var lent := []
 	for c in partie.combattants:
 		if c is Cible or c.id_reseau == 0:
 			continue
 		var lacet := c.rotation.y
 		var tangage := 0.0
+		var accroupi := false
 		if c is Joueur:
 			lacet = (c as Joueur).regard.y
 			tangage = (c as Joueur).regard.x
+			accroupi = (c as Joueur).accroupi
 		elif c is Bot:
 			tangage = (c as Bot).tangage
-		var arme := c.arme_tenue
-		var drapeaux := 0
-		if c is Bot:
-			drapeaux = (1 if (c as Bot).accroupi else 0) | (4 if c.is_on_floor() else 0)
-		elif c is Joueur:
-			drapeaux = (1 if (c as Joueur).accroupi else 0) | (4 if c.is_on_floor() else 0)
-		var st := {}
-		for k in c.statuts:
-			if float(c.statuts[k]) > 0.0:
-				st[k] = c.statuts[k]
-		l.append([c.id_reseau, c.global_position, lacet, tangage, c.velocity, c.vie, c.armure, c.vivant, drapeaux, arme,
-			c.credits, c.kills, c.morts, c.tetes, c.aveugle, c.aveugle_max, c.revele, st,
-			c.etat_cap.points if c.etat_cap else 0])
-	rpc("rpc_etat", l, partie.mode.etat_reseau() if partie.mode.has_method("etat_reseau") else {})
+			accroupi = (c as Bot).accroupi
+		var drapeaux := (1 if c.vivant else 0) | (2 if accroupi else 0) | (4 if c.is_on_floor() else 0)
+		tampon.put_32(c.id_reseau)
+		for v in [c.global_position, c.velocity]:
+			tampon.put_float(v.x)
+			tampon.put_float(v.y)
+			tampon.put_float(v.z)
+		tampon.put_float(lacet)
+		tampon.put_float(tangage)
+		tampon.put_float(c.vie)
+		tampon.put_float(c.armure)
+		tampon.put_u8(drapeaux)
+		tampon.put_u16(clampi(roundi(c.aveugle * 100.0), 0, 65535))
+		tampon.put_u16(clampi(roundi(c.aveugle_max * 100.0), 0, 65535))
+		tampon.put_u16(clampi(roundi(c.revele * 100.0), 0, 65535))
+		if avec_lent:
+			var st := {}
+			for k in c.statuts:
+				if float(c.statuts[k]) > 0.0:
+					st[k] = c.statuts[k]
+			lent.append([c.id_reseau, c.arme_tenue, c.credits, c.kills, c.morts, c.tetes, st, c.etat_cap.points if c.etat_cap else 0])
+	rpc("rpc_etat", tampon.data_array, partie.mode.etat_reseau() if partie.mode.has_method("etat_reseau") else {})
+	if avec_lent:
+		rpc("rpc_etat_lent", lent)
 
 
 @rpc("authority", "unreliable_ordered")
-func rpc_etat(l: Array, mode: Dictionary) -> void:
+func rpc_etat(donnees: PackedByteArray, mode: Dictionary) -> void:
 	var j := partie.joueur
-	for e in l:
-		var c := par_id(int(e[0]))
+	var tampon := StreamPeerBuffer.new()
+	tampon.data_array = donnees
+	while tampon.get_available_bytes() >= 51:
+		var id := tampon.get_32()
+		var pos := Vector3(tampon.get_float(), tampon.get_float(), tampon.get_float())
+		var vel := Vector3(tampon.get_float(), tampon.get_float(), tampon.get_float())
+		var lacet := tampon.get_float()
+		var tangage := tampon.get_float()
+		var vie := tampon.get_float()
+		var armure := tampon.get_float()
+		var drapeaux := tampon.get_u8()
+		var aveugle := tampon.get_u16() / 100.0
+		var aveugle_max := tampon.get_u16() / 100.0
+		var revele := tampon.get_u16() / 100.0
+		var c := par_id(id)
 		if c == null:
 			continue
-		c.vie = e[5]
-		c.armure = e[6]
-		c.credits = e[10]
-		c.kills = e[11]
-		c.morts = e[12]
-		c.tetes = e[13]
-		c.revele = e[16]
+		c.vie = vie
+		c.armure = armure
+		c.revele = revele
 		if c == j:
-			j.aveugle = maxf(j.aveugle, float(e[14])) if float(e[14]) > j.aveugle + 0.2 else j.aveugle
-			j.aveugle_max = e[15]
-			for k in e[17]:
-				j.statuts[k] = e[17][k]
-			if j.etat_cap and int(e[18]) > j.etat_cap.points:
-				j.etat_cap.points = int(e[18])
+			j.aveugle = maxf(j.aveugle, aveugle) if aveugle > j.aveugle + 0.2 else j.aveugle
+			j.aveugle_max = maxf(aveugle_max, 0.01)
 			continue
-		for k in e[17]:
-			c.statuts[k] = e[17][k]
 		# Réapparition décidée par l'hôte
-		if bool(e[7]) and not c.vivant:
-			var t := Transform3D(Basis(Vector3.UP, float(e[2])), e[1])
+		if drapeaux & 1 != 0 and not c.vivant:
+			var t := Transform3D(Basis(Vector3.UP, lacet), pos)
 			if c is Bot:
 				(c as Bot).reapparaitre(t)
 			elif c is JoueurDistant:
 				(c as JoueurDistant).reapparaitre(t)
 		if c is Bot:
 			var b := c as Bot
-			b.cible_reseau = e[1]
-			b.lacet = e[2]
-			b.tangage = e[3]
-			b.velocity = e[4]
-			b.accroupi = int(e[8]) & 1 != 0
-			if String(e[9]) != "" and String(e[9]) != b.arme_tenue:
-				b.tenir_arme(e[9])
-		elif c is JoueurDistant and int(e[0]) == 1:
-			(c as JoueurDistant).recevoir_etat(e[1], e[2], e[3], e[4], e[8], e[9])
+			b.cible_reseau = pos
+			b.lacet = lacet
+			b.tangage = tangage
+			b.velocity = vel
+			b.accroupi = drapeaux & 2 != 0
+		# Les humains (hôte compris) envoient eux-mêmes leur corps 30 fois par seconde (rpc_etat_humain)
 	if partie.mode.has_method("recevoir_etat"):
 		partie.mode.recevoir_etat(mode)
+
+
+@rpc("authority", "reliable")
+func rpc_etat_lent(l: Array) -> void:
+	var j := partie.joueur
+	for e in l:
+		var c := par_id(int(e[0]))
+		if c == null:
+			continue
+		c.credits = e[2]
+		c.kills = e[3]
+		c.morts = e[4]
+		c.tetes = e[5]
+		for k in e[6]:
+			c.statuts[k] = e[6][k]
+		if c == j:
+			if j.etat_cap and int(e[7]) > j.etat_cap.points:
+				j.etat_cap.points = int(e[7])
+			continue
+		if c is Bot and String(e[1]) != "" and String(e[1]) != (c as Bot).arme_tenue:
+			(c as Bot).tenir_arme(e[1])
 
 
 # =============================================================================

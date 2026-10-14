@@ -58,7 +58,7 @@ func _desc_arme(def: Dictionary) -> String:
 	return "%s · %d balles\nTête %d · Corps %d" % [{"auto": "Automatique", "semi": "Semi-auto", "pompe": "Pompe", "verrou": "Verrou"}.get(def.get("type", "auto"), ""), int(def.get("chargeur", 0)), int(d.get("tete", 0)), int(d.get("corps", 0))]
 
 
-func _carte(parent: Control, nom: String, desc: String, article: String, prix: int, taille: Vector2, icone_arme := "", icone_cap := "") -> void:
+func _carte(parent: Control, nom: String, desc: String, article: String, prix: int, taille: Vector2, _icone_arme := "", icone_cap := "") -> void:
 	var b := Button.new()
 	b.custom_minimum_size = taille
 	b.focus_mode = Control.FOCUS_NONE

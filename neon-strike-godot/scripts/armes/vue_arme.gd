@@ -5,10 +5,12 @@ extends SubViewportContainer
 ## flash de bouche et écran de munitions du Pulsar.
 
 const FOV := 64.0
-const DISTANCE_VISEE := {"pulsar": 0.33, "fusil": 0.3, "pistolet": 0.4, "pompe": 0.34, "sniper": 0.2, "couteau": 0.3}
+const DISTANCE_VISEE := {"pulsar": 0.44, "fusil": 0.4, "pistolet": 0.5, "pompe": 0.42, "sniper": 0.24, "couteau": 0.3}
 ## Décalage de l'arme à la hanche (repère caméra) : arme un peu plus basse et à droite, façon FPS compétitif
 const DECALAGE_HANCHE := {"pulsar": Vector3(0.022, -0.018, 0.012), "fusil": Vector3(0.022, -0.016, 0.01), "pompe": Vector3(0.02, -0.014, 0.012),
 	"sniper": Vector3(0.02, -0.012, 0.012), "pistolet": Vector3(-0.012, 0.016, -0.008), "couteau": Vector3(0.0, 0.0, 0.0)}
+## Arme reculée et abaissée pour toutes les armes à la hanche : elle prend moins de place à l'écran
+const RECUL_ECRAN := Vector3(0.024, -0.034, -0.12)
 const RECUL := {"pulsar": 0.9, "fusil": 1.0, "pistolet": 1.3, "pompe": 2.2, "sniper": 2.4, "couteau": 0.0}
 ## Sons calés sur les animations (instant relatif 0..1, nom du son) ; "*" = toutes les armes à chargeur
 const SONS_ANIM := {
@@ -353,7 +355,6 @@ func accorder_lumiere(ambiance: Color, energie: float) -> void:
 func maj(dt: float, e: Dictionary) -> void:
 	if not actuel.has("racine"):
 		return
-	var racine: Node3D = actuel["racine"]
 	# Transformation de visée calculée une fois l'arme posée (viseur aligné sur le centre de l'écran)
 	if not actuel["ads_ok"] and actuel["viseur"] != null and animation_courante() == "repos":
 		var v := pivot.global_transform.affine_inverse() * (actuel["viseur"] as Node3D).global_transform
@@ -387,7 +388,7 @@ func maj(dt: float, e: Dictionary) -> void:
 	# Course : arme baissée et tournée
 	pos += Vector3(0.015, -0.025, 0.01) * sprint_k
 	rot += Vector3(-0.16, 0.36, 0.14) * sprint_k
-	pos += (DECALAGE_HANCHE.get(id_actuel, Vector3.ZERO) as Vector3) * (1.0 - visee_k)
+	pos += ((DECALAGE_HANCHE.get(id_actuel, Vector3.ZERO) as Vector3) + RECUL_ECRAN) * (1.0 - visee_k)
 	var proc := Transform3D(Basis.from_euler(rot), pos)
 	var ads: Transform3D = actuel["ads"] if actuel["ads_ok"] else Transform3D.IDENTITY
 	pivot.transform = proc * Transform3D.IDENTITY.interpolate_with(ads, visee_k)

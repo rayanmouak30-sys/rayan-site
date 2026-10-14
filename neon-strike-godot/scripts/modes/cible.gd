@@ -56,15 +56,15 @@ func _ready() -> void:
 	corps_visuel.add_child(bande)
 
 
-func _piece(m: PrimitiveMesh, pos: Vector3, taille: Vector3, mat: Material) -> void:
+func _piece(m: PrimitiveMesh, pos: Vector3, dim: Vector3, mat: Material) -> void:
 	var mi := MeshInstance3D.new()
 	if m is CapsuleMesh:
-		(m as CapsuleMesh).radius = taille.x * 0.5
-		(m as CapsuleMesh).height = taille.y
-		mi.scale = Vector3(1, 1, taille.z / taille.x)
+		(m as CapsuleMesh).radius = dim.x * 0.5
+		(m as CapsuleMesh).height = dim.y
+		mi.scale = Vector3(1, 1, dim.z / dim.x)
 	elif m is SphereMesh:
-		(m as SphereMesh).radius = taille.x * 0.5
-		(m as SphereMesh).height = taille.y
+		(m as SphereMesh).radius = dim.x * 0.5
+		(m as SphereMesh).height = dim.y
 	mi.mesh = m
 	mi.position = pos
 	mi.material_override = mat

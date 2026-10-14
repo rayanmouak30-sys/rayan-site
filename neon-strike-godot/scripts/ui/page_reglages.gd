@@ -77,11 +77,11 @@ func _ligne(parent: Control, texte: String, ctrl: Control, aide := "") -> void:
 	h.add_child(ctrl)
 
 
-func _curseur(cle: String, mini: float, maxi: float, pas: float, format := "%.2f", facteur := 1.0) -> Control:
+func _curseur(cle: String, bas: float, haut: float, pas: float, format := "%.2f", facteur := 1.0) -> Control:
 	var h := HBoxContainer.new()
 	var s := HSlider.new()
-	s.min_value = mini
-	s.max_value = maxi
+	s.min_value = bas
+	s.max_value = haut
 	s.step = pas
 	s.value = float(Reglages.lire(cle))
 	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL

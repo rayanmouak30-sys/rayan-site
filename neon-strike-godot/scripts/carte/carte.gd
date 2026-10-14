@@ -176,7 +176,10 @@ func decor(chemin: String, pos: Vector3, rot_y := 0.0, echelle := 1.0, collision
 			corps.collision_layer = Combattant.COUCHE_MONDE
 			corps.set_meta("matiere", matiere)
 			var cs := CollisionShape3D.new()
-			cs.shape = m.mesh.create_convex_shape(true, true) if m.name.ends_with("_convexe") else m.mesh.create_trimesh_shape()
+			if m.name.ends_with("_convexe"):
+				cs.shape = m.mesh.create_convex_shape(true, true)
+			else:
+				cs.shape = m.mesh.create_trimesh_shape()
 			corps.add_child(cs)
 			m.add_child(corps)
 	return n
@@ -250,6 +253,11 @@ func ambiance(ciel_haut: Color, ciel_horizon: Color, sol: Color, soleil_couleur:
 	add_child(soleil)
 
 
+## Vrai quand la carte de navigation a été synchronisée au moins une fois (sinon les requêtes échouent)
+static func navigation_prete(map: RID) -> bool:
+	return map.is_valid() and NavigationServer3D.map_get_iteration_id(map) > 0
+
+
 func _preparer_navigation() -> void:
 	navigation = NavigationRegion3D.new()
 	navigation.name = "Navigation"
@@ -257,8 +265,8 @@ func _preparer_navigation() -> void:
 	nm.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
 	nm.geometry_collision_mask = Combattant.COUCHE_MONDE | Combattant.COUCHE_COMBATTANTS
 	nm.agent_radius = 0.4
-	nm.agent_height = 1.75
-	nm.agent_max_climb = 0.45
+	nm.agent_height = 1.8
+	nm.agent_max_climb = 0.4
 	nm.agent_max_slope = 46.0
 	nm.cell_size = 0.2
 	nm.cell_height = 0.1
@@ -267,5 +275,5 @@ func _preparer_navigation() -> void:
 	navigation.navigation_mesh = nm
 	add_child(navigation)
 	_statiques.add_to_group(&"navigation")
-	# Cuisson en arrière-plan ; les bots attendent la fin (signal bake_finished)
+	# Cuisson en arrière-plan ; les requêtes attendent la première synchronisation (Carte.navigation_prete)
 	navigation.bake_navigation_mesh(true)

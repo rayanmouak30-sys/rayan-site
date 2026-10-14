@@ -9,4 +9,4 @@ func executer() -> void:
 	Test.mesure("skins_armes", DonneesArmes.SKINS.size())
 	Test.mesure("touche_capacite_q", Reglages.touche("capacite_q"))
 	Test.mesure("skin_elite_kael", DonneesHeros.skin("kael", "elite")["nom"])
-	Test.mesure("scene", get_tree().current_scene.name if get_tree().current_scene else "aucune")
+	Test.mesure("scene", String(get_tree().current_scene.name) if get_tree().current_scene else "aucune")

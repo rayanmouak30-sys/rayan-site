@@ -287,6 +287,8 @@ func _recharger() -> void:
 func _chercher_couvert() -> void:
 	var menace := derniere_pos + Vector3(0, 1.5, 0)
 	var map := get_world_3d().navigation_map
+	if not Carte.navigation_prete(map):
+		return
 	var meilleur := Vector3.ZERO
 	var meilleur_d := 1e9
 	var espace := get_world_3d().direct_space_state
@@ -344,10 +346,13 @@ func _deplacer(dt: float) -> void:
 		dir = direct
 		# Ne pas tomber ni foncer dans un mur : on vérifie la case visée
 		var map := get_world_3d().navigation_map
-		var p := NavigationServer3D.map_get_closest_point(map, global_position + dir * 1.2)
+		var p := NavigationServer3D.map_get_closest_point(map, global_position + dir * 1.2) if Carte.navigation_prete(map) else global_position + dir * 1.2
 		if p.distance_to(global_position + dir * 1.2) > 0.6:
 			strafe = -strafe
 			dir = -dir
+	elif global_position.distance_to(but) > 1.2 and not Carte.navigation_prete(get_world_3d().navigation_map):
+		# Navigation pas encore prête (premières images de la partie) : on attend sur place
+		dir = Vector3.ZERO
 	elif global_position.distance_to(but) > 1.2:
 		repath_t -= dt
 		if repath_t <= 0.0 or agent.target_position.distance_to(but) > 1.0:

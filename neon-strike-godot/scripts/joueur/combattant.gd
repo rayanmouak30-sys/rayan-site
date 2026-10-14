@@ -2,7 +2,9 @@ class_name Combattant
 extends CharacterBody3D
 ## Base commune au joueur et aux bots : vie, bouclier, équipe, personnage, zones de touche, statuts des capacités.
 
+@warning_ignore("unused_signal")
 signal elimine(victime: Combattant, tueur: Combattant, tete: bool, arme: String)
+@warning_ignore("unused_signal")
 signal touche_recu(degats: float, auteur: Combattant, tete: bool)
 
 const COUCHE_MONDE := 1

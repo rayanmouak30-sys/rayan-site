@@ -436,7 +436,7 @@ func _plan_attaquant(b: Bot, i: int, carte: Carte) -> void:
 		if presents >= maxi(1, vivants.size() - 1) or combat_t > 30.0:
 			execution = true
 	if not execution:
-		b.objectif = (regroupe[0] as Vector3) + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)) * 0.0 + Vector3((i % 3 - 1) * 1.5, 0, (i / 3) * 1.5)
+		b.objectif = (regroupe[0] as Vector3) + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)) * 0.0 + Vector3((i % 3 - 1) * 1.5, 0, floorf(i / 3.0) * 1.5)
 	else:
 		var postes: Array = carte.postes.get(site_attaque, [centre])
 		b.objectif = centre if porteur else postes[i % postes.size()]
@@ -461,7 +461,7 @@ func _plan_defenseur(b: Bot, i: int, carte: Carte) -> void:
 	var cles := ["A", "A", "B", "B", "milieu"]
 	var cle: String = cles[i % cles.size()]
 	var postes: Array = carte.postes.get(cle, [Vector3.ZERO])
-	b.objectif = postes[(i / 2) % postes.size()] if cle != "milieu" else postes[0]
+	b.objectif = postes[(i >> 1) % postes.size()] if cle != "milieu" else postes[0]
 	var entrees: Array = carte.entrees.get(cle, [])
 	if entrees.is_empty():
 		b.objectif_regard = Vector3(0, 1.4, 20)

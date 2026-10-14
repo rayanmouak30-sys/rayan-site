@@ -42,7 +42,7 @@ func executer() -> void:
 	var vm: Node3D = load("res://assets/armes/vm_%s.glb" % id).instantiate()
 	cam.add_child(vm)
 	var ap: AnimationPlayer = vm.find_child("AnimationPlayer", true, false)
-	Test.mesure("animations", ap.get_animation_list() if ap else "aucune")
+	Test.mesure("animations", str(ap.get_animation_list()) if ap else "aucune")
 	var instants := [["repos", 0.5], ["tir", 0.05], ["rechargement", 0.35], ["rechargement", 0.55], ["rechargement_vide", 0.82], ["inspection", 0.4], ["inspection", 0.75], ["sortie", 0.45]]
 	if id == "couteau":
 		instants = [["repos", 0.5], ["tir", 0.4], ["tir_lourd", 0.45], ["inspection", 0.4], ["inspection", 0.6], ["sortie", 0.5]]

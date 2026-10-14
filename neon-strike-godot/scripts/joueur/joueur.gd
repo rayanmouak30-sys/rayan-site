@@ -275,10 +275,10 @@ func _deplacer(dt: float, actif: bool) -> void:
 		return
 	if is_on_floor():
 		# Frottement puis accélération vers la vitesse voulue
-		var v := horiz.length()
-		if v > 0.0:
-			var baisse := maxf(v, 2.0) * FRICTION * dt
-			horiz *= maxf(v - baisse, 0.0) / v
+		var vh := horiz.length()
+		if vh > 0.0:
+			var baisse := maxf(vh, 2.0) * FRICTION * dt
+			horiz *= maxf(vh - baisse, 0.0) / vh
 		var cible := dir * vmax
 		horiz = horiz.move_toward(cible, ACCEL_SOL * dt) if dir != Vector3.ZERO else horiz
 		if actif and Input.is_action_just_pressed("saut") and statut("ancre") <= 0.0:

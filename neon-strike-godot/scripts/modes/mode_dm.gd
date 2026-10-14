@@ -30,7 +30,7 @@ func _placer(c: Combattant) -> void:
 	var candidats := points.duplicate()
 	# Ajoute des points dans toute la carte (zones praticables)
 	var map := partie.get_world_3d().navigation_map
-	for z in partie.carte.zones:
+	for z in (partie.carte.zones if Carte.navigation_prete(map) else []):
 		var a: AABB = z[1]
 		var p := NavigationServer3D.map_get_closest_point(map, a.get_center())
 		if p != Vector3.ZERO:
@@ -43,9 +43,9 @@ func _placer(c: Combattant) -> void:
 		for e in partie.combattants:
 			if e != c and e.vivant and e.equipe != c.equipe:
 				dmin = minf(dmin, e.global_position.distance_to(tt.origin))
-		var score := minf(dmin, 40.0) + randf() * 8.0
-		if score > meilleur_score:
-			meilleur_score = score
+		var note := minf(dmin, 40.0) + randf() * 8.0
+		if note > meilleur_score:
+			meilleur_score = note
 			meilleur = tt
 	if c is Joueur:
 		(c as Joueur).reapparaitre(meilleur)
@@ -66,7 +66,8 @@ func _nouvel_objectif(b: Bot) -> void:
 		return
 	var z: Array = zones[randi() % zones.size()]
 	var map := partie.get_world_3d().navigation_map
-	b.objectif = NavigationServer3D.map_get_closest_point(map, (z[1] as AABB).get_center())
+	var centre := (z[1] as AABB).get_center()
+	b.objectif = NavigationServer3D.map_get_closest_point(map, centre) if Carte.navigation_prete(map) else centre
 
 
 func _process(dt: float) -> void:

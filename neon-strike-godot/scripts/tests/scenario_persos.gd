@@ -60,7 +60,6 @@ func executer() -> void:
 		monde.add_child(n)
 		Skins.appliquer_heros(n, id, skin, "bleu")
 		noeuds.append(n)
-	var largeur := ids.size() * ecart
 	var groupe := int(Test.arguments.get("groupe", "5"))
 	# Vues par groupes de 5 personnages
 	for g in range(0, noeuds.size(), groupe):
@@ -72,7 +71,7 @@ func executer() -> void:
 			cam.position = Vector3(cx + sin(a) * dist, 1.05, -cos(a) * dist)
 			cam.look_at(Vector3(cx, 0.95, 0))
 			await Test.attendre_images(3)
-			await Test.capture("persos_%d_%s_%s" % [g / groupe, vue[0], skin])
+			await Test.capture("persos_%d_%s_%s" % [floori(g / float(groupe)), vue[0], skin])
 	# Gros plans des visages
 	for n in noeuds:
 		var p: Vector3 = (n as Node3D).position

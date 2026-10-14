@@ -60,7 +60,7 @@ var niveau: int:
 	get: return int(donnees["niveau"])
 
 
-static func xp_niveau(n: int) -> int:
+func xp_niveau(n: int) -> int:
 	return 500 + 120 * (n - 1)
 
 

@@ -150,11 +150,11 @@ func preparer_arbre() -> void:
 	noeuds_anim.clear()
 	bs_sol = _espace(["repos", "course_av", "course_ar", "course_g", "course_d"], "sol")
 	bs_accroupi = _espace(["accroupi", "accroupi_av", "accroupi_ar", "accroupi_g", "accroupi_d"], "accr")
-	var tr := AnimationNodeTransition.new()
-	tr.xfade_time = 0.18
+	var transition := AnimationNodeTransition.new()
+	transition.xfade_time = 0.18
 	for e in ["sol", "accroupi", "sprint", "air", "mort"]:
-		tr.add_input(e)
-	bt.add_node("etat", tr)
+		transition.add_input(e)
+	bt.add_node("etat", transition)
 	bt.add_node("sol", bs_sol)
 	bt.add_node("accroupi", bs_accroupi)
 	bt.add_node("sprint", _anim("sprint"))
@@ -195,7 +195,7 @@ func _espace(noms: Array, prefixe: String) -> AnimationNodeBlendSpace2D:
 	bs.blend_mode = AnimationNodeBlendSpace2D.BLEND_MODE_INTERPOLATED
 	var pos := [Vector2(0, 0), Vector2(0, 1), Vector2(0, -1), Vector2(-1, 0), Vector2(1, 0)]
 	for i in noms.size():
-		bs.add_blend_point(_anim(noms[i]), pos[i])
+		bs.add_blend_point(_anim(noms[i]), pos[i], -1, StringName("%s_%s" % [prefixe, noms[i]]))
 	bs.min_space = Vector2(-1.2, -1.2)
 	bs.max_space = Vector2(1.2, 1.2)
 	bs.sync = true
