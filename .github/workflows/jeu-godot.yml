@@ -1,0 +1,110 @@
+# Compile le jeu Godot (Neon Strike) pour Windows et dépose le zip sur le site :
+#   https://mou.alwaysdata.net/telechargements/NeonStrike-Windows.zip
+# Le binaire n'est jamais stocké dans Git : il est reconstruit à chaque modification du dossier neon-strike-godot/.
+# Utilise les mêmes secrets FTP que la mise en ligne du site ; n'efface rien sur le serveur.
+name: Jeu Godot - export Windows
+
+on:
+  push:
+    branches:
+      - claude/recover-last-conversation-info-ttntx5
+    paths:
+      - "neon-strike-godot/**"
+      - ".github/workflows/jeu-godot.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: jeu-godot
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  export-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verifier que les identifiants FTP sont configures
+        id: secrets
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+        run: |
+          if [ -z "$FTP_SERVER" ]; then
+            echo "Secrets FTP absents : le zip sera seulement disponible comme artefact de cette action."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Recuperer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Godot et le modele d'export Windows
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+          chmod +x godot
+          curl -sSL -o modeles.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          dossier="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$dossier"
+          unzip -q -j modeles.tpz "templates/windows_release_x86_64.exe" "templates/version.txt" -d "$dossier"
+          rm -f modeles.tpz godot.zip
+          ls -la "$dossier"
+
+      - name: Importer les ressources
+        run: |
+          ./godot --headless --path neon-strike-godot --import 2>&1 | tail -5 || true
+
+      - name: Exporter NeonStrike.exe
+        run: |
+          mkdir -p export
+          ./godot --headless --path neon-strike-godot --export-release "Windows" "$PWD/export/NeonStrike.exe" 2>&1 | tail -5
+          test -s export/NeonStrike.exe
+          ls -la export
+
+      - name: Preparer le zip
+        run: |
+          mkdir -p paquet/NeonStrike-Windows telechargements
+          cp export/NeonStrike.exe paquet/NeonStrike-Windows/
+          cp neon-strike-godot/LISEZMOI.md paquet/NeonStrike-Windows/LISEZMOI.txt
+          cp neon-strike-godot/assets/polices/LICENCE_*.txt paquet/NeonStrike-Windows/
+          (cd paquet && zip -q -9 -r ../telechargements/NeonStrike-Windows.zip NeonStrike-Windows)
+          ls -la telechargements
+
+      - name: Garder le zip comme artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeonStrike-Windows
+          path: telechargements/NeonStrike-Windows.zip
+          retention-days: 30
+
+      - name: Installer lftp
+        if: steps.secrets.outputs.ok == 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      - name: Deposer le zip sur le site
+        if: steps.secrets.outputs.ok == 'true'
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 3;
+            set net:timeout 60;
+            open --env-password -u \"$FTP_USERNAME\" \"$FTP_SERVER\";
+            mkdir -p -f /www/telechargements;
+            put -O /www/telechargements telechargements/NeonStrike-Windows.zip
+          "
+
+      - name: Verifier le telechargement
+        if: steps.secrets.outputs.ok == 'true'
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -I "https://mou.alwaysdata.net/telechargements/NeonStrike-Windows.zip")
+          echo "Code HTTP : $code"
+          test "$code" = "200"
