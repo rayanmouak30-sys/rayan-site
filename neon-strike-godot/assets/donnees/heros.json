@@ -75,7 +75,8 @@
      "tissu": "#2b3346",
      "secondaire": "#ff7a3a",
      "accent": "#ff6b3d"
-    }
+    },
+    "silhouette": "h"
    },
    "skins": [
     {
@@ -155,7 +156,8 @@
      "tissu": "#1b1c24",
      "secondaire": "#d23c8c",
      "accent": "#ff3fa0"
-    }
+    },
+    "silhouette": "f"
    },
    "skins": [
     {
@@ -235,7 +237,8 @@
      "tissu": "#33302c",
      "secondaire": "#ffb020",
      "accent": "#ffa62b"
-    }
+    },
+    "silhouette": "h"
    },
    "skins": [
     {
@@ -314,7 +317,8 @@
      "tissu": "#2a2526",
      "secondaire": "#ffb347",
      "accent": "#ff8a2a"
-    }
+    },
+    "silhouette": "f"
    },
    "skins": [
     {
@@ -392,7 +396,8 @@
      "tissu": "#2a2f38",
      "secondaire": "#9aa6b8",
      "accent": "#5ab4ff"
-    }
+    },
+    "silhouette": "h"
    },
    "skins": [
     {
@@ -471,7 +476,8 @@
      "tissu": "#2e3a52",
      "secondaire": "#d4a43a",
      "accent": "#8ab4ff"
-    }
+    },
+    "silhouette": "f"
    },
    "skins": [
     {
@@ -552,7 +558,8 @@
      "tissu": "#4a5236",
      "secondaire": "#30343c",
      "accent": "#9cff3a"
-    }
+    },
+    "silhouette": "h"
    },
    "skins": [
     {
@@ -632,7 +639,8 @@
      "tissu": "#3b4a5c",
      "secondaire": "#7fb8e0",
      "accent": "#9fe8ff"
-    }
+    },
+    "silhouette": "f"
    },
    "skins": [
     {
@@ -711,7 +719,8 @@
      "tissu": "#2a2f36",
      "secondaire": "#ffd166",
      "accent": "#5affd1"
-    }
+    },
+    "silhouette": "h"
    },
    "skins": [
     {
@@ -790,7 +799,8 @@
      "tissu": "#1c1f26",
      "secondaire": "#3a4150",
      "accent": "#b8c8ff"
-    }
+    },
+    "silhouette": "h"
    },
    "skins": [
     {
@@ -870,7 +880,8 @@
      "tissu": "#3a3a2e",
      "secondaire": "#8a7a5a",
      "accent": "#ffc845"
-    }
+    },
+    "silhouette": "h"
    },
    "skins": [
     {
@@ -949,7 +960,8 @@
      "tissu": "#2a2d36",
      "secondaire": "#ffd166",
      "accent": "#fff07a"
-    }
+    },
+    "silhouette": "f"
    },
    "skins": [
     {
@@ -1029,7 +1041,8 @@
      "tissu": "#1e1a2a",
      "secondaire": "#3b2a5c",
      "accent": "#b07cff"
-    }
+    },
+    "silhouette": "f"
    },
    "skins": [
     {
@@ -1108,7 +1121,8 @@
      "tissu": "#2e3530",
      "secondaire": "#8fa08a",
      "accent": "#7cffb0"
-    }
+    },
+    "silhouette": "f"
    },
    "skins": [
     {
@@ -1188,7 +1202,8 @@
      "tissu": "#1c2228",
      "secondaire": "#3a4a56",
      "accent": "#7cffd4"
-    }
+    },
+    "silhouette": "h"
    },
    "skins": [
     {
@@ -1268,7 +1283,8 @@
      "tissu": "#6a5236",
      "secondaire": "#8a3a24",
      "accent": "#ffb347"
-    }
+    },
+    "silhouette": "f"
    },
    "skins": [
     {
@@ -1347,7 +1363,8 @@
      "tissu": "#8a92a4",
      "secondaire": "#e0b84a",
      "accent": "#fff0b0"
-    }
+    },
+    "silhouette": "f"
    },
    "skins": [
     {
@@ -1426,7 +1443,8 @@
      "tissu": "#2a2a34",
      "secondaire": "#ff3f7f",
      "accent": "#3fd0ff"
-    }
+    },
+    "silhouette": "h"
    },
    "skins": [
     {
@@ -1505,7 +1523,8 @@
      "tissu": "#2e3a2a",
      "secondaire": "#d9a0c8",
      "accent": "#9cff6a"
-    }
+    },
+    "silhouette": "f"
    },
    "skins": [
     {
@@ -1583,7 +1602,8 @@
      "tissu": "#3a3d30",
      "secondaire": "#e0e0d0",
      "accent": "#7cffa0"
-    }
+    },
+    "silhouette": "h"
    },
    "skins": [
     {

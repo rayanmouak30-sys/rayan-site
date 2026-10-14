@@ -32,7 +32,12 @@ func _lancer() -> void:
 		printerr("TEST : scénario introuvable ", chemin)
 		get_tree().quit(2)
 		return
-	var s: Node = load(chemin).new()
+	var script: Script = load(chemin)
+	if script == null or not script.can_instantiate():
+		printerr("TEST : scénario invalide ", chemin)
+		get_tree().quit(3)
+		return
+	var s: Node = script.new()
 	s.name = "Scenario"
 	add_child(s)
 	print("TEST : début du scénario ", scenario)
