@@ -41,6 +41,7 @@ function materiauxCommuns(qualite) {
     semelle: new THREE.MeshStandardMaterial({ color: 0x141518, roughness: 0.95 }),
     peau: new THREE.MeshStandardMaterial({ color: 0x8c6552, roughness: 0.6 }),
     visiere: new THREE.MeshStandardMaterial({ color: 0x0c0f13, roughness: 0.06, metalness: 0.9, emissive: 0x3a0c08, emissiveIntensity: 1 }),
+    coque: new THREE.MeshStandardMaterial({ color: 0xe6e9ed, roughness: 0.5, metalness: 0.2 }),
   };
   return communs;
 }
@@ -221,7 +222,7 @@ export class Personnage {
     const mats = materiauxPalette(qualite, palette);
     const simple = qualite === "basse";
     // Les pièces de l'arme reprennent les matériaux du corps (moins de matériaux = moins d'appels de rendu).
-    const correspondance = { carcasse: "metal", carcasseClaire: "metal", acierSombre: "metal", acier: "metal", polymere: "poly", caoutchouc: "semelle", laiton: "metal", cartouche: "accent", lame: "metal", verre: "poly", lentille: "lentille" };
+    const correspondance = { carcasse: "metal", carcasseClaire: "metal", acierSombre: "metal", acier: "metal", polymere: "poly", caoutchouc: "semelle", laiton: "metal", cartouche: "accent", lame: "metal", verre: "poly", lentille: "lentille", coque: "coque", coqueGrise: "metal", plaque: "armure", lumiere: "accent", cable: "cuir" };
 
     // Squelette : chaque pièce rigide est rattachée à un os. Le corps entier devient un maillage
     // à squelette (un seul appel de rendu par matériau pour tout le personnage, arme comprise).

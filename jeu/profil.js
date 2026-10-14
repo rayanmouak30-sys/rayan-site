@@ -93,7 +93,7 @@ export class Profil {
 
   noterKillArme(arme) {
     this.d.armes[arme] = (this.d.armes[arme] || 0) + 1;
-    if (["pistolet", "pompe", "fusil", "sniper", "couteau"].every((a) => this.d.armes[a])) this.debloquer("collectionneur");
+    if (["pistolet", "pompe", "fusil", "pulsar", "sniper", "couteau"].every((a) => this.d.armes[a])) this.debloquer("collectionneur");
   }
 
   // Fin de partie : statistiques, XP et succès. r : résultat de la partie.

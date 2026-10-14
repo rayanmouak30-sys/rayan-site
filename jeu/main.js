@@ -1110,7 +1110,7 @@ function remplirAgents() {
 function remplirArsenal() {
   const el = $("liste-arsenal");
   el.innerHTML = "";
-  for (const id of ["fusil", "sniper", "pompe", "pistolet", "couteau"]) {
+  for (const id of ["pulsar", "fusil", "sniper", "pompe", "pistolet", "couteau"]) {
     const ligne = document.createElement("div");
     ligne.className = "ligne-arsenal";
     const nom = document.createElement("strong");
@@ -1363,8 +1363,8 @@ function remplirBoutique() {
     });
     $(conteneur).appendChild(b);
   };
-  const desc = { pistolet: "Semi-auto, précis", pompe: "Dévastateur de près", fusil: "Automatique, polyvalent", sniper: "Lunette ×3,6, tue en un tir à la tête" };
-  for (const id of ["pistolet", "pompe", "fusil", "sniper"]) article("boutique-armes", id, `${desc[id]} · ${ARMES[id].degats.tete} à la tête`);
+  const desc = { pistolet: "Semi-auto, précis", pompe: "Dévastateur de près", fusil: "Automatique, polyvalent", pulsar: "Fusil à impulsion, très stable", sniper: "Lunette ×3,6, tue en un tir à la tête" };
+  for (const id of ["pistolet", "pompe", "fusil", "pulsar", "sniper"]) article("boutique-armes", id, `${desc[id]} · ${ARMES[id].degats.tete} à la tête`);
   const equipes = MODES[regles.mode].equipes && partie.mode !== "enligne";
   $("boutique-armures").parentElement.hidden = !equipes;
   if (equipes) {

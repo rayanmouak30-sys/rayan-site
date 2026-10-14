@@ -25,6 +25,7 @@ export const DEFIS = {
 export const ARTICLES = {
   pompe: { nom: "Briseur", type: "arme", prix: 1800 },
   fusil: { nom: "NS-7 Vecteur", type: "arme", prix: 2900 },
+  pulsar: { nom: "Pulsar P-07", type: "arme", prix: 3100 },
   sniper: { nom: "Aiguille", type: "arme", prix: 4700 },
   pistolet: { nom: "Sentinelle", type: "arme", prix: 0 },
   armure25: { nom: "Bouclier léger", type: "armure", valeur: 25, prix: 400 },
@@ -142,7 +143,7 @@ export class Regles {
 
   armeAleatoire() {
     const r = Math.random();
-    return r < 0.55 ? "fusil" : r < 0.72 ? "pompe" : r < 0.86 ? "sniper" : "pistolet";
+    return r < 0.35 ? "fusil" : r < 0.58 ? "pulsar" : r < 0.73 ? "pompe" : r < 0.87 ? "sniper" : "pistolet";
   }
 
   // ----- Manches (Spike / Élimination) -----
@@ -222,7 +223,7 @@ export class Regles {
     const pistolet = this.manche === 1 || this.manche === MANCHE_CHANGEMENT + 1;
     if (b.armePrincipale) { b.arme = b.armePrincipale; }
     else if (!pistolet && b.credits >= 3900) {
-      const arme = b.credits >= 5700 && Math.random() < 0.22 ? "sniper" : "fusil";
+      const arme = b.credits >= 5700 && Math.random() < 0.22 ? "sniper" : Math.random() < 0.45 ? "pulsar" : "fusil";
       b.credits -= ARMES[arme].prix;
       b.arme = b.armePrincipale = arme;
     } else if (!pistolet && b.credits >= 2300) {

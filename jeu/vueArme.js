@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { boiteRonde, membre, revolution, Assemblage, ik2, Ressort } from "./formes.js";
 import { textureEclat, textureReticule, textureTissu } from "./textures.js";
-import { piecesArme, materiauxArme } from "./armes.js";
+import { piecesArme, materiauxArme, detailsArme, dessinerEcran, ARMES } from "./armes.js";
 
 // Placement de chaque arme dans le champ de vision
 const CADRAGE = {
@@ -12,6 +12,7 @@ const CADRAGE = {
   pompe: { echelle: 0.88, hanche: [0.16, -0.17, -0.23], viseeZ: -0.2, recul: 2.2 },
   sniper: { echelle: 0.82, hanche: [0.15, -0.162, -0.2], viseeZ: -0.1, recul: 2.6 },
   couteau: { echelle: 1.0, hanche: [0.17, -0.16, -0.34], viseeZ: -0.34, recul: 0 },
+  pulsar: { echelle: 0.76, hanche: [0.172, -0.2, -0.27], viseeZ: -0.3, recul: 0.95 },
 };
 
 // ===== Bras et mains =====
@@ -88,7 +89,7 @@ export class VueArme {
     this.scene.add(this.brasD.epaule, this.brasG.epaule);
 
     // Flash du canon (déplacé sur l'arme active)
-    const matFlash = new THREE.MeshBasicMaterial({ map: textureEclat(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffd6a0, toneMapped: false });
+    const matFlash = this.matFlash = new THREE.MeshBasicMaterial({ map: textureEclat(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffd6a0, toneMapped: false });
     this.flash = new THREE.Group();
     const etoile = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.16), matFlash);
     const cone1 = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.22), matFlash);
@@ -156,15 +157,16 @@ export class VueArme {
     groupe.add(chargeur, culasse, levier, pompe);
     if (points.reticule) {
       const verre = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.034), mats.verre);
-      verre.position.set(0, 0.083, -0.04);
+      verre.position.set(0, points.viseur.y + 0.0015, points.viseur.z);
       const reticule = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.03), new THREE.MeshBasicMaterial({ map: textureReticule(), transparent: true, depthWrite: false, toneMapped: false }));
       reticule.position.set(points.viseur.x, points.viseur.y, points.viseur.z - 0.005);
       groupe.add(verre, reticule);
     }
+    const details = detailsArme(id, groupe, ARMES[id].chargeur);
     racine.visible = false;
     this.arme.add(racine);
     return {
-      id, racine, groupe, cfg, points,
+      id, racine, groupe, cfg, points, ecran: details ? details.ecran : null, matLumiere: mats.lumiere,
       pieces: { chargeur, culasse, levier, pompe },
       chargeurRepos: chargeur.position.clone(),
       hanche: new THREE.Vector3(...cfg.hanche),
@@ -184,6 +186,9 @@ export class VueArme {
     m.groupe.add(this.lumiereFlash);
     this.flash.position.copy(m.points.bouche);
     this.lumiereFlash.position.copy(m.points.bouche);
+    const def = ARMES[id];
+    this.matFlash.color.setHex(def.couleurFlash || 0xffd6a0);
+    this.lumiereFlash.color.setHex(def.couleurFlash || 0xffc27a);
     this.sortie = 1;
     this.dureeSortie = Math.max(0.2, duree);
     this.coupT = 1;
@@ -217,6 +222,7 @@ export class VueArme {
     this.culasseT = 0;
     this.inspectT = 1;
     this.cycleEjecte = false;
+    this.pulsT = 1;
     if (m.id === "fusil" || m.id === "pistolet") this.ejecterDouille(false);
   }
 
@@ -257,6 +263,12 @@ export class VueArme {
     if (this.flashT <= 0) this.flash.visible = false;
     this.lumiereFlash.intensity *= Math.exp(-45 * dt);
     this.culasseT = Math.min(1, this.culasseT + dt / 0.06);
+    // Pulsar : les lumières pulsent à chaque tir, l'écran affiche les munitions
+    if (m.ecran) dessinerEcran(m.ecran, e.recharge >= 0 ? 0 : e.mun);
+    if (m.id === "pulsar") {
+      this.pulsT = Math.max(0, (this.pulsT || 0) - dt * 6);
+      m.matLumiere.emissiveIntensity = 1.4 + this.pulsT * 2.4;
+    }
 
     const sx = Math.max(-1, Math.min(1, -e.souris.x * 0.004));
     const sy = Math.max(-1, Math.min(1, e.souris.y * 0.004));

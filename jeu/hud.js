@@ -18,7 +18,7 @@ export const ICONES = {
   renouveau: '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6-8 11-8 11z" fill="currentColor"/></svg>',
 };
 
-const NOMS_ARMES = { couteau: "LAME", pistolet: "SENTINELLE", pompe: "BRISEUR", fusil: "NS-7 VECTEUR", sniper: "AIGUILLE", spike: "SPIKE" };
+const NOMS_ARMES = { couteau: "LAME", pistolet: "SENTINELLE", pompe: "BRISEUR", fusil: "NS-7 VECTEUR", pulsar: "PULSAR P-07", sniper: "AIGUILLE", spike: "SPIKE" };
 
 export class Hud {
   constructor(carte) {

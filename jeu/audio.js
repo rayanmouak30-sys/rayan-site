@@ -204,6 +204,13 @@ export class Audio {
       this.bruitFiltre(s, "lowpass", 2400 - loin * 1200, 0.6, 0.34, 0.85).connect(this.envoiReverb);
       this.bruitFiltre(s, "bandpass", 700, 0.9, 0.14, 0.45);
       this.oscillo(s, "sine", 95, 28, 0.26, 0.95);
+    } else if (id === "pulsar") {
+      // Impulsion d'énergie : claquement + glissando électronique
+      this.bruitFiltre(s, "bandpass", 2600 - loin * 1200, 1.1, 0.07, 0.4);
+      this.bruitFiltre(s, "lowpass", 3000 - loin * 1500, 0.7, 0.14, 0.45).connect(this.envoiReverb);
+      this.oscillo(s, "sawtooth", 1500, 180, 0.09, 0.13);
+      this.oscillo(s, "square", 760, 95, 0.07, 0.08);
+      this.oscillo(s, "sine", 140, 45, 0.12, 0.7);
     } else if (id === "sniper") {
       this.bruitFiltre(s, "highpass", 2600, 0.8, 0.05, 0.55);
       this.bruitFiltre(s, "lowpass", 3200 - loin * 1800, 0.6, 0.55, 0.9).connect(this.envoiReverb);

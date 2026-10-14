@@ -500,3 +500,30 @@ export function textureSolIndustriel(qualite) {
   });
   return { map: versTexture(c), normalMap: normalDepuisHauteur(h, T, 1.8), echelle: 8 };
 }
+
+// Peinture laquée légèrement usée (coque du fusil Pulsar) : salissures discrètes et petits éclats
+// laissant voir le métal (plus brillant). Renvoie couleur, rugosité et "métallicité".
+export function texturePeintureUsee(qualite) {
+  const T = qualite === "basse" ? 128 : 256;
+  const n = bruitTuilable(T, 4, 4, 141);
+  const eclats = bruitTuilable(T, 24, 2, 142);
+  const fin = bruitTuilable(T, 64, 1, 143);
+  const metal = (i) => eclats[i] > 0.74 ? Math.min(1, (eclats[i] - 0.74) * 12) : 0;
+  const { c } = remplir(T, (x, y, i) => {
+    const m = metal(i);
+    const sale = (n[i] - 0.5) * 22 + (fin[i] - 0.5) * 8;
+    const peinture = 224 + sale;
+    const v = peinture * (1 - m) + (120 + fin[i] * 40) * m;
+    return [clamp(v), clamp(v + 1), clamp(v + 3)];
+  });
+  const rough = remplir(T, (x, y, i) => {
+    const m = metal(i);
+    const v = 150 + (n[i] - 0.5) * 50 - m * 70;
+    return [clamp(v), clamp(v), clamp(v)];
+  });
+  const met = remplir(T, (x, y, i) => {
+    const v = 25 + metal(i) * 230;
+    return [clamp(v), clamp(v), clamp(v)];
+  });
+  return { map: versTexture(c), roughnessMap: versTexture(rough.c, false), metalnessMap: versTexture(met.c, false) };
+}

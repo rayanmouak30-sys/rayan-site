@@ -129,7 +129,8 @@ export class Effets {
     m.visible = true;
   }
 
-  flashTir(p) {
+  flashTir(p, couleur = 0xffc27a) {
+    this.lumiere.color.setHex(couleur);
     this.lumiere.position.copy(p);
     this.lumiere.intensity = 6;
   }

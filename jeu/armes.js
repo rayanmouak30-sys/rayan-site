@@ -3,7 +3,7 @@
 // Repère des modèles : avant = -Z, axe du canon à y = 0, poignée vers z positif.
 import * as THREE from "three";
 import { boiteRonde, profil, revolution, Assemblage } from "./formes.js";
-import { texturePolymere, textureAnodise } from "./textures.js";
+import { texturePolymere, textureAnodise, texturePeintureUsee } from "./textures.js";
 
 const DEG = Math.PI / 180;
 
@@ -44,6 +44,22 @@ export const ARMES = {
     recuperation: 7,
     bot: { cadence: 0.12, rafale: [3, 5], facteur: 1.0 },
   },
+  // Fusil à impulsion : coque blanche, plaques bleues, lumières cyan, écran de munitions (design original)
+  pulsar: {
+    id: "pulsar", nom: "Pulsar P-07", type: "auto", emplacement: 1, prix: 3100, energie: true,
+    chargeur: 25, reserve: 75, cadence: 0.095, equipement: 0.85, rechargement: 2.2, rechargementVide: 2.5,
+    degats: { tete: 150, corps: 38, jambes: 32 }, chute: { debut: 30, fin: 55, min: 0.85 },
+    precision: 0.18, mouvement: 3.4, air: 6, serie: 0.12, visee: 0.5, zoom: 1.4, vitesse: 4.3,
+    couleurTrace: 0x7ff6ff, couleurFlash: 0x8ff8ff,
+    recul: (i) => {
+      const M = [[0, 0], [0.35, 0.03], [0.7, 0.06], [1.05, 0.08], [1.4, 0.1], [1.72, 0.14], [2.0, 0.2], [2.25, 0.28], [2.45, 0.35], [2.6, 0.42]];
+      if (i < M.length) return M[i];
+      const k = i - M.length;
+      return [2.7 + Math.sin(k * 0.8) * 0.1, 0.42 + Math.sin(k * 0.6) * 0.9];
+    },
+    recuperation: 7.5,
+    bot: { cadence: 0.11, rafale: [3, 5], facteur: 0.95 },
+  },
   sniper: {
     id: "sniper", nom: "Aiguille", type: "verrou", emplacement: 1, prix: 4700,
     chargeur: 5, reserve: 10, cadence: 1.35, equipement: 0.9, rechargement: 2.9, rechargementVide: 3.3,
@@ -54,7 +70,7 @@ export const ARMES = {
   },
 };
 
-export const ARMES_PRINCIPALES = ["pompe", "fusil", "sniper"];
+export const ARMES_PRINCIPALES = ["pompe", "fusil", "pulsar", "sniper"];
 
 export function facteurDistance(def, distance) {
   const c = def.chute;
@@ -182,13 +198,13 @@ export class LogiqueArme {
 
 // ===== Skins (finitions débloquables) =====
 export const SKINS = {
-  standard: { nom: "Standard", carcasse: 0x343a44, claire: 0x5a6270, polymere: 0x1d2026, accent: 0x7cffd4, metal: 0.75 },
-  neon: { nom: "Néon", carcasse: 0x1a1f2e, claire: 0x283350, polymere: 0x121522, accent: 0x3fa8ff, metal: 0.6, lueur: 1.6 },
-  braise: { nom: "Braise", carcasse: 0x3a1c16, claire: 0x7a2c18, polymere: 0x1e1212, accent: 0xff7a2a, metal: 0.55, lueur: 1.4 },
-  carbone: { nom: "Carbone", carcasse: 0x17181b, claire: 0x2a2c31, polymere: 0x0f1012, accent: 0xe8e8f0, metal: 0.4 },
-  arctique: { nom: "Arctique", carcasse: 0xd8dde4, claire: 0x9fb4c8, polymere: 0x5c6c80, accent: 0x7cc4ff, metal: 0.35 },
-  toxique: { nom: "Toxique", carcasse: 0x1f2a1a, claire: 0x3c5a22, polymere: 0x141a10, accent: 0x9cff3a, metal: 0.5, lueur: 1.5 },
-  or: { nom: "Or royal", carcasse: 0x8a6a22, claire: 0xc9a24a, polymere: 0x231c12, accent: 0xffe08a, metal: 1.0 },
+  standard: { nom: "Standard", carcasse: 0x343a44, claire: 0x5a6270, polymere: 0x1d2026, accent: 0x7cffd4, metal: 0.75, coque: 0xb9bfc7, plaque: 0x2a5bd0, lumiere: 0x45f0ff },
+  neon: { nom: "Néon", carcasse: 0x1a1f2e, claire: 0x283350, polymere: 0x121522, accent: 0x3fa8ff, metal: 0.6, lueur: 1.6, coque: 0x2a3350, plaque: 0x3fa8ff, lumiere: 0x3fa8ff },
+  braise: { nom: "Braise", carcasse: 0x3a1c16, claire: 0x7a2c18, polymere: 0x1e1212, accent: 0xff7a2a, metal: 0.55, lueur: 1.4, coque: 0x3e2c27, plaque: 0xd4561e, lumiere: 0xffa040 },
+  carbone: { nom: "Carbone", carcasse: 0x17181b, claire: 0x2a2c31, polymere: 0x0f1012, accent: 0xe8e8f0, metal: 0.4, coque: 0x2c2e33, plaque: 0x17181b, lumiere: 0xe8e8f0 },
+  arctique: { nom: "Arctique", carcasse: 0xd8dde4, claire: 0x9fb4c8, polymere: 0x5c6c80, accent: 0x7cc4ff, metal: 0.35, coque: 0xd3dbe4, plaque: 0x7cc4ff, lumiere: 0x9fe0ff },
+  toxique: { nom: "Toxique", carcasse: 0x1f2a1a, claire: 0x3c5a22, polymere: 0x141a10, accent: 0x9cff3a, metal: 0.5, lueur: 1.5, coque: 0x2e3c25, plaque: 0x6fbf2a, lumiere: 0x9cff3a },
+  or: { nom: "Or royal", carcasse: 0x8a6a22, claire: 0xc9a24a, polymere: 0x231c12, accent: 0xffe08a, metal: 1.0, coque: 0xd6c48f, plaque: 0x8a6a22, lumiere: 0xffe08a },
 };
 
 const cacheMateriaux = new Map();
@@ -212,6 +228,14 @@ export function materiauxArme(qualite, skin = "standard") {
     lentille: new THREE.MeshStandardMaterial({ color: 0x1a2a40, roughness: 0.05, metalness: 0.9, emissive: 0x0a1a30, emissiveIntensity: 1 }),
     lame: new THREE.MeshStandardMaterial({ color: 0xc8ced8, roughness: 0.18, metalness: 1 }),
   };
+  // Pulsar : peinture usée (les éclats laissent voir le métal), plaques colorées, lumières, câbles
+  const peint = texturePeintureUsee(qualite);
+  const cartes = qualite === "basse" ? { map: peint.map } : { map: peint.map, roughnessMap: peint.roughnessMap, metalnessMap: peint.metalnessMap };
+  m.coque = new THREE.MeshStandardMaterial({ color: s.coque, ...cartes, roughness: qualite === "basse" ? 0.45 : 1, metalness: qualite === "basse" ? 0.15 : 1 });
+  m.coqueGrise = new THREE.MeshStandardMaterial({ color: 0x8b919b, ...cartes, roughness: qualite === "basse" ? 0.5 : 1, metalness: qualite === "basse" ? 0.25 : 1 });
+  m.plaque = new THREE.MeshStandardMaterial({ color: s.plaque, map: peint.map, roughness: 0.42, metalness: 0.3 });
+  m.lumiere = new THREE.MeshStandardMaterial({ color: s.lumiere, emissive: s.lumiere, emissiveIntensity: 1.4, roughness: 0.3 });
+  m.cable = new THREE.MeshStandardMaterial({ color: 0xb3262a, roughness: 0.55, metalness: 0.05 });
   cacheMateriaux.set(cle, m);
   return m;
 }
@@ -345,7 +369,140 @@ function piecesCouteau(A, C, mob, detail) {
   };
 }
 
-const CONSTRUCTEURS = { fusil: piecesFusil, pistolet: piecesPistolet, pompe: piecesPompe, sniper: piecesSniper, couteau: piecesCouteau };
+function piecesPulsar(A, C, mob, detail) {
+  // Coque supérieure massive (blanche) avec nez biseauté
+  A.ajouter(profil([[-0.14, -0.02], [0.46, -0.02], [0.5, 0.0], [0.5, 0.055], [0.44, 0.086], [-0.06, 0.086], [-0.14, 0.06]], 0.082, 0.006), "coque");
+  // Carcasse inférieure grise et puits du chargeur
+  A.ajouter(profil([[-0.12, -0.02], [0.3, -0.02], [0.3, -0.046], [0.24, -0.062], [0.0, -0.062], [-0.05, -0.042], [-0.12, -0.042]], 0.07, 0.004), "coqueGrise");
+  // Plaques latérales bleues et poignée de transport
+  A.ajouter(profil([[-0.12, 0.0], [0.1, 0.0], [0.13, 0.04], [0.12, 0.076], [-0.1, 0.076]], 0.09, 0.004), "plaque");
+  A.ajouter(profil([[-0.02, 0.084], [0.13, 0.084], [0.12, 0.112], [0.0, 0.112]], 0.05, 0.004, detail ? [[[0.02, 0.09], [0.1, 0.09], [0.095, 0.104], [0.025, 0.104]]] : []), "plaque");
+  // Fenêtres lumineuses sur les flancs (cadre noir + bande cyan)
+  for (const sx of [-1, 1]) {
+    A.ajouter(boiteRonde(0.006, 0.032, 0.29, 0.003), "acierSombre", { p: [sx * 0.041, 0.028, -0.21] });
+    A.ajouter(new THREE.BoxGeometry(0.004, 0.016, 0.25), "lumiere", { p: [sx * 0.044, 0.028, -0.21] });
+  }
+  // Rail supérieur et viseur holographique
+  A.ajouter(boiteRonde(0.03, 0.012, 0.36, 0.003), "acierSombre", { p: [0, 0.092, -0.26] });
+  if (detail) { const cran = boiteRonde(0.032, 0.006, 0.006, 0.001, 1); for (let i = 0; i < 26; i++) A.ajouter(cran, "acierSombre", { p: [0, 0.099, -0.1 - i * 0.013] }); }
+  // Viseur sur rehausse : la carcasse reste basse dans l'image quand on vise
+  const cadre = new THREE.Shape([[-0.024, 0.14], [0.024, 0.14], [0.024, 0.178], [0.016, 0.185], [-0.016, 0.185], [-0.024, 0.178]].map(([x, y]) => new THREE.Vector2(x, y)));
+  cadre.holes.push(new THREE.Path([[-0.019, 0.146], [0.019, 0.146], [0.019, 0.18], [-0.019, 0.18]].map(([x, y]) => new THREE.Vector2(x, y))));
+  A.ajouter(new THREE.ExtrudeGeometry(cadre, { depth: 0.036, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.0015, bevelSegments: 1 }), "acierSombre", { p: [0, 0, -0.06] });
+  A.ajouter(boiteRonde(0.034, 0.05, 0.05, 0.005), "acierSombre", { p: [0, 0.118, -0.04] });
+  A.ajouter(new THREE.BoxGeometry(0.036, 0.004, 0.03), "lumiere", { p: [0, 0.142, -0.042] });
+  // Bloc avant à double canon (noir) et bouches lumineuses
+  A.ajouter(boiteRonde(0.074, 0.048, 0.19, 0.012), "acierSombre", { p: [0, 0.034, -0.585] });
+  A.ajouter(boiteRonde(0.07, 0.042, 0.16, 0.012), "acierSombre", { p: [0, -0.024, -0.57] });
+  A.ajouter(boiteRonde(0.08, 0.02, 0.12, 0.006), "coqueGrise", { p: [0, 0.064, -0.56] });
+  for (const [y, z] of [[0.034, -0.681], [-0.024, -0.651]]) {
+    A.ajouter(new THREE.CylinderGeometry(0.019, 0.019, 0.006, 18).rotateX(Math.PI / 2), "acierSombre", { p: [0, y, z - 0.001] });
+    A.ajouter(new THREE.CylinderGeometry(0.012, 0.012, 0.004, 16).rotateX(Math.PI / 2), "lumiere", { p: [0, y, z - 0.004] });
+  }
+  if (detail) for (const sx of [-1, 1]) {
+    for (let i = 0; i < 3; i++) A.ajouter(new THREE.BoxGeometry(0.004, 0.008, 0.03), "lumiere", { p: [sx * 0.038, 0.04, -0.53 - i * 0.045] });
+    A.ajouter(boiteRonde(0.004, 0.03, 0.1, 0.002), "coqueGrise", { p: [sx * 0.037, -0.024, -0.57] });
+  }
+  // Tube sous le canon avec bagues et bande rouge
+  A.ajouter(new THREE.CylinderGeometry(0.036, 0.036, 0.32, 20).rotateX(Math.PI / 2), "acierSombre", { p: [0, -0.078, -0.34] });
+  A.ajouter(revolution([[0.036, 0], [0.039, 0.01], [0.039, 0.03], [0.03, 0.04], [0.0, 0.04]], 20).rotateX(-Math.PI / 2), "acierSombre", { p: [0, -0.078, -0.5] });
+  A.ajouter(new THREE.CylinderGeometry(0.0375, 0.0375, 0.022, 20).rotateX(Math.PI / 2), "cable", { p: [0, -0.078, -0.48] });
+  if (detail) for (let i = 0; i < 4; i++) A.ajouter(new THREE.TorusGeometry(0.0365, 0.003, 6, 22), "coqueGrise", { p: [0, -0.078, -0.22 - i * 0.055] });
+  A.ajouter(boiteRonde(0.05, 0.03, 0.2, 0.006), "coqueGrise", { p: [0, -0.05, -0.33] });
+  // Câbles rouges qui descendent du flanc vers le tube
+  for (const sx of detail ? [-1, 1] : [1]) {
+    const courbe = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(sx * 0.042, 0.0, -0.06), new THREE.Vector3(sx * 0.05, -0.035, -0.12),
+      new THREE.Vector3(sx * 0.042, -0.06, -0.2), new THREE.Vector3(sx * 0.03, -0.072, -0.26),
+    ]);
+    A.ajouter(new THREE.TubeGeometry(courbe, detail ? 20 : 8, 0.0065, 8), "cable");
+  }
+  // Poignée pistolet et pontet
+  A.ajouter(profil([[-0.03, -0.045], [-0.085, -0.045], [-0.12, -0.16], [-0.105, -0.176], [-0.07, -0.171], [-0.06, -0.14], [-0.052, -0.11], [-0.045, -0.08]], 0.034, 0.004), "polymere");
+  A.ajouter(profil([[-0.07, -0.04], [0.02, -0.04], [0.02, -0.08], [-0.07, -0.08]], 0.012, 0.0015, [[[-0.058, -0.046], [0.01, -0.046], [0.01, -0.072], [-0.058, -0.072]]]), "coqueGrise");
+  // Crosse squelettique et talon caoutchouc
+  A.ajouter(profil([[-0.14, 0.05], [-0.36, 0.062], [-0.38, 0.042], [-0.38, -0.09], [-0.355, -0.102], [-0.3, -0.096], [-0.16, -0.036]], 0.048, 0.005, [[[-0.335, 0.036], [-0.2, 0.03], [-0.335, -0.066]]]), "coqueGrise");
+  A.ajouter(boiteRonde(0.052, 0.156, 0.022, 0.006), "caoutchouc", { p: [0, -0.02, 0.39] });
+  A.ajouter(boiteRonde(0.05, 0.02, 0.2, 0.005), "plaque", { p: [0, 0.058, 0.26] });
+  // Chargeur à cellule d'énergie (sort au rechargement)
+  C.ajouter(profil([[0.06, -0.06], [0.16, -0.06], [0.175, -0.2], [0.08, -0.206]], 0.046, 0.004), "polymere");
+  C.ajouter(profil([[0.078, -0.198], [0.178, -0.192], [0.18, -0.214], [0.08, -0.218]], 0.05, 0.003), "coqueGrise");
+  C.ajouter(new THREE.BoxGeometry(0.048, 0.008, 0.07), "lumiere", { p: [0, -0.13, -0.12], r: [0.1, 0, 0] });
+  // Levier d'armement (sur le flanc droit)
+  mob.levier.ajouter(boiteRonde(0.014, 0.012, 0.03, 0.003), "acierSombre", { p: [0.048, 0.05, 0.02] });
+  return {
+    mainDroite: [0, -0.082, 0.07], mainGauche: [0, -0.082, -0.33], chargeur: [0, -0.14, -0.11], levier: [0.05, 0.05, 0.02],
+    ejection: [0.04, 0.03, -0.06], bouche: [0, 0.034, -0.69], viseur: [0, 0.163, -0.04], reticule: true,
+  };
+}
+
+const CONSTRUCTEURS = { fusil: piecesFusil, pistolet: piecesPistolet, pompe: piecesPompe, sniper: piecesSniper, couteau: piecesCouteau, pulsar: piecesPulsar };
+
+// Détails non fusionnables (transparents ou animés) : écran numérique des munitions et marquage du Pulsar.
+// Retourne { ecran } quand l'arme possède un écran, sinon null.
+export function detailsArme(id, groupe, chargeurMax = 25) {
+  if (id !== "pulsar") return null;
+  const c = document.createElement("canvas");
+  c.width = 128; c.height = 80;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const ecran = { ctx: c.getContext("2d"), tex, valeur: null, max: chargeurMax };
+  dessinerEcran(ecran, chargeurMax);
+  const boitier = new THREE.Mesh(boiteRonde(0.082, 0.058, 0.012, 0.004), new THREE.MeshStandardMaterial({ color: 0x1a1d22, roughness: 0.5, metalness: 0.6 }));
+  const vitre = new THREE.Mesh(new THREE.PlaneGeometry(0.074, 0.048), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+  // Écran sur le flanc gauche, incliné vers le tireur
+  const support = new THREE.Group();
+  support.position.set(-0.05, 0.05, 0.03);
+  support.rotation.order = "YXZ";
+  support.rotation.set(-0.4, -Math.PI / 2, 0);
+  vitre.position.z = 0.0065;
+  support.add(boitier, vitre);
+  groupe.add(support);
+  // Marquage « 07 » sur les deux flancs
+  const m = document.createElement("canvas");
+  m.width = 256; m.height = 128;
+  const g = m.getContext("2d");
+  g.font = "italic 900 96px Orbitron, Arial Black, Arial, sans-serif";
+  g.lineWidth = 8; g.strokeStyle = "#e9e2d0"; g.fillStyle = "#c8322c";
+  g.strokeText("07", 20, 100); g.fillText("07", 20, 100);
+  g.font = "700 22px Orbitron, Arial, sans-serif"; g.fillStyle = "#2a5bd0";
+  g.fillText("PULSAR", 150, 40);
+  const tm = new THREE.CanvasTexture(m);
+  tm.colorSpace = THREE.SRGBColorSpace;
+  const matMarque = new THREE.MeshStandardMaterial({ map: tm, transparent: true, roughness: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+  for (const sx of [-1, 1]) {
+    const marque = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.06), matMarque);
+    marque.position.set(sx * 0.0425, 0.035, -0.43);
+    marque.rotation.y = sx * Math.PI / 2;
+    groupe.add(marque);
+  }
+  return { ecran };
+}
+
+// Écran des munitions : gros chiffres cyan et jauge
+export function dessinerEcran(ecran, valeur) {
+  if (ecran.valeur === valeur) return;
+  ecran.valeur = valeur;
+  const g = ecran.ctx, W = 128, H = 80;
+  const bas = valeur <= Math.ceil(ecran.max * 0.2);
+  const couleur = bas ? "#ff5a5a" : "#5ff3ff";
+  g.fillStyle = "#04121a";
+  g.fillRect(0, 0, W, H);
+  g.strokeStyle = couleur; g.globalAlpha = 0.5; g.lineWidth = 3; g.strokeRect(3, 3, W - 6, H - 6); g.globalAlpha = 1;
+  g.fillStyle = couleur;
+  g.shadowColor = couleur; g.shadowBlur = 10;
+  g.font = "800 46px Orbitron, Arial Black, Arial, sans-serif";
+  g.textAlign = "center";
+  g.fillText(String(Math.max(0, valeur)), 50, 58);
+  g.shadowBlur = 0;
+  const k = Math.max(0, valeur) / ecran.max;
+  for (let i = 0; i < 3; i++) {
+    g.globalAlpha = k > i / 3 ? 1 : 0.2;
+    g.fillRect(96 + i * 9, 18, 6, 46);
+  }
+  g.globalAlpha = 1;
+  ecran.tex.needsUpdate = true;
+}
 
 // Construit les assemblages d'une arme. detail = vue à la première personne.
 export function piecesArme(id, detail) {
