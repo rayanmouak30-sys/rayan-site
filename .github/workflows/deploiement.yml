@@ -61,6 +61,7 @@ jobs:
               -x '^config\.example\.php$' \
               -x '^uploads_' \
               -x '^donnees/' \
+              -x '^neon-strike-godot/' \
               ./ /www/
           "
 

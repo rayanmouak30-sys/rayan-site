@@ -1,0 +1,68 @@
+; Neon Strike — FPS tactique 3D (Godot 4.7)
+; Tout le contenu (modèles, textures, sons) est original et généré par les outils du dossier outils/.
+
+config_version=5
+
+[application]
+
+config/name="Neon Strike"
+config/description="FPS tactique 3D : 20 personnages, 80 capacités, armes animées, multijoueur."
+config/version="1.0.0"
+run/main_scene="res://scenes/demarrage.tscn"
+config/features=PackedStringArray("4.7", "Forward Plus")
+config/icon="res://icon.svg"
+boot_splash/bg_color=Color(0.02, 0.035, 0.07, 1)
+boot_splash/show_image=false
+
+[audio]
+
+buses/default_bus_layout="res://assets/sons/bus_layout.tres"
+
+[autoload]
+
+Reglages="*res://scripts/autoload/reglages.gd"
+Profil="*res://scripts/autoload/profil.gd"
+Sons="*res://scripts/autoload/sons.gd"
+Jeu="*res://scripts/autoload/jeu.gd"
+Reseau="*res://scripts/reseau/reseau.gd"
+Test="*res://scripts/tests/test.gd"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+window/size/mode=0
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/vsync/vsync_mode=1
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=false
+
+[layer_names]
+
+3d_physics/layer_1="monde"
+3d_physics/layer_2="combattants"
+3d_physics/layer_3="touches"
+3d_physics/layer_4="objets_capacites"
+3d_physics/layer_5="projectiles"
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+common/physics_ticks_per_second=120
+common/max_physics_steps_per_frame=12
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+renderer/rendering_method.mobile="mobile"
+rendering_device/fallback_to_opengl3=true
+anti_aliasing/quality/msaa_3d=1
+anti_aliasing/quality/screen_space_aa=1
+lights_and_shadows/directional_shadow/size=4096
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
+lights_and_shadows/positional_shadow/soft_shadow_filter_quality=2
+textures/default_filters/anisotropic_filtering_level=3
+environment/defaults/default_clear_color=Color(0.02, 0.035, 0.07, 1)
