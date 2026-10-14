@@ -131,7 +131,7 @@ export class LogiqueArme {
     return true;
   }
 
-  imprecision({ vitesse, enLAir, accroupi, vise }) {
+  imprecision({ vitesse, enLAir, accroupi, vise, commotion }) {
     const d = this.def;
     if (d.type === "melee") return 0;
     let e = d.lunette && vise ? d.precisionVisee : d.precision;
@@ -140,6 +140,7 @@ export class LogiqueArme {
     e += Math.max(0, this.serie - 2) * d.serie;
     if (accroupi) e *= 0.75;
     if (vise && !d.lunette) e *= d.visee;
+    if (commotion) e = e * 1.6 + 2.5;
     return e;
   }
 

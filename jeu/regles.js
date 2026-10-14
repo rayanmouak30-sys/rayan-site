@@ -2,9 +2,8 @@
 // Manches, économie (crédits, achats), spike (pose, désamorçage, explosion), réapparitions, défis.
 import * as THREE from "three";
 import { ARMES } from "./armes.js";
-import { NOMS } from "./bots.js";
-import { PALETTES_BLEUES, PALETTES_ROUGES } from "./personnages.js";
-import { CAPACITES } from "./competences.js";
+import { HEROS, LISTE_HEROS } from "./heros.js";
+import { CAPACITES, nouvelleMancheCapacites } from "./capacites.js";
 import { nouvellesStats } from "./joueur.js";
 
 export const MODES = {
@@ -30,8 +29,9 @@ export const ARTICLES = {
   pistolet: { nom: "Sentinelle", type: "arme", prix: 0 },
   armure25: { nom: "Bouclier léger", type: "armure", valeur: 25, prix: 400 },
   armure50: { nom: "Bouclier lourd", type: "armure", valeur: 50, prix: 1000 },
-  fumee: { nom: "Fumée", type: "capacite", prix: CAPACITES.fumee.prix, max: 2 },
-  flash: { nom: "Flash", type: "capacite", prix: CAPACITES.flash.prix, max: 2 },
+  // Capacités achetables : emplacement C ("fumee") et A/Q ("flash") du personnage choisi
+  fumee: { nom: "Capacité C", type: "capacite", emplacement: "c" },
+  flash: { nom: "Capacité A", type: "capacite", emplacement: "q" },
 };
 
 const MANCHES_GAGNANTES = 5;
@@ -92,21 +92,25 @@ export class Regles {
     joueur.ultime = 0;
     joueur.equipe = "bleu";
     joueur.equipementDeBase();
-    joueur.fumees = joueur.flashs = 0;
-    const noms = [...NOMS].sort(() => Math.random() - 0.5);
+    const economie = this.mode === "spike" || this.mode === "elimination";
+    joueur.choisirHeros(config.heros || joueur.heros, economie);
+    // Personnages des bots : jamais deux fois le même dans une équipe
+    const melange = () => LISTE_HEROS.map((h) => h.id).sort(() => Math.random() - 0.5);
+    const piocher = (liste, exclus) => { const i = liste.findIndex((h) => !exclus.has(h)); return i >= 0 ? liste.splice(i, 1)[0] : liste.pop(); };
 
     if (this.mode === "spike" || this.mode === "elimination") {
       this.campJoueur = Math.random() < 0.5 ? "attaque" : "defense";
       bots.camps = { bleu: this.campJoueur, rouge: this.campJoueur === "attaque" ? "defense" : "attaque" };
       const allies = config.allies === false ? 0 : 4;
-      for (let i = 0; i < allies; i++) bots.ajouter({ nom: noms.pop(), equipe: "bleu", palette: PALETTES_BLEUES[i % 3], arme: "pistolet" });
-      for (let i = 0; i < 5; i++) bots.ajouter({ nom: noms.pop(), equipe: "rouge", palette: PALETTES_ROUGES[i % 3], arme: "pistolet" });
+      const bleus = melange(), rouges = melange(), pris = new Set([joueur.heros]);
+      for (let i = 0; i < allies; i++) { const h = piocher(bleus, pris); pris.add(h); bots.ajouter({ nom: HEROS[h].nom, heros: h, equipe: "bleu", teinte: "bleu", arme: "pistolet", economie: true }); }
+      for (let i = 0; i < 5; i++) { const h = piocher(rouges, new Set()); bots.ajouter({ nom: HEROS[h].nom, heros: h, equipe: "rouge", teinte: "rouge", arme: "pistolet", economie: true }); }
       for (const b of bots.liste) { b.credits = 800; b.armePrincipale = null; }
       this.nouvelleManche();
     } else if (this.mode === "deathmatch") {
       bots.camps = {};
-      const palettes = [7, 8, 9, 10, 11, 0, 4];
-      for (let i = 0; i < 7; i++) bots.ajouter({ nom: noms.pop(), equipe: "dm" + i, palette: palettes[i], arme: this.armeAleatoire() });
+      const liste = melange(), pris = new Set([joueur.heros]);
+      for (let i = 0; i < 7; i++) { const h = piocher(liste, pris); pris.add(h); bots.ajouter({ nom: HEROS[h].nom, heros: h, equipe: "dm" + i, teinte: "neutre", arme: this.armeHeros(h), economie: false }); }
       joueur.equipe = "dmj";
       this.chargementDM = this.chargementDM || "fusil";
       this.phase = "combat";
@@ -141,6 +145,9 @@ export class Regles {
 
   nouvellesStatsJoueur() { return nouvellesStats(); }
 
+  // Arme de prédilection du personnage (souvent), sinon au hasard
+  armeHeros(h) { return HEROS[h] && Math.random() < 0.7 ? HEROS[h].arme : this.armeAleatoire(); }
+
   armeAleatoire() {
     const r = Math.random();
     return r < 0.35 ? "fusil" : r < 0.58 ? "pulsar" : r < 0.73 ? "pompe" : r < 0.87 ? "sniper" : "pistolet";
@@ -155,9 +162,9 @@ export class Regles {
       this.campJoueur = this.campJoueur === "attaque" ? "defense" : "attaque";
       bots.camps = { bleu: this.campJoueur, rouge: this.campJoueur === "attaque" ? "defense" : "attaque" };
       joueur.equipementDeBase();
-      joueur.fumees = joueur.flashs = 0;
+      joueur.capacites.c.charges = joueur.capacites.q.charges = 0;
       joueur.credits = 800;
-      for (const b of bots.liste) { b.credits = 800; b.armePrincipale = null; b.armure = 0; b.fumees = b.flashs = 0; b.survecu = false; }
+      for (const b of bots.liste) { b.credits = 800; b.armePrincipale = null; b.armure = 0; if (b.capacites) b.capacites.c.charges = b.capacites.q.charges = 0; b.survecu = false; }
       this.changementAnnonce = true;
     }
     const dernier = this.scores.bleu === MANCHES_GAGNANTES - 1 || this.scores.rouge === MANCHES_GAGNANTES - 1;
@@ -170,6 +177,7 @@ export class Regles {
     this.degatsRecusManche = 0;
     this.premierSang = false;
     joueur.achatsManche = [];
+    nouvelleMancheCapacites(joueur.capacites);
 
     // Le joueur garde son arme s'il a survécu, sinon il repart au pistolet
     if (!joueur.vivant && this.manche > 1) { joueur.equipementDeBase(); }
@@ -233,9 +241,14 @@ export class Regles {
     } else b.arme = "pistolet";
     if (b.armure < 50 && b.credits >= 1000 && b.armePrincipale) { b.credits -= 1000; b.armure = 50; }
     else if (b.armure < 25 && b.credits >= 400 && (pistolet ? Math.random() < 0.5 : true)) { b.credits -= 400; b.armure = 25; }
-    b.fumees = 0; b.flashs = 0;
-    if (b.credits >= 100 && Math.random() < 0.6) { b.credits -= 100; b.fumees = 1; }
-    if (b.credits >= 200 && Math.random() < 0.6) { b.credits -= 200; b.flashs = 1; }
+    // Capacités C et A/Q : achetées comme le joueur
+    if (b.capacites) {
+      nouvelleMancheCapacites(b.capacites);
+      for (const slot of ["c", "q"]) {
+        const e = b.capacites[slot], prix = CAPACITES[e.id].prix || 200;
+        while (e.charges < e.max && b.credits >= prix && Math.random() < 0.65) { b.credits -= prix; e.charges++; }
+      }
+    }
   }
 
   // ----- Boutique du joueur -----
@@ -274,11 +287,12 @@ export class Regles {
       j.credits -= prix;
       j.armure = a.valeur;
     } else {
-      const champ = cle === "fumee" ? "fumees" : "flashs";
-      if (j[champ] >= a.max || j.credits < prix) { this.jeu.audio.refus(); return false; }
-      j.credits -= prix;
-      j[champ]++;
-      j.achatsManche.push({ cle, prix });
+      const e = j.capacites[a.emplacement];
+      const prixCap = this.gratuit() ? 0 : CAPACITES[e.id].prix || 200;
+      if (e.charges >= e.max || j.credits < prixCap) { this.jeu.audio.refus(); return false; }
+      j.credits -= prixCap;
+      e.charges++;
+      j.achatsManche.push({ cle, prix: prixCap });
     }
     this.jeu.audio.achat(true);
     return true;
@@ -528,6 +542,9 @@ export class Regles {
     if (this.spike && this.spike.porteur === victime) this.lacherSpike(victime);
     if (tueur && tueur !== victime) {
       tueur.kills = (tueur.kills || 0) + 1;
+      if (!tueur.estJoueur && tueur.capacites) tueur.ultime = Math.min(tueur.capacites.x.points, (tueur.ultime || 0) + 1);
+      // Frénésie : une élimination rend 50 PV et recharge la signature
+      if (tueur.frenesieT > 0 && tueur.vivant && tueur.capacites) { tueur.vie = Math.min(100, tueur.vie + 50); tueur.capacites.e.charges = tueur.capacites.e.max; }
       if (this.equipes) tueur.credits = Math.min(CREDITS_MAX, (tueur.credits || 0) + 200);
       if (tueur === joueur) {
         joueur.gagnerUltime(1);
@@ -535,7 +552,10 @@ export class Regles {
       }
     }
     if (victime === joueur) { joueur.gagnerUltime(1); }
-    else victime.survecu = false;
+    else {
+      victime.survecu = false;
+      if (victime.capacites) victime.ultime = Math.min(victime.capacites.x.points, (victime.ultime || 0) + 1);
+    }
     if (!this.premierSang && tueur) { this.premierSang = true; jeu.surEvenement("premierSang", tueur); }
 
     if (this.mode === "deathmatch") {
@@ -720,9 +740,10 @@ export class Regles {
           this.joueur.placer(p.x, p.z, this.lacetVersCentre(p));
           jeu.surReapparition();
         } else {
-          r.c.arme = this.armeAleatoire();
+          r.c.arme = this.armeHeros(r.c.heros);
           this.bots.placer(r.c, p.x, p.z, this.lacetVersCentre(p) + Math.PI);
         }
+        jeu.effets.apparition({ x: p.x, y: 0, z: p.z }, 0x7cffd4);
         r.fait = true;
       }
       this.reapparitions = this.reapparitions.filter((r) => !r.fait);

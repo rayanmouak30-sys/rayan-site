@@ -1,5 +1,7 @@
-// Profil du joueur (gardé dans ce navigateur) : niveau, XP, statistiques, succès, skins, viseur, agent.
+// Profil du joueur (gardé dans ce navigateur) : niveau, XP, statistiques, succès, skins, viseur, personnage choisi.
 // Le classement en ligne passe par api.php avec le compte du site (si le joueur est connecté).
+
+import { herosValide } from "./heros.js";
 
 export const SUCCES = {
   premiereVictoire: { nom: "Première victoire", texte: "Gagne une partie.", icone: "🏆" },
@@ -29,7 +31,7 @@ const CLE = "neonstrike-profil";
 
 function profilVide() {
   return {
-    pseudo: "", xp: 0, niveau: 1, agent: "volt", skins: {}, viseur: { ...VISEUR_DEFAUT },
+    pseudo: "", xp: 0, niveau: 1, agent: "kael", skins: {}, viseur: { ...VISEUR_DEFAUT },
     stats: { parties: 0, victoires: 0, kills: 0, morts: 0, tetes: 0, aces: 0, poses: 0, desamorcages: 0, manches: 0 },
     armes: {}, succes: {}, defis: {},
   };
@@ -57,7 +59,7 @@ export class Profil {
     d.xp = Math.max(0, Number(d.xp) || 0);
     d.niveau = Math.max(1, Math.floor(Number(d.niveau) || 1));
     d.pseudo = String(d.pseudo || "").slice(0, 16);
-    if (typeof d.agent !== "string") d.agent = vide.agent;
+    d.agent = herosValide(typeof d.agent === "string" ? d.agent : vide.agent);
     return d;
   }
 

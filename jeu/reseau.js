@@ -1,6 +1,7 @@
 // Multijoueur en ligne : connexion WebSocket au serveur Node.js (jeu/serveur/serveur.js),
 // salons à code et deathmatch entre amis. Les autres joueurs sont affichés comme des personnages
 // "distants" dont la position est lissée entre deux messages.
+import { HEROS } from "./heros.js";
 import { ARMES } from "./armes.js";
 
 export class Reseau {
@@ -82,7 +83,7 @@ export class PartieEnLigne {
   ajouter(p) {
     if (this.distants.has(p.id) || p.id === this.moi) return;
     const bots = this.jeu.bots;
-    const b = bots.ajouter({ nom: p.nom, equipe: "net-" + p.id, palette: p.palette, arme: "fusil" });
+    const b = bots.ajouter({ nom: p.nom, equipe: "net-" + p.id, heros: HEROS[p.heros] ? p.heros : "kael", teinte: "neutre", arme: "fusil" });
     b.distant = true;
     b.distantId = p.id;
     b.net = null;

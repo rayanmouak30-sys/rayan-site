@@ -2,8 +2,10 @@
 // communication, stratégie d'équipe (rassemblement, exécution d'un site, pose / désamorçage du spike),
 // ordres donnés par le joueur à ses alliés, deathmatch et mannequins du stand de tir.
 import { rayonSphere, rayonCylindre } from "./physique.js";
-import { Personnage, ARCHETYPES } from "./personnages.js";
+import { Personnage } from "./personnages.js";
 import { ARMES, facteurDistance } from "./armes.js";
+import { HEROS, LISTE_HEROS } from "./heros.js";
+import { CAPACITES, nouvelEtatCapacites, majRecharges } from "./capacites.js";
 
 export const DIFFICULTES = {
   facile: { nom: "Facile", reaction: 0.85, erreur: 3.3, convergence: 1.7, tete: 0.04, rafale: [2, 3], facteurDegats: 0.34, vitesseDetection: 0.75, cadence: 0.19, ouie: 0.6, couvert: 0.3, pause: [0.6, 1.1], rotation: 4.5, utilitaires: 0.1 },
@@ -40,7 +42,9 @@ export function appliquerDegats(c, degats) {
 class Bot {
   constructor(o) {
     Object.assign(this, {
-      id: o.id, nom: o.nom, equipe: o.equipe, palette: o.palette, type: o.type, mannequin: !!o.mannequin,
+      id: o.id, nom: o.nom, equipe: o.equipe, heros: o.heros || "kael", teinte: o.teinte || "neutre", mannequin: !!o.mannequin,
+      taille: (HEROS[o.heros] && !o.mannequin ? HEROS[o.heros].apparence.taille : 1) || 1, capacites: null, capaciteT: 2,
+      ruee: null, charge: null, chargeur: null,
       estJoueur: false, modele: null, x: 0, z: 0, y: 0, vx: 0, vz: 0, auSol: true, yaw: Math.PI, pitch: 0,
       vie: 100, armure: 0, vivant: false, mortT: 0, arme: o.arme || "fusil",
       etat: "attente", etatT: 0, objectif: null, chemin: null, iChemin: 0, bloqueT: 0,
@@ -54,7 +58,7 @@ class Bot {
       mannequinOrigine: null, mannequinAmp: 0, mannequinVitesse: 0, mannequinPhase: 0, poste: null,
     });
   }
-  get yeux() { return this.y + 1.6; }
+  get yeux() { return this.y + 1.6 * this.taille; }
 }
 
 export class GestionBots {
@@ -86,7 +90,9 @@ export class GestionBots {
 
   // ----- Création et placement -----
   ajouter(o) {
-    const b = new Bot({ ...o, id: "b" + this.prochainId++, type: o.type || ARCHETYPES[Math.floor(Math.random() * 3)] });
+    const heros = o.heros || (o.mannequin ? "mannequin" : LISTE_HEROS[Math.floor(Math.random() * LISTE_HEROS.length)].id);
+    const b = new Bot({ ...o, heros, id: "b" + this.prochainId++ });
+    if (!b.mannequin) b.capacites = nouvelEtatCapacites(heros, !!o.economie);
     this.liste.push(b);
     return b;
   }
@@ -103,9 +109,9 @@ export class GestionBots {
 
   // Met le bot en jeu (début de manche ou réapparition) avec son arme.
   placer(b, x, z, yaw = Math.PI) {
-    if (!b.modele || b.modele.armeId !== b.arme) {
+    if (!b.modele || b.modele.armeId !== b.arme || b.modele.heros !== (b.mannequin ? "mannequin" : b.heros)) {
       if (b.modele) this.scene.remove(b.modele.racine);
-      b.modele = new Personnage(b.type, b.palette, this.qualite, b.arme);
+      b.modele = new Personnage(b.mannequin ? "mannequin" : b.heros, b.mannequin ? "mannequin" : b.teinte, this.qualite, b.arme);
       this.scene.add(b.modele.racine);
     } else b.modele.ressusciter();
     const def = ARMES[b.arme];
@@ -115,8 +121,9 @@ export class GestionBots {
       derniereVue: null, reactionT: 0, rafale: 0, prochainTir: 0, pauseT: 0, mun: def.chargeur || 1, rechargeT: 0,
       couvertFait: false, retourPeek: null, aveugleT: 0, reveleT: 0, poseT: 0, desamorceT: 0, rotation: null, tenir: null,
       pointSite: null, roam: null, vitesse: 0, agressif: Math.random() < 0.35, pousseeT: alea(18, 40), redecideT: alea(0.2, 1),
-      utilitaireT: alea(3, 10), bruit: null, veutCouvert: false,
+      utilitaireT: alea(3, 10), bruit: null, veutCouvert: false, ruee: null, charge: null, capaciteT: alea(1.5, 4),
     });
+    if (this.competences) this.competences.reinitialiserStatuts(b);
     b.modele.racine.position.set(x, 0, z);
     b.modele.racine.rotation.y = yaw;
     b.modele.racine.visible = true;
@@ -192,6 +199,7 @@ export class GestionBots {
     for (const c of this.ennemisDe(b)) {
       const dx = c.x - b.x, dz = c.z - b.z, d = Math.hypot(dx, dz);
       if (d > 70) continue;
+      if (this.competences && this.competences.invisible(c) && d > 3.5) continue;
       const champ = (b.conscience >= 1 ? 85 : 55) * DEG;
       if (d > 3 && Math.abs(diffAngle(b.yaw, angleVers(dx, dz))) > champ) continue;
       if (!this.peutVoir(b, c)) continue;
@@ -453,6 +461,7 @@ export class GestionBots {
     for (const b of this.liste) {
       if (b.distant) { this.majDistant(b, dt); continue; }
       if (!b.vivant) { this.animerMort(b, dt); continue; }
+      if (this.competences && !b.mannequin) this.competences.majStatuts(b, dt);
       if (b.mannequin) this.mannequin(b, dt, temps);
       else if (actif) this.penser(b, dt, temps);
       else this.preparer(b, dt);
@@ -508,6 +517,8 @@ export class GestionBots {
   penser(b, dt, temps) {
     const diff = this.diff;
     b.etatT += dt;
+    if (b.capacites) majRecharges(b.capacites, dt);
+    this.utiliserCapacites(b, dt);
     if (b.aveugleT > 0) b.aveugleT -= dt;
     b.testVueT -= dt;
     if (b.testVueT <= 0) { b.testVueT = 0.1; this.percevoir(b); }
@@ -559,7 +570,6 @@ export class GestionBots {
           b.redecideT = b.objectif && b.objectif.type === "suivre" ? 0.8 : 2;
           if (o && (!b.objectif || o.type !== b.objectif.type || Math.hypot(o.x - b.objectif.x, o.z - b.objectif.z) > 2.5)) this.decider(b);
         }
-        this.utilitaires(b, dt);
         break;
       }
       case "garde": {
@@ -587,7 +597,6 @@ export class GestionBots {
           if (b.regardT <= 0) { b.regardT = alea(0.6, 1.2); b.lacetCible = b.yaw + alea(-120, 120) * DEG; }
           if (b.etatT - b.arriveT > 4) this.decider(b);
         }
-        this.utilitaires(b, dt);
         break;
       case "combat":
         this.combat(b, dt, temps);
@@ -631,28 +640,204 @@ export class GestionBots {
     b.rechargeT = b.dureeRecharge;
   }
 
-  // Fumées et flashs lancés par les bots
+  // ===== Capacités des personnages (IA) =====
+  // Exécution d'un site : les attaquants qui ont une fumée la lancent entre le site et les défenseurs.
   utilitairesExecution(equipe) {
-    if (!this.competences || Math.random() > this.diff.utilitaires + 0.3) return;
+    if (!this.competences) return;
     const strat = this.strategie[equipe];
     const site = this.carte.sites[strat.site];
     const dz = this.carte.zoneDepartBots;
-    const lanceur = this.liste.find((b) => b.equipe === equipe && b.vivant && b.fumees > 0);
-    if (!site || !lanceur) return;
+    if (!site) return;
     const cx = (dz.minX + dz.maxX) / 2, cz = (dz.minZ + dz.maxZ) / 2;
-    lanceur.fumees--;
-    this.competences.lancer("fumee", lanceur, { x: site.x + (cx - site.x) * 0.45, y: 0, z: site.z + (cz - site.z) * 0.45 });
+    let fumees = 0;
+    for (const b of this.liste) {
+      if (b.equipe !== equipe || !b.vivant || !b.capacites || b.empT > 0 || fumees >= 2) continue;
+      for (const slot of ["c", "q", "e"]) {
+        const e = b.capacites[slot], def = CAPACITES[e.id];
+        if (e.charges <= 0 || !(def.effet === "fumee" || def.famille === "murFumee")) continue;
+        if (Math.random() > this.diff.utilitaires + 0.45) continue;
+        const k = 0.35 + fumees * 0.2;
+        const point = { x: site.x + (cx - site.x) * k + alea(-2, 2), y: 0, z: site.z + (cz - site.z) * k + alea(-2, 2) };
+        b.lacetCible = angleVers(point.x - b.x, point.z - b.z);
+        b.yaw = b.lacetCible;
+        if (this.competences.executer(b, e.id, { cible: point })) { e.charges--; fumees++; }
+        break;
+      }
+    }
   }
 
-  utilitaires(b, dt) {
-    if (!this.competences || b.flashs <= 0 || !b.derniereVue) return;
-    b.utilitaireT -= dt;
-    if (b.utilitaireT > 0) return;
-    b.utilitaireT = alea(6, 12);
-    const d = Math.hypot(b.derniereVue.x - b.x, b.derniereVue.z - b.z);
-    if (d < 6 || d > 20 || Math.random() > this.diff.utilitaires) return;
-    b.flashs--;
-    this.competences.lancer("flash", b, { x: b.derniereVue.x, y: 2.2, z: b.derniereVue.z });
+  // Décide, de temps en temps, d'utiliser une capacité selon la situation
+  utiliserCapacites(b, dt) {
+    if (!this.competences || !b.capacites || b.mannequin || b.empT > 0 || b.ruee || b.charge) return;
+    b.capaciteT -= dt;
+    if (b.capaciteT > 0) return;
+    b.capaciteT = alea(0.7, 1.4);
+    const chance = 0.25 + this.diff.utilitaires;
+    for (const slot of ["x", "e", "c", "q"]) {
+      const e = b.capacites[slot];
+      if (slot === "x" ? b.ultime < e.points : e.charges <= 0) continue;
+      const def = CAPACITES[e.id];
+      const decision = this.decisionCapacite(b, def);
+      if (!decision || Math.random() > chance * (slot === "x" ? 1.2 : 1)) continue;
+      if (this.lancerCapacite(b, e.id, def, decision)) {
+        if (slot === "x") b.ultime = 0;
+        else e.charges--;
+        b.capaciteT = alea(1.5, 3);
+        return;
+      }
+    }
+  }
+
+  // Situation du bot -> cible de la capacité ({ point } ou { soi: true }), ou null s'il vaut mieux attendre
+  decisionCapacite(b, def) {
+    const combat = b.etat === "combat" && b.cible && b.cible.vivant;
+    const c = combat ? b.cible : null;
+    const d = c ? Math.hypot(c.x - b.x, c.z - b.z) : Infinity;
+    const vu = combat && b.voit && b.cibleVue === c;
+    const connu = b.derniereVue;
+    const dConnu = connu ? Math.hypot(connu.x - b.x, connu.z - b.z) : Infinity;
+    const defense = this.mode !== "deathmatch" && this.camps[b.equipe] === "defense";
+    const strat = this.strategie[b.equipe];
+    const allies = this.liste.filter((x) => x.equipe === b.equipe && x.vivant && !x.mannequin && Math.hypot(x.x - b.x, x.z - b.z) < 12);
+    const blesses = allies.filter((x) => x.vie < 65).length;
+    const devant = (m) => ({ point: { x: b.x + Math.sin(b.yaw) * m, y: 1, z: b.z + Math.cos(b.yaw) * m } });
+    const versCible = (x) => ({ point: { x: x.x, y: 0, z: x.z } });
+    switch (def.famille) {
+      case "grenade":
+      case "cible": {
+        const effet = def.effet;
+        if (effet === "flash") return !vu && connu && dConnu > 6 && dConnu < 22 && b.perduT > 0.4 ? { point: { x: connu.x, y: 2.2, z: connu.z } } : null;
+        if (effet === "fumee") return combat && b.vie < 45 && d > 8 ? { point: { x: (b.x + c.x) / 2, y: 0, z: (b.z + c.z) / 2 } } : null;
+        if (effet === "soin") return (b.vie < 60 || blesses >= 2) && !vu ? { point: { x: b.x, y: 0, z: b.z } } : null;
+        if (effet === "sonar") return !combat && (b.bruit || (strat && strat.phase === "rassemblement" && !defense) || Math.random() < 0.08) ? devant(14) : null;
+        if (effet === "multiFlash") return connu && dConnu < 30 && !vu ? { point: { x: connu.x, y: 0, z: connu.z } } : null;
+        if (effet === "brouillard") return combat && d > 8 ? versCible(c) : null;
+        // Effets offensifs : explosion, feu, givre, commotion, IEM, trou noir, frappe...
+        if (vu && d > 5 && d < (def.portee || 25)) return versCible(c);
+        if (!vu && connu && dConnu > 5 && dConnu < 22 && (effet === "explosion" || effet === "feu" || effet === "frappe")) return { point: { x: connu.x, y: 0, z: connu.z } };
+        return null;
+      }
+      case "buff":
+        if (def.armure) return (b.armure || 0) < 50 && (combat || b.etatT < 3) ? { soi: true } : null;
+        if (def.soin && !def.cadence) return b.vie < 55 && !vu ? { soi: true } : null;
+        return combat ? { soi: true } : null;
+      case "equipe":
+        if (def.munitions) return allies.length >= 2 || combat ? { soi: true } : null;
+        if (def.soin || def.armure) return blesses >= 2 || (b.vie < 50 && !vu) || (combat && allies.length >= 3) ? { soi: true } : null;
+        return combat && allies.length >= 2 ? { soi: true } : combat && def.rayon === 0 ? { soi: true } : null;
+      case "mur":
+        if (combat && b.vie < 60 && d > 6) return versCible(c);
+        return defense && b.etat === "garde" && b.vise && b.etatT > 1 && Math.random() < 0.2 ? { point: { x: b.vise.x, y: 1, z: b.vise.z } } : null;
+      case "murFumee":
+        if (combat && d > 10) return versCible(c);
+        return null;
+      case "drone":
+        return !combat && (b.bruit || (!defense && strat && strat.phase === "execute") || Math.random() < 0.06) ? devant(10) : null;
+      case "sonar":
+        if (!def.rayon) return combat || (strat && strat.phase === "execute") ? { soi: true } : null;
+        return !combat && (b.bruit || b.conscience > 0.3 || Math.random() < 0.1) ? { soi: true } : null;
+      case "cone":
+        return !combat && (b.bruit || b.etat === "deplacement") && Math.random() < 0.4 ? devant(20) : null;
+      case "piege":
+        if (defense && b.etat === "garde" && b.vise) return { point: { x: b.vise.x, y: 0, z: b.vise.z } };
+        return this.mode === "deathmatch" && !combat && Math.random() < 0.15 ? devant(3) : null;
+      case "tourelle":
+        if (defense && b.etat === "garde" && b.vise) return { point: { x: b.vise.x, y: 0, z: b.vise.z } };
+        if (this.spike && this.spike.etat === "pose" && !defense && b.etat === "garde") return { point: { x: this.spike.x, y: 0, z: this.spike.z } };
+        return combat && d > 8 ? versCible(c) : null;
+      case "camo":
+        return (combat && b.vie < 45) || (!combat && !defense && strat && strat.phase === "execute" && Math.random() < 0.3) ? { soi: true } : null;
+      case "frenesie":
+        return combat ? { soi: true } : null;
+      case "resurrection": {
+        const morts = this.liste.filter((x) => x.equipe === b.equipe && !x.vivant && !x.mannequin && Math.hypot(x.x - b.x, x.z - b.z) < (def.rayon || 30)).length;
+        return morts >= 2 && !vu ? { soi: true } : null;
+      }
+      case "seisme":
+        return combat && d < (def.rayon || 9) * 0.85 ? { soi: true } : null;
+      case "ruee":
+        return combat && d < 18 && Math.random() < 0.5 ? { soi: true } : null;
+      case "blink":
+        return (combat && b.vie < 40) || (combat && d > 6 && d < 14 && Math.random() < 0.3) ? { soi: true } : null;
+      case "charge":
+        return combat && d > 2.5 && d < 7 ? { soi: true } : null;
+    }
+    return null;
+  }
+
+  lancerCapacite(b, id, def, decision) {
+    const c = b.cible;
+    switch (def.famille) {
+      case "saut": return false;
+      case "ruee": {
+        // Esquive latérale ou ruée vers l'ennemi
+        const ang = c ? angleVers(c.x - b.x, c.z - b.z) : b.yaw;
+        const a = ang + (Math.random() < 0.6 ? (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2 : 0);
+        b.ruee = { dx: Math.sin(a), dz: Math.cos(a), t: def.duree || 0.27, duree: def.duree || 0.27, vitesse: (def.vitesse || 30) * 0.85 };
+        this.audio.ruee();
+        return true;
+      }
+      case "charge": {
+        if (!c) return false;
+        const a = angleVers(c.x - b.x, c.z - b.z);
+        b.charge = { dx: Math.sin(a), dz: Math.cos(a), t: def.duree || 0.45, def, touches: new Set() };
+        this.audio.ruee();
+        return true;
+      }
+      case "blink": {
+        const monde = this.carte.monde;
+        const fuite = b.vie < 40 && c;
+        const a = c ? angleVers(c.x - b.x, c.z - b.z) + (fuite ? Math.PI : 0) : b.yaw;
+        const dx = Math.sin(a), dz = Math.cos(a);
+        let meilleur = 0;
+        for (let d = 0.5; d <= (def.portee || 8); d += 0.25) {
+          const x = b.x + dx * d, z = b.z + dz * d;
+          if (!monde.ligneLibre(b.x, 1, b.z, x, 1, z)) break;
+          if (!monde.bloque(x, z, 0, 0.35) && this.carte.nav.estLibre(x, z)) meilleur = d;
+        }
+        if (meilleur < 2) return false;
+        if (this.competences.effets) this.competences.effets.apparition({ x: b.x, y: 0, z: b.z }, 0xb07cff);
+        b.x += dx * meilleur; b.z += dz * meilleur;
+        b.chemin = null;
+        if (this.competences.effets) this.competences.effets.apparition({ x: b.x, y: 0, z: b.z }, 0xd0b0ff);
+        this.audio.capacite("teleport", { x: b.x, y: 1, z: b.z });
+        return true;
+      }
+    }
+    if (decision.point) {
+      b.lacetCible = angleVers(decision.point.x - b.x, decision.point.z - b.z);
+      b.yaw = b.lacetCible;
+    }
+    return this.competences.executer(b, id, decision.point ? { cible: decision.point } : {});
+  }
+
+  // Ruée et charge des bots (déplacement rapide, sans traverser les murs)
+  deplacementSpecial(b, dt) {
+    const monde = this.carte.monde;
+    const m = b.ruee || b.charge;
+    m.t -= dt;
+    const v = b.ruee ? m.vitesse * (0.45 + 0.55 * Math.max(0, m.t / m.duree)) : m.def.vitesse * 0.9;
+    const ax = b.x, az = b.z;
+    const pas = Math.max(1, Math.ceil(v * dt / 0.15));
+    for (let i = 0; i < pas; i++) {
+      const nx = b.x + m.dx * v * dt / pas, nz = b.z + m.dz * v * dt / pas;
+      if (!monde.bloque(nx, b.z, 0, 0.35)) b.x = nx;
+      if (!monde.bloque(b.x, nz, 0, 0.35)) b.z = nz;
+    }
+    b.vx = (b.x - ax) / dt; b.vz = (b.z - az) / dt;
+    b.vitesse = Math.hypot(b.vx, b.vz);
+    if (b.vitesse > 0.2) { b.dirMouvement.x = b.vx / b.vitesse; b.dirMouvement.z = b.vz / b.vitesse; }
+    if (b.charge) {
+      for (const e of this.ennemisDe(b)) {
+        if (m.touches.has(e) || Math.hypot(e.x - b.x, e.z - b.z) > 1.15) continue;
+        m.touches.add(e);
+        e.commotionT = Math.max(e.commotionT || 0, m.def.commotion || 1.5);
+        this.competences.degats(e, (m.def.degats || 45) * this.diff.facteurDegats * 1.4, b, "brax_belier");
+      }
+    }
+    const d = diffAngle(b.yaw, b.lacetCible);
+    b.yaw += Math.sign(d) * Math.min(Math.abs(d), 8 * dt);
+    if (m.t <= 0) { b.ruee = null; b.charge = null; }
   }
 
   combat(b, dt, temps) {
@@ -727,7 +912,7 @@ export class GestionBots {
     if (b.rafale <= 0) b.rafale = Math.round(alea(rafale[0], rafale[1]));
     this.tirer(b, c, d, temps);
     b.rafale--;
-    b.prochainTir = temps + (def.type === "auto" ? diff.cadence : def.bot.cadence);
+    b.prochainTir = temps + (def.type === "auto" ? diff.cadence : def.bot.cadence) / (this.competences ? this.competences.facteurCadence(b) : 1);
     if (b.rafale <= 0) b.pauseT = alea(diff.pause[0], diff.pause[1]) * (def.type === "auto" ? 1 : 0.5);
   }
 
@@ -740,6 +925,8 @@ export class GestionBots {
     let erreur = b.erreurVisee * (1 + Math.hypot(c.vx, c.vz) / 7) * (def.bot.facteur || 1);
     if (!c.auSol) erreur *= 1.6;
     if (b.aveugleT > 0) erreur *= 6;
+    if (b.commotionT > 0) erreur *= 2.2;
+    if (b.camoT > 0) b.camoRevelT = 0.6;
     const ox = b.x, oy = 1.45, oz = b.z;
     let dx0 = c.x - ox, dy0 = cy - oy, dz0 = c.z - oz;
     const l = Math.hypot(dx0, dy0, dz0);
@@ -794,6 +981,7 @@ export class GestionBots {
 
   deplacer(b, dt) {
     const monde = this.carte.monde;
+    if (b.ruee || b.charge) { this.deplacementSpecial(b, dt); return; }
     let dirX = 0, dirZ = 0;
     if (b.mouvementForce) {
       dirX = b.mouvementForce.x; dirZ = b.mouvementForce.z;
@@ -805,7 +993,8 @@ export class GestionBots {
       else { dirX = dx / d; dirZ = dz / d; }
     }
     if (dirX || dirZ) { b.dirMouvement.x = dirX; b.dirMouvement.z = dirZ; }
-    const cible = (dirX || dirZ) ? b.vitesseCible : 0;
+    const facteur = this.competences && !b.mannequin ? this.competences.facteurVitesse(b) : 1;
+    const cible = (dirX || dirZ) ? b.vitesseCible * facteur : 0;
     b.vitesse += (cible - b.vitesse) * (1 - Math.exp(-10 * dt));
     b.vx = b.vz = 0;
     if (b.vitesse > 0.05 && (dirX || dirZ)) {
@@ -856,6 +1045,7 @@ export class GestionBots {
 
   animer(b, dt) {
     const m = b.modele;
+    if (this.competences && !b.mannequin) m.camoufler(this.competences.invisible(b));
     m.racine.position.set(b.x, b.distant ? b.y : 0, b.z);
     m.racine.rotation.y = b.yaw;
     let lx = 0, lz = 1;

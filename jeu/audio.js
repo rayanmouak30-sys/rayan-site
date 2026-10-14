@@ -437,6 +437,78 @@ export class Audio {
     try { h.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.05); h.o.stop(this.ctx.currentTime + 0.3); } catch (e) { /* déjà arrêté */ }
   }
 
+  // Sons des capacités des personnages (tous synthétisés)
+  capacite(type, position = null) {
+    if (!this.ctx || !this.limite("cap" + type, 0.05)) return;
+    const s = this.sortie(position);
+    switch (type) {
+      case "explosion":
+        this.bruitFiltre(s, "lowpass", 1800, 0.6, 0.9, 0.85, 0.005).connect(this.envoiReverb);
+        this.oscillo(s, "sine", 90, 28, 0.7, 0.7);
+        break;
+      case "zone":
+        this.bruitFiltre(s, "bandpass", 700, 0.8, 0.8, 0.3, 0.1);
+        this.oscillo(s, "triangle", 300, 180, 0.5, 0.08);
+        break;
+      case "feu":
+        this.bruitFiltre(s, "bandpass", 1400, 0.5, 1.2, 0.35, 0.05);
+        this.bruitFiltre(s, "lowpass", 500, 0.7, 1.0, 0.3, 0.02);
+        break;
+      case "sonar":
+        this.oscillo(s, "sine", 1760, 1700, 0.35, 0.18);
+        this.oscillo(s, "sine", 880, 860, 0.5, 0.08, 0.05);
+        break;
+      case "commotion":
+        this.oscillo(s, "sine", 120, 40, 0.6, 0.6);
+        this.bruitFiltre(s, "lowpass", 600, 0.7, 0.5, 0.5, 0.005);
+        break;
+      case "emp":
+        this.oscillo(s, "sawtooth", 1800, 60, 0.45, 0.2);
+        this.bruitFiltre(s, "highpass", 3000, 0.7, 0.4, 0.35, 0.003);
+        break;
+      case "camo":
+        [1200, 1600, 2000].forEach((f, i) => this.oscillo(s, "sine", f, f * 0.6, 0.35, 0.06, i * 0.05));
+        break;
+      case "tourelle":
+        this.bruitFiltre(s, "bandpass", 2600, 1.5, 0.06, 0.35, 0.002);
+        this.oscillo(s, "square", 900, 300, 0.05, 0.06);
+        break;
+      case "piege":
+        this.cliquetis(0, 2400);
+        this.oscillo(s, "square", 600, 120, 0.25, 0.15, 0.03);
+        break;
+      case "teleport":
+        this.oscillo(s, "sine", 300, 2400, 0.18, 0.15);
+        this.bruitFiltre(s, "highpass", 4000, 0.7, 0.2, 0.2, 0.01);
+        break;
+      case "saut":
+        this.bruitFiltre(s, "lowpass", 900, 0.6, 0.35, 0.4, 0.01);
+        this.oscillo(s, "sine", 160, 420, 0.25, 0.15);
+        break;
+      case "trouNoir":
+        this.oscillo(s, "sawtooth", 55, 30, 3.5, 0.18);
+        this.bruitFiltre(s, "lowpass", 300, 1, 3.2, 0.3, 0.6);
+        break;
+      case "seisme":
+        this.oscillo(s, "sine", 70, 20, 1.2, 0.9);
+        this.bruitFiltre(s, "lowpass", 400, 0.6, 1.2, 0.8, 0.01).connect(this.envoiReverb);
+        break;
+      case "frappe":
+        this.oscillo(s, "sine", 2400, 500, 1.1, 0.08);
+        break;
+      case "soin":
+        [523, 659, 784].forEach((f, i) => this.oscillo(s, "sine", f, f, 0.4, 0.08, i * 0.07));
+        break;
+      case "bouclier":
+        this.oscillo(s, "triangle", 300, 900, 0.3, 0.15);
+        this.oscillo(s, "sine", 1200, 1200, 0.25, 0.06, 0.1);
+        break;
+      case "resurrection":
+        [392, 523, 659, 784, 1047].forEach((f, i) => this.oscillo(s, "triangle", f, f, 0.6, 0.1, i * 0.09));
+        break;
+    }
+  }
+
   // ----- Spike -----
   spikeBip(position, urgent) {
     if (!this.ctx) return;

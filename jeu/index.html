@@ -56,7 +56,7 @@
   <div id="credits" class="hud"></div>
 
   <div id="bas-gauche" class="hud">
-    <div id="agent-nom"></div>
+    <div class="ligne-heros"><img id="hud-portrait" alt=""><div id="agent-nom"></div></div>
     <div class="ligne-vie">
       <span class="croix">✚</span><span id="vie-nombre">100</span>
       <span id="armure-bloc"><span class="bouclier">⬢</span><span id="armure-nombre">0</span></span>
@@ -66,9 +66,9 @@
   </div>
 
   <div id="bas-centre" class="hud">
-    <div class="capacite" id="cap-fumee"><span class="touche" data-action-touche="fumee">C</span><div class="icone"></div><span class="charges"></span></div>
-    <div class="capacite" id="cap-flash"><span class="touche" data-action-touche="flash">A</span><div class="icone"></div><span class="charges"></span></div>
-    <div class="capacite signature" id="cap-signature"><div class="remplir"></div><span class="touche" data-action-touche="signature">E</span><div class="icone"></div></div>
+    <div class="capacite" id="cap-fumee"><div class="remplir"></div><span class="touche" data-action-touche="fumee">C</span><div class="icone"></div><span class="charges"></span></div>
+    <div class="capacite" id="cap-flash"><div class="remplir"></div><span class="touche" data-action-touche="flash">A</span><div class="icone"></div><span class="charges"></span></div>
+    <div class="capacite signature" id="cap-signature"><div class="remplir"></div><span class="touche" data-action-touche="signature">E</span><div class="icone"></div><span class="charges"></span></div>
     <div class="capacite ultime" id="cap-ultime"><span class="touche" data-action-touche="ultime">X</span><div class="icone"></div><div class="points"></div></div>
   </div>
 
@@ -135,7 +135,7 @@
     <button type="button" class="bouton-principal" data-ouvre="ecran-modes">JOUER</button>
     <div class="grille-menu">
       <button type="button" class="tuile" data-ouvre="ecran-enligne"><strong>En ligne</strong><span>Joue avec tes amis</span></button>
-      <button type="button" class="tuile" data-ouvre="ecran-agents"><strong>Agents</strong><span id="tuile-agent"></span></button>
+      <button type="button" class="tuile" data-ouvre="ecran-agents"><strong>Personnages</strong><span id="tuile-agent"></span></button>
       <button type="button" class="tuile" data-ouvre="ecran-arsenal"><strong>Arsenal</strong><span>Skins d'armes</span></button>
       <button type="button" class="tuile" data-ouvre="ecran-carriere"><strong>Carrière</strong><span>Stats, succès, classement</span></button>
     </div>
@@ -203,19 +203,38 @@
   </div>
 </div>
 
-<div id="ecran-agents" class="ecran">
-  <div class="panneau-menu large-g">
-    <h2>AGENTS</h2>
-    <p class="accroche">Chaque agent a une compétence signature (E) et un ultime (X). Tout le monde peut acheter fumées (C) et flashs (A).</p>
-    <div class="cartes-choix" id="liste-agents"></div>
-    <button type="button" class="bouton-principal petit" data-retour>Valider</button>
+<div id="ecran-agents" class="ecran ecran-heros">
+  <div class="heros-entete">
+    <button type="button" class="bouton-lien" data-retour>← Retour</button>
+    <h2>PERSONNAGES</h2>
+    <div class="heros-filtres" id="heros-filtres"></div>
   </div>
+  <div class="heros-corps">
+    <div class="heros-scene" id="heros-scene">
+      <div class="heros-titre">
+        <span class="heros-categorie" id="heros-categorie"></span>
+        <h3 id="heros-nom"></h3>
+        <p id="heros-role"></p>
+        <div class="heros-difficulte" id="heros-difficulte"></div>
+      </div>
+      <p class="heros-aide">Glisse pour tourner · molette pour zoomer</p>
+    </div>
+    <div class="heros-infos">
+      <p class="heros-histoire" id="heros-histoire"></p>
+      <p class="heros-perso"><b>Personnalité :</b> <span id="heros-perso"></span></p>
+      <p class="heros-arme"><b>Arme de prédilection :</b> <span id="heros-arme"></span></p>
+      <div class="heros-capacites" id="heros-capacites"></div>
+      <button type="button" class="bouton-principal" id="heros-choisir">SÉLECTIONNER</button>
+    </div>
+  </div>
+  <div class="heros-grille" id="heros-grille"></div>
 </div>
 
 <div id="ecran-arsenal" class="ecran">
   <div class="panneau-menu large-g">
     <h2>ARSENAL</h2>
-    <p class="accroche">Débloque des finitions en gagnant des niveaux, puis choisis-en une pour chaque arme.</p>
+    <p class="accroche">Débloque des finitions en gagnant des niveaux, puis choisis-en une pour chaque arme. Clique sur le nom d'une arme pour la voir en 3D.</p>
+    <div class="arsenal-apercu" id="arsenal-apercu"><span id="arsenal-nom"></span></div>
     <div id="liste-arsenal"></div>
     <button type="button" class="bouton-principal petit" data-retour>Retour</button>
   </div>

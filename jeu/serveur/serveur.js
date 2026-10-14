@@ -99,7 +99,7 @@ const nettoyer = (s, max) => String(s || "").replace(/[<>&"'`\\]/g, "").trim().s
 const nombre = (v, min, max) => { const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : 0; };
 
 function listeJoueurs(salon) {
-  return [...salon.joueurs.values()].map((c) => ({ id: c.id, nom: c.nom, palette: c.palette, hote: c === salon.hote }));
+  return [...salon.joueurs.values()].map((c) => ({ id: c.id, nom: c.nom, palette: c.palette, heros: c.heros || "kael", hote: c === salon.hote }));
 }
 
 function diffuser(salon, objet, sauf = null) {
@@ -143,6 +143,7 @@ function recevoir(client, texte) {
     case "creer": {
       if (salon) quitter(client);
       client.nom = nettoyer(m.nom, 16) || "Joueur";
+      client.heros = typeof m.heros === "string" && /^[a-z]{2,12}$/.test(m.heros) ? m.heros : "kael";
       const s = { code: nouveauCode(), carte: ["nexus", "bazar", "hangar"].includes(m.carte) ? m.carte : "nexus", hote: client, joueurs: new Map(), etat: "attente", scores: {} };
       salons.set(s.code, s);
       entrer(client, s);
@@ -154,6 +155,7 @@ function recevoir(client, texte) {
       if (s.joueurs.size >= MAX_JOUEURS) { envoyer(client, { t: "erreur", texte: "Salon complet (8 joueurs)." }); break; }
       if (salon) quitter(client);
       client.nom = nettoyer(m.nom, 16) || "Joueur";
+      client.heros = typeof m.heros === "string" && /^[a-z]{2,12}$/.test(m.heros) ? m.heros : "kael";
       entrer(client, s);
       break;
     }

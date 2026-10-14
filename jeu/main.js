@@ -17,7 +17,10 @@ import { Hud } from "./hud.js";
 import { Audio } from "./audio.js";
 import { Musique } from "./musique.js";
 import { Effets } from "./effets.js";
-import { Competences, AGENTS, CAPACITES } from "./competences.js";
+import { Competences } from "./competences.js";
+import { CAPACITES, FAMILLES_PERSONNELLES, detailsCapacite, iconeCapacite } from "./capacites.js";
+import { HEROS, CATEGORIES, LISTE_HEROS, ORDRE_CATEGORIES, herosValide, NOMS_DIFFICULTE } from "./heros.js";
+import { Vitrine } from "./vitrine.js";
 import { Joueur, nouvellesStats } from "./joueur.js";
 import { Regles, MODES, DEFIS, ARTICLES, OBJECTIF_DM } from "./regles.js";
 import { Profil, SUCCES, NIVEAUX_SKINS, etatCompte, envoyerResultat, classement, connexion, inscription, deconnexion, chargerSauvegarde, envoyerSauvegarde } from "./profil.js";
@@ -165,6 +168,32 @@ bots.joueur = joueur;
 bots.competences = competences;
 competences.combattants = () => bots.combattants();
 competences.estEnnemi = (a, b) => bots.estEnnemi(a, b);
+competences.effets = effets;
+// Dégâts des capacités (les bots font des dégâts adaptés à la difficulté, comme avec leurs armes)
+competences.surDegats = (c, degats, auteur, capId) => {
+  const k = auteur && !auteur.estJoueur ? Math.min(1, jeu.difficulte.facteurDegats + 0.25) : 1;
+  jeu.infliger(c, degats * k, auteur, false, "cap:" + capId);
+};
+competences.surTirTourelle = (depart, arrivee) => effets.tracante(depart, arrivee, 0x9cff3a, 0.05);
+// Résurrection : les alliés éliminés à portée reviennent (le joueur aussi, si une alliée le relève)
+competences.surResurrection = (lanceur, def) => {
+  const p = { x: lanceur.x, y: 0, z: lanceur.z };
+  effets.apparition(p, 0xfff0b0);
+  audio.capacite("resurrection", lanceur.estJoueur ? null : p);
+  if (!MODES[regles.mode].equipes || partie.mode === "enligne") { lanceur.vie = Math.min(100, lanceur.vie + (def.soin || 50)); return; }
+  for (const b of bots.liste) {
+    if (b.mannequin || b.vivant || b.equipe !== lanceur.equipe || Math.hypot(b.x - lanceur.x, b.z - lanceur.z) > (def.rayon || 30)) continue;
+    bots.placer(b, b.x, b.z, b.yaw);
+    effets.apparition({ x: b.x, y: 0, z: b.z }, 0xfff0b0);
+    if (b.equipe === joueur.equipe) hud.fil(lanceur === joueur ? "TOI" : lanceur.nom, b.nom + " est de retour", false, "info", null, ["#7cffd4", "#e9f1ff"]);
+  }
+  if (!joueur.vivant && joueur.equipe === lanceur.equipe && lanceur !== joueur && Math.hypot(joueur.x - lanceur.x, joueur.z - lanceur.z) <= (def.rayon || 30)) {
+    joueur.placer(joueur.x, joueur.z, joueur.lacet);
+    killcam = null; spectateur = null; mortCamT = 0; camera.rotation.z = 0;
+    hud.annonce("RESSUSCITÉ", lanceur.nom + " t'a relevé !", "#fff0b0", 2);
+  }
+  for (const c of competences.allies(lanceur)) c.vie = Math.min(100, c.vie + (def.soin || 50));
+};
 
 // ===== Post-traitement (qualité élevée seulement) =====
 const Etalonnage = {
@@ -321,7 +350,7 @@ bots.surMort = (victime, tueur, tete, arme) => {
     if (tete) joueur.stats.tetes++;
     if (arme === "couteau") { joueur.stats.killsCouteau++; profilJ.debloquer("lame"); }
     if (arme === "sniper") joueur.stats.killsSniper++;
-    if (arme && regles.mode !== "stand") profilJ.noterKillArme(arme);
+    if (arme && ARMES[arme] && regles.mode !== "stand") profilJ.noterKillArme(arme);
     const n = MODES[regles.mode].equipes ? (regles.killsManche || 0) + 1 : 1;
     hud.touche(tete, true);
     if (regles.mode !== "stand") hud.elimination(n, tete);
@@ -363,7 +392,12 @@ competences.surAveugle = (c, intensite, duree) => {
 };
 
 competences.surRevele = (c, duree, equipe) => {
-  if (equipe !== joueur.equipe) return;
+  if (equipe !== joueur.equipe) {
+    // Révélé par l'adversaire : son équipe connaît ta position
+    bots.informer(equipe, c.x, c.z);
+    if (c === joueur && audio.limite("repere", 2)) hud.annonce("", "Tu as été repéré !", "#ff6b78", 1);
+    return;
+  }
   c.reveleT = Math.max(c.reveleT || 0, duree);
   hud.ping(c.x, c.z);
   bots.informer(equipe, c.x, c.z);
@@ -373,28 +407,27 @@ jeu.signalerTir = (c, o, f, arme) => {
   if (partie.mode === "enligne") reseau.envoyer({ t: "tir", o: [+o.x.toFixed(2), +o.y.toFixed(2), +o.z.toFixed(2)], f: [+f.x.toFixed(2), +f.y.toFixed(2), +f.z.toFixed(2)], a: arme });
 };
 
-// Ultimes des agents
-jeu.ultime = (lanceur, id) => {
+// Ultime du joueur : annonce à l'écran et voix
+function annoncerUltime(id) {
+  const h = HEROS[joueur.heros];
+  const couleur = CATEGORIES[h.categorie].couleur;
   audio.ultime();
-  hud.activerCapacite("ultime");
-  const allies = MODES[regles.mode].equipes ? bots.liste.filter((b) => b.vivant && !b.mannequin && b.equipe === joueur.equipe) : [];
-  if (id === "surcharge") { joueur.surchargeT = 10; teinte("rgba(63,224,176,0.5)", 10); hud.annonce("SURCHARGE", "Cadence et vitesse augmentées", "#7cffd4", 1.6); }
-  else if (id === "bastion") {
-    for (const c of [joueur, ...allies]) { c.armure = Math.max(c.armure || 0, 50); c.vie = Math.min(100, c.vie + 50); }
-    teinte("rgba(63,127,255,0.6)", 1.5);
-    hud.annonce("BASTION", "Toute l'équipe est protégée", "#8ab4ff", 1.6);
-  } else if (id === "sonar") {
-    for (const c of bots.combattants()) if (c.vivant && !c.mannequin && bots.estEnnemi(joueur, c)) { c.reveleT = 6; bots.informer(joueur.equipe, c.x, c.z); }
-    teinte("rgba(255,209,102,0.5)", 1.2);
-    hud.annonce("SONAR", "Ennemis révélés", "#ffd166", 1.6);
-  } else if (id === "renouveau") {
-    for (const c of [joueur, ...allies]) c.vie = 100;
-    teinte("rgba(156,255,58,0.5)", 1.5);
-    hud.annonce("RENOUVEAU", "Équipe soignée", "#9cff3a", 1.6);
-  }
+  hud.annonce(CAPACITES[id].nom.toUpperCase(), h.nom, couleur, 1.6);
+  teinte(couleur + "66", 1.2);
   audio.parler(CAPACITES[id].nom + " !");
-};
+}
 function teinte(couleur, duree) { teinteCouleur = couleur; teinteT = duree; }
+// Couleur de l'écran selon les effets subis ou actifs
+function teinteStatut() {
+  if (teinteT > 0) return teinteCouleur;
+  if (!joueur.vivant) return null;
+  if (joueur.camoT > 0) return "rgba(150,180,255,0.32)";
+  if (joueur.commotionT > 0) return "rgba(255,209,102,0.3)";
+  if (joueur.empT > 0) return "rgba(124,255,212,0.25)";
+  if (joueur.entraveT > 0 || competences.facteurVitesse(joueur) < 0.95) return "rgba(159,232,255,0.28)";
+  if (joueur.cadenceT > 0) return "rgba(255,120,70,0.22)";
+  return null;
+}
 
 // ===== Événements des règles =====
 jeu.preparerManche = () => {
@@ -590,9 +623,12 @@ function traiterActions() {
       case "flash":
       case "signature":
       case "ultime": {
-        if (partie.mode === "enligne" && (a !== "signature" || !["ruee", "soin"].includes(joueur.agentDef.signature))) { hud.annonce("", "Compétence indisponible en ligne", "#94a7c9", 1); break; }
+        const slot = { fumee: "c", flash: "q", signature: "e", ultime: "x" }[a];
+        const capId = joueur.capacites[slot].id;
+        if (partie.mode === "enligne" && !FAMILLES_PERSONNELLES.has(CAPACITES[capId].famille)) { hud.annonce("", "Capacité indisponible en ligne", "#94a7c9", 1); break; }
         if (!enCombat() && a !== "signature") { audio.refus(); break; }
-        if (joueur.utiliser(a, controles.cmd, enCombat())) hud.activerCapacite(a);
+        if (joueur.empT > 0) { hud.annonce("", "Capacités brouillées par une IEM", "#ff6b78", 0.8); audio.refus(); break; }
+        if (joueur.utiliser(a, controles.cmd, enCombat())) { hud.activerCapacite(a); if (a === "ultime") annoncerUltime(capId); }
         else audio.refus();
         break;
       }
@@ -647,7 +683,7 @@ function simuler(dt) {
   if (enLigneActif) enLigne.maj(dt);
   else regles.maj(dt, cmd);
   bots.maj(dt, temps, phase);
-  competences.maj(dt);
+  competences.maj(dt, temps);
   majVision(dt);
   enregistrementT -= dt;
   if (enregistrementT <= 0) { enregistrementT = 0.05; enregistrer(); }
@@ -707,7 +743,8 @@ function majCamera(dt, alpha) {
     const balancement = joueur.auSol ? Math.sin(temps * (joueur.sprint ? 13 : 10)) * 0.022 * Math.min(vit / 6, 1) * amp : 0;
     camera.position.set(posCam.x, posCam.y + joueur.hauteurYeux + balancement - joueur.chute * 0.06, posCam.z);
     const penche = -(joueur.vel.x * c - joueur.vel.z * s) * 0.0028 * reglages.bob;
-    camera.rotation.set(joueur.tangage + L.reculPitch + joueur.sursaut * 0.02, joueur.lacet + L.reculYaw, penche);
+    const choc = joueur.commotionT > 0 ? Math.min(1, joueur.commotionT) : 0;
+    camera.rotation.set(joueur.tangage + L.reculPitch + joueur.sursaut * 0.02 + Math.sin(temps * 7) * 0.02 * choc, joueur.lacet + L.reculYaw + Math.sin(temps * 5.3) * 0.025 * choc, penche + Math.sin(temps * 3.1) * 0.06 * choc);
     zoom = zoomActuel;
     hud.killcam(null);
   } else {
@@ -767,9 +804,10 @@ function majKillcam() {
   }
   // Le joueur, vu par le tueur
   const arme = joueur.inventaire.principale || joueur.inventaire.secondaire || "pistolet";
-  if (!modeleJoueur || modeleJoueur.armeId !== arme) {
+  const teinteJoueur = MODES[regles.mode].equipes ? "bleu" : "neutre";
+  if (!modeleJoueur || modeleJoueur.armeId !== arme || modeleJoueur.heros !== joueur.heros || modeleJoueur.teinte !== teinteJoueur) {
     if (modeleJoueur) scene.remove(modeleJoueur.racine);
-    modeleJoueur = new Personnage("avantgarde", 4, qualite, arme);
+    modeleJoueur = new Personnage(joueur.heros, teinteJoueur, qualite, arme);
     scene.add(modeleJoueur.racine);
   }
   modeleJoueur.racine.visible = true;
@@ -781,12 +819,35 @@ function majKillcam() {
     camera.rotation.set(tueur.pitch || 0, tueur.yaw + Math.PI, 0);
     kc.tueur.modele.racine.visible = false;
   }
-  hud.killcam(`KILLCAM · Éliminé par ${kc.tueur.nom}${kc.arme && ARMES[kc.arme] ? " (" + ARMES[kc.arme].nom + ")" : ""}${kc.tete ? " · headshot" : ""}`);
+  const avec = kc.arme && ARMES[kc.arme] ? ARMES[kc.arme].nom : kc.arme && String(kc.arme).startsWith("cap:") && CAPACITES[kc.arme.slice(4)] ? CAPACITES[kc.arme.slice(4)].nom : "";
+  hud.killcam(`KILLCAM · Éliminé par ${kc.tueur.nom}${avec ? " (" + avec + ")" : ""}${kc.tete ? " · headshot" : ""}`);
 }
 function restaurerKillcam() {
   for (const [r, p, y, v] of restaurations) { r.position.copy(p); r.rotation.y = y; r.visible = v; }
   restaurations.length = 0;
   if (modeleJoueur) modeleJoueur.racine.visible = false;
+}
+
+// Repères au-dessus des coéquipiers : on les distingue des adversaires d'un coup d'œil
+const texRepere = (() => {
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const g = c.getContext("2d");
+  g.fillStyle = "#4fd2ff"; g.strokeStyle = "rgba(0,0,0,0.65)"; g.lineWidth = 5;
+  g.beginPath(); g.moveTo(14, 18); g.lineTo(50, 18); g.lineTo(32, 46); g.closePath(); g.stroke(); g.fill();
+  return new THREE.CanvasTexture(c);
+})();
+const reperesAllies = Array.from({ length: 4 }, () => {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: texRepere, depthTest: false, depthWrite: false, transparent: true, opacity: 0.8, toneMapped: false }));
+  s.scale.set(0.3, 0.3, 1);
+  s.renderOrder = 998;
+  s.visible = false;
+  scene.add(s);
+  return s;
+});
+function majReperes(actif) {
+  const liste = actif && MODES[regles.mode].equipes && partie.mode !== "enligne" ? bots.liste.filter((b) => b.vivant && !b.mannequin && b.equipe === joueur.equipe) : [];
+  reperesAllies.forEach((s, i) => { const b = liste[i]; s.visible = !!b; if (b) s.position.set(b.x, b.yeux + 0.6, b.z); });
 }
 
 // ===== Interface (à chaque image) =====
@@ -832,6 +893,7 @@ function majVisuels(dt, alpha) {
   }
   vue.pivot.visible = cam.armeVisible && !lunette;
 
+  majReperes(!cam.killcam);
   // Marqueurs des ennemis révélés
   competences.majMarqueurs(bots.liste.filter((b) => b.vivant && b.reveleT > 0 && bots.estEnnemi(joueur, b)), temps);
   teinteT = Math.max(0, teinteT - dt);
@@ -868,7 +930,7 @@ function majVisuels(dt, alpha) {
     credits: enEquipe && (regles.phase === "preparation" || boutiqueOuverte) ? joueur.credits : null,
     progression: jeu.progression,
     aveugle: joueur.aveugleT > 0 ? Math.min(1, joueur.aveugleT / Math.min(1.2, joueur.aveugleMax)) : 0,
-    teinte: teinteT > 0 || joueur.surchargeT > 0 ? teinteCouleur : null,
+    teinte: teinteStatut(),
     fumees: competences.fumees, spike: resume.spike,
     munitions: regles.mode === "deathmatch" && partie.mode !== "enligne" ? regles.munitions.filter((m) => m.attente <= 0) : [],
     allies: allies.filter((b) => b.vivant).map((b) => ({ x: b.x, z: b.z, porteSpike: !!(regles.spike && regles.spike.porteur === b) })),
@@ -939,6 +1001,8 @@ function boucle(t) {
     effets.maj(dt);
     carte.majAmbiance(dt, camera);
   }
+  // La vitrine 3D (personnages, arsenal) couvre l'écran : inutile de dessiner l'arène derrière
+  if (vitrine && vitrine.actif && partie.etat === "menu") return;
   if (partie.etat !== "chargement") rendre(partie.etat === "pause" && joueur.vivant);
 }
 
@@ -1026,6 +1090,7 @@ function afficherEcran(id) {
   if (capture) { capture = null; $("note-touches").textContent = ""; }
   if (captureManette) { captureManette = null; controles.captureManette = null; }
   document.querySelectorAll(".ecran").forEach((e) => e.classList.toggle("visible", e.id === id));
+  if (vitrine && id !== "ecran-agents" && id !== "ecran-arsenal") vitrine.arreter();
   if (id === "ecran-carriere") remplirCarriere();
   if (id === "ecran-arsenal") remplirArsenal();
   if (id === "ecran-agents") remplirAgents();
@@ -1087,34 +1152,134 @@ function remplirModes() {
   choix("choix-meteo", [["clair", "Clair"], ["pluie", "Pluie"], ["brouillard", "Brouillard"], ["aleatoire", "Hasard"]], reglages.meteo, (v) => { reglages.meteo = v; sauverReglages(); });
 }
 
+// ===== Personnages : écran de sélection avec vitrine 3D =====
+let vitrine = null;
+function vitrineActive() { if (!vitrine) vitrine = new Vitrine(qualite); return vitrine; }
+let herosVu = null, filtreHeros = "tous", portraitsEnCours = false;
+const etoiles = (n) => "★".repeat(n) + "☆".repeat(3 - n);
+const TOUCHES_CAP = ["fumee", "flash", "signature", "ultime"];
+
 function remplirAgents() {
-  const el = $("liste-agents");
-  el.innerHTML = "";
-  for (const a of Object.values(AGENTS)) {
+  const v = vitrineActive();
+  v.attacher($("heros-scene"));
+  v.demarrer();
+  herosVu = herosVu || herosValide(profilJ.d.agent);
+  const f = $("heros-filtres");
+  f.innerHTML = "";
+  for (const id of ["tous", ...ORDRE_CATEGORIES]) {
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "carte-choix agent" + (profilJ.d.agent === a.id ? " choisie" : "");
-    b.style.setProperty("--couleur-agent", a.couleur);
-    b.innerHTML = "<strong></strong><em></em><span class='texte'></span><span class='cap'><b>E</b> <i></i></span><span class='cap'><b>X</b> <i></i></span>";
-    b.querySelector("strong").textContent = a.nom;
-    b.querySelector("em").textContent = a.role;
-    b.querySelector(".texte").textContent = a.texte;
-    const caps = b.querySelectorAll(".cap i");
-    caps[0].textContent = CAPACITES[a.signature].nom + " — " + CAPACITES[a.signature].texte;
-    caps[1].textContent = CAPACITES[a.ultime].nom + " — " + CAPACITES[a.ultime].texte;
-    b.addEventListener("click", () => { audio.clic(); profilJ.d.agent = a.id; profilJ.sauver(); remplirAgents(); majBadge(); });
-    el.appendChild(b);
+    b.textContent = id === "tous" ? "Tous" : CATEGORIES[id].nom;
+    if (id !== "tous") b.style.setProperty("--couleur", CATEGORIES[id].couleur);
+    b.setAttribute("aria-pressed", String(filtreHeros === id));
+    b.addEventListener("click", () => { audio.clic(); filtreHeros = id; for (const x of f.children) x.setAttribute("aria-pressed", String(x === b)); remplirGrilleHeros(); });
+    f.appendChild(b);
+  }
+  remplirGrilleHeros();
+  afficherHeros(herosVu, true);
+  genererPortraits();
+}
+
+function remplirGrilleHeros() {
+  const g = $("heros-grille");
+  g.innerHTML = "";
+  const choisi = herosValide(profilJ.d.agent);
+  for (const h of LISTE_HEROS) {
+    if (filtreHeros !== "tous" && h.categorie !== filtreHeros) continue;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "heros-tuile" + (h.id === herosVu ? " actif" : "") + (h.id === choisi ? " choisi" : "");
+    b.dataset.id = h.id;
+    b.style.setProperty("--c", CATEGORIES[h.categorie].couleur);
+    b.title = `${h.nom} — ${CATEGORIES[h.categorie].nom}, ${h.role}`;
+    const url = vitrine && vitrine.portraits.get(h.id);
+    b.innerHTML = `<span class="bande"></span><span class="initiale">${h.nom[0]}</span><img alt="" ${url ? "" : "hidden"}><span class="nom"></span>`;
+    if (url) { b.querySelector("img").src = url; b.querySelector(".initiale").hidden = true; }
+    b.querySelector(".nom").textContent = h.nom;
+    b.addEventListener("click", () => { audio.clic(); afficherHeros(h.id, true); });
+    b.addEventListener("dblclick", () => choisirHeros(h.id));
+    g.appendChild(b);
   }
 }
 
+function afficherHeros(id, apparition) {
+  const h = HEROS[id];
+  if (!h) return;
+  herosVu = id;
+  const cat = CATEGORIES[h.categorie];
+  $("ecran-agents").style.setProperty("--cat", cat.couleur);
+  $("heros-categorie").textContent = cat.nom;
+  $("heros-nom").textContent = h.nom;
+  $("heros-role").textContent = h.role;
+  $("heros-difficulte").innerHTML = `Difficulté <b>${etoiles(h.difficulte)}</b> ${NOMS_DIFFICULTE[h.difficulte]}`;
+  $("heros-histoire").textContent = h.histoire;
+  $("heros-perso").textContent = h.personnalite;
+  $("heros-arme").textContent = ARMES[h.arme].nom;
+  const caps = $("heros-capacites");
+  caps.innerHTML = "";
+  h.capacites.forEach((capId, i) => {
+    const c = CAPACITES[capId];
+    const slot = ["c", "q", "e", "x"][i];
+    const ligne = document.createElement("div");
+    ligne.className = "cap-ligne" + (slot === "x" ? " ultime" : "");
+    ligne.innerHTML = `<div class="ico">${iconeCapacite(capId)}<kbd></kbd></div><div><strong></strong><p></p><small></small></div>`;
+    ligne.querySelector("kbd").textContent = toucheCourte(TOUCHES_CAP[i]);
+    ligne.querySelector("strong").textContent = (slot === "x" ? "ULTIME · " : slot === "e" ? "SIGNATURE · " : "") + c.nom;
+    ligne.querySelector("p").textContent = c.texte;
+    ligne.querySelector("small").textContent = detailsCapacite(capId, slot);
+    caps.appendChild(ligne);
+  });
+  const deja = herosValide(profilJ.d.agent) === id;
+  const bouton = $("heros-choisir");
+  bouton.textContent = deja ? "SÉLECTIONNÉ ✓" : "SÉLECTIONNER " + h.nom;
+  bouton.classList.toggle("deja", deja);
+  for (const t of document.querySelectorAll(".heros-tuile")) t.classList.toggle("actif", t.dataset.id === id);
+  if (vitrine) vitrine.montrerHeros(id, apparition);
+}
+
+function choisirHeros(id) {
+  profilJ.d.agent = id;
+  profilJ.sauver();
+  majBadge();
+  audio.achat(true);
+  audio.parler(HEROS[id].citation);
+  afficherHeros(id, false);
+  remplirGrilleHeros();
+}
+$("heros-choisir").addEventListener("click", () => choisirHeros(herosVu));
+
+// Portraits générés un par un à partir des modèles 3D (le menu reste fluide)
+function genererPortraits() {
+  if (portraitsEnCours || !vitrine) return;
+  portraitsEnCours = true;
+  const liste = LISTE_HEROS.map((h) => h.id).filter((id) => !vitrine.portraits.has(id));
+  const suivant = () => {
+    if (!liste.length || !document.querySelector("#ecran-agents.visible")) { portraitsEnCours = false; return; }
+    const id = liste.shift();
+    const url = vitrine.portrait(id, 128);
+    const t = document.querySelector(`.heros-tuile[data-id="${id}"]`);
+    if (t) { const img = t.querySelector("img"); img.src = url; img.hidden = false; t.querySelector(".initiale").hidden = true; }
+    setTimeout(suivant, 40);
+  };
+  setTimeout(suivant, 120);
+}
+
+let armeVue = "pulsar";
 function remplirArsenal() {
   const el = $("liste-arsenal");
   el.innerHTML = "";
+  const v = vitrineActive();
+  v.attacher($("arsenal-apercu"));
+  v.demarrer();
+  v.montrerArme(armeVue, profilJ.d.skins[armeVue] || "standard");
+  $("arsenal-nom").textContent = ARMES[armeVue].nom + " · " + SKINS[profilJ.d.skins[armeVue] || "standard"].nom;
   for (const id of ["pulsar", "fusil", "sniper", "pompe", "pistolet", "couteau"]) {
     const ligne = document.createElement("div");
-    ligne.className = "ligne-arsenal";
+    ligne.className = "ligne-arsenal" + (id === armeVue ? " vue" : "");
     const nom = document.createElement("strong");
     nom.textContent = ARMES[id].nom;
+    nom.title = "Voir en 3D";
+    nom.addEventListener("click", () => { audio.clic(); armeVue = id; remplirArsenal(); });
     ligne.appendChild(nom);
     const skins = document.createElement("div");
     skins.className = "skins";
@@ -1129,7 +1294,7 @@ function remplirArsenal() {
       b.innerHTML = "<i></i><span></span>";
       b.querySelector("span").textContent = ok ? sk.nom : "Niv. " + NIVEAUX_SKINS[sid];
       b.disabled = !ok;
-      b.addEventListener("click", () => { audio.clic(); profilJ.d.skins[id] = sid; profilJ.sauver(); remplirArsenal(); });
+      b.addEventListener("click", () => { audio.clic(); profilJ.d.skins[id] = sid; profilJ.sauver(); armeVue = id; remplirArsenal(); });
       skins.appendChild(b);
     }
     ligne.appendChild(skins);
@@ -1183,7 +1348,7 @@ $("champ-pseudo").addEventListener("input", (e) => { profilJ.d.pseudo = e.target
 
 function majBadge() {
   const d = profilJ.d;
-  const a = AGENTS[d.agent] || AGENTS.volt;
+  const h = HEROS[herosValide(d.agent)];
   const badge = $("badge-profil");
   badge.innerHTML = "<div class='badge-nom'></div><div class='xp-ligne'><span></span><span></span></div><div class='xp-barre'><i></i></div>";
   badge.querySelector(".badge-nom").textContent = profilJ.pseudo + (connecte() ? " ✓" : "");
@@ -1191,7 +1356,7 @@ function majBadge() {
   badge.querySelectorAll(".xp-ligne span")[0].textContent = "Niveau " + d.niveau;
   badge.querySelectorAll(".xp-ligne span")[1].textContent = `${d.xp} / ${Profil.xpNiveau(d.niveau)} XP`;
   badge.querySelector("i").style.width = Math.round(profilJ.progression * 100) + "%";
-  $("tuile-agent").textContent = a.nom + " · " + a.role;
+  $("tuile-agent").textContent = h.nom + " · " + CATEGORIES[h.categorie].nom;
   joueur.nom = profilJ.pseudo;
 }
 
@@ -1349,11 +1514,12 @@ function remplirBoutique() {
     const a = ARTICLES[cle];
     const b = document.createElement("button");
     b.type = "button";
-    const possede = a.type === "arme" ? joueur.possede(cle) : a.type === "armure" ? joueur.armure >= a.valeur : (cle === "fumee" ? joueur.fumees : joueur.flashs) >= a.max;
-    const prix = gratuit ? 0 : a.prix;
+    const etatCap = a.type === "capacite" ? joueur.capacites[a.emplacement] : null;
+    const possede = a.type === "arme" ? joueur.possede(cle) : a.type === "armure" ? joueur.armure >= a.valeur : etatCap.charges >= etatCap.max;
+    const prix = gratuit ? 0 : etatCap ? CAPACITES[etatCap.id].prix || 200 : a.prix;
     b.className = "article" + (possede ? " possede" : "") + (!possede && joueur.credits < prix ? " cher" : "");
     b.innerHTML = "<strong></strong><span class='detail'></span><span class='prix'></span>";
-    b.querySelector("strong").textContent = a.nom;
+    b.querySelector("strong").textContent = etatCap ? CAPACITES[etatCap.id].nom : a.nom;
     b.querySelector(".detail").textContent = detail;
     b.querySelector(".prix").textContent = possede ? "✓" : prix ? "¤ " + prix : "Gratuit";
     b.addEventListener("click", () => {
@@ -1370,8 +1536,9 @@ function remplirBoutique() {
   if (equipes) {
     article("boutique-armures", "armure25", "Absorbe une partie des dégâts");
     article("boutique-armures", "armure50", "Protection maximale");
-    article("boutique-capacites", "fumee", `Touche ${touche("fumee")} · ${joueur.fumees}/2`);
-    article("boutique-capacites", "flash", `Touche ${touche("flash")} · ${joueur.flashs}/2`);
+    const c = joueur.capacites;
+    article("boutique-capacites", "fumee", `Touche ${touche("fumee")} · ${c.c.charges}/${c.c.max}`);
+    article("boutique-capacites", "flash", `Touche ${touche("flash")} · ${c.q.charges}/${c.q.max}`);
   }
 }
 $("boutique-fermer").addEventListener("click", () => fermerBoutique(true));
@@ -1381,10 +1548,12 @@ $("boutique-fermer").textContent = "Fermer";
 function attendreImage() { return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); }
 
 function preparerJoueur() {
-  joueur.agent = profilJ.d.agent;
+  joueur.heros = herosValide(profilJ.d.agent);
   joueur.skins = { ...profilJ.d.skins };
   joueur.nom = profilJ.pseudo;
-  hud.agent(joueur.agent);
+  let portrait = null;
+  try { portrait = vitrineActive().portrait(joueur.heros, 96); } catch (e) { /* pas de portrait : le nom suffit */ }
+  hud.heros(joueur.heros, portrait);
   hud.appliquerViseur(profilJ.d.viseur);
   hud.etiquettesTouches(toucheCourte);
   hud.vider();
@@ -1419,7 +1588,7 @@ async function demarrerPartie() {
   jeu.difficulte = DIFFICULTES[reglages.difficulte] || DIFFICULTES.normal;
   preparerJoueur();
   vue.prechauffer(["pistolet", "fusil", "couteau"], joueur.skins);
-  regles.demarrer({ mode, allies: reglages.allies, defi: reglages.defi });
+  regles.demarrer({ mode, allies: reglages.allies, defi: reglages.defi, heros: joueur.heros });
   renderer.shadowMap.needsUpdate = true;
   verrouiller();
 }
@@ -1455,6 +1624,7 @@ function allerAuMenu() {
   bots.vider();
   effets.vider();
   competences.vider();
+  majReperes(false);
   regles.nettoyer();
   carte.barriere.activer(false);
   $("hud").classList.add("cache");
@@ -1710,14 +1880,14 @@ async function connecter() {
 }
 $("enligne-creer").addEventListener("click", async () => {
   audio.demarrer(); musique.demarrer();
-  try { const nom = await connecter(); reseau.envoyer({ t: "creer", nom, carte: reglages.carteEnLigne }); }
+  try { const nom = await connecter(); reseau.envoyer({ t: "creer", nom, carte: reglages.carteEnLigne, heros: herosValide(profilJ.d.agent) }); }
   catch (e) { statut(e.message + " Le serveur multijoueur doit être lancé (voir le guide)."); }
 });
 $("enligne-rejoindre").addEventListener("click", async () => {
   audio.demarrer(); musique.demarrer();
   const code = $("enligne-code").value.trim().toUpperCase();
   if (code.length !== 4) { statut("Le code fait 4 caractères."); return; }
-  try { const nom = await connecter(); reseau.envoyer({ t: "rejoindre", code, nom }); }
+  try { const nom = await connecter(); reseau.envoyer({ t: "rejoindre", code, nom, heros: herosValide(profilJ.d.agent) }); }
   catch (e) { statut(e.message + " Le serveur multijoueur doit être lancé (voir le guide)."); }
 });
 $("salon-lancer").addEventListener("click", () => { audio.clic(); reseau.envoyer({ t: "lancer", carte: reglages.carteEnLigne }); });
@@ -1746,7 +1916,7 @@ reseau.on("debut", async (m) => {
   joueur.stats = nouvellesStats();
   joueur.kills = joueur.morts = 0;
   joueur.armure = 0;
-  joueur.fumees = joueur.flashs = 0;
+  joueur.choisirHeros(joueur.heros, false);
   regles.mode = "deathmatch";
   regles.chargementDM = regles.chargementDM || "fusil";
   enLigne.gagnant = null;
@@ -1795,7 +1965,7 @@ if (matchMedia("(pointer: coarse)").matches) controles.tactileActif = true;
 if (TEST) {
   window.__neon = {
     partie, joueur, bots, regles, competences, demarrerPartie, camera, controles, vue, effets, renderer, reglages, profil: profilJ, hud, jeu, qualite, dyn,
-    carte: () => carte, chargerCarte, pause, allerAuMenu, enLigne, temps: () => temps,
+    carte: () => carte, chargerCarte, pause, allerAuMenu, enLigne, temps: () => temps, vitrine: () => vitrine, ouvrirEcran, afficherHeros, choisirHeros,
     avancer(secondes) {
       for (let t = 0; t < secondes; t += PAS) {
         if (partie.etat !== "jeu") break;

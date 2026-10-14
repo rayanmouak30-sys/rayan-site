@@ -1,22 +1,12 @@
 // Interface en jeu : viseur personnalisable, vie et bouclier, munitions et emplacements, compétences,
 // score et équipes, spike, minimap, fil des éliminations, annonces, récap de manche, tableau des scores.
 import { ARMES } from "./armes.js";
-import { AGENTS, CAPACITES, POINTS_ULTIME } from "./competences.js";
+import { HEROS, CATEGORIES } from "./heros.js";
+import { CAPACITES, ICONES, iconeCapacite } from "./capacites.js";
 
 const $ = (id) => document.getElementById(id);
 
-export const ICONES = {
-  fumee: '<svg viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.5-8 5.5 5.5 0 0 1 10.6 1.4A3.5 3.5 0 0 1 17 18z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
-  flash: '<svg viewBox="0 0 24 24"><path d="M12 2v5M12 17v5M2 12h5M17 12h5M5 5l3.5 3.5M15.5 15.5 19 19M5 19l3.5-3.5M15.5 8.5 19 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg>',
-  ruee: '<svg viewBox="0 0 24 24"><path d="M3 12h11l-4-4m4 4-4 4M15 6l5 6-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  mur: '<svg viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 12h18M9 6v6M15 12v6" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
-  drone: '<svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="6" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="6" cy="18" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="18" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor"/></svg>',
-  soin: '<svg viewBox="0 0 24 24"><path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z" fill="currentColor"/></svg>',
-  surcharge: '<svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor"/></svg>',
-  bastion: '<svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z" fill="currentColor"/></svg>',
-  sonar: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".6"/></svg>',
-  renouveau: '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6-8 11-8 11z" fill="currentColor"/></svg>',
-};
+export { ICONES };
 
 const NOMS_ARMES = { couteau: "LAME", pistolet: "SENTINELLE", pompe: "BRISEUR", fusil: "NS-7 VECTEUR", pulsar: "PULSAR P-07", sniper: "AIGUILLE", spike: "SPIKE" };
 
@@ -33,7 +23,7 @@ export class Hud {
       minimap: $("minimap"), lunette: $("lunette"), aide: $("aide"), progression: $("progression"), credits: $("credits"),
       banniere: $("banniere"), banniereTitre: $("banniere-titre"), bannierePoints: $("banniere-points"),
       capFumee: $("cap-fumee"), capFlash: $("cap-flash"), capSignature: $("cap-signature"), capUltime: $("cap-ultime"),
-      agent: $("agent-nom"), ordres: $("ordres"), tableau: $("tableau"), recap: $("recap"), killcam: $("killcam"),
+      agent: $("agent-nom"), portrait: $("hud-portrait"), ordres: $("ordres"), tableau: $("tableau"), recap: $("recap"), killcam: $("killcam"),
     };
     this.ctx = this.el.minimap.getContext("2d");
     this.cache = {};
@@ -46,8 +36,7 @@ export class Hud {
     this.fond = null;
     this.minimapT = 0;
     this.changerCarte(carte);
-    this.el.capFumee.querySelector(".icone").innerHTML = ICONES.fumee;
-    this.el.capFlash.querySelector(".icone").innerHTML = ICONES.flash;
+    this.slots = { c: this.el.capFumee, q: this.el.capFlash, e: this.el.capSignature, x: this.el.capUltime };
   }
 
   changerCarte(carte) {
@@ -80,17 +69,24 @@ export class Hud {
     else el.style.setProperty("--ecart", v.ecart + "px");
   }
 
-  agent(id) {
-    const a = AGENTS[id];
-    this.el.agent.textContent = a.nom.toUpperCase() + " · " + a.role.toUpperCase();
-    this.el.agent.style.color = a.couleur;
-    this.el.capSignature.querySelector(".icone").innerHTML = ICONES[a.signature];
-    this.el.capUltime.querySelector(".icone").innerHTML = ICONES[a.ultime];
-    this.el.capSignature.title = CAPACITES[a.signature].nom;
-    this.el.capUltime.title = CAPACITES[a.ultime].nom;
+  // Personnage joué : nom, catégorie, portrait et icônes des 4 capacités
+  heros(id, portrait = null) {
+    const h = HEROS[id] || HEROS.kael;
+    const cat = CATEGORIES[h.categorie];
+    this.el.agent.textContent = h.nom + " · " + cat.nom.toUpperCase();
+    this.el.agent.style.color = cat.couleur;
+    this.el.portrait.style.setProperty("--couleur-heros", cat.couleur);
+    if (portrait) this.el.portrait.src = portrait; else this.el.portrait.removeAttribute("src");
+    h.capacites.forEach((capId, i) => {
+      const el = this.slots[["c", "q", "e", "x"][i]];
+      el.querySelector(".icone").innerHTML = iconeCapacite(capId);
+      el.title = CAPACITES[capId].nom + " — " + CAPACITES[capId].texte;
+      if (i < 3) el.style.color = cat.couleur;
+    });
     const pts = this.el.capUltime.querySelector(".points");
     pts.innerHTML = "";
-    for (let i = 0; i < POINTS_ULTIME; i++) pts.appendChild(document.createElement("i"));
+    for (let i = 0; i < (CAPACITES[h.capacites[3]].points || 7); i++) pts.appendChild(document.createElement("i"));
+    this.cache.ult = null;
   }
 
   // Lettres des touches affichées sur les compétences (elles suivent les touches choisies par le joueur)
@@ -116,7 +112,8 @@ export class Hud {
     const a = document.createElement("span"); a.textContent = tueur;
     if (couleurs) a.style.color = couleurs[0];
     const icone = document.createElement("span"); icone.className = "icone-arme";
-    icone.textContent = (arme && NOMS_ARMES[arme] ? NOMS_ARMES[arme] + " " : "") + (tete ? "◎" : moi === "info" ? "" : "▸");
+    const capacite = arme && arme.startsWith && arme.startsWith("cap:") ? CAPACITES[arme.slice(4)] : null;
+    icone.textContent = (arme && NOMS_ARMES[arme] ? NOMS_ARMES[arme] + " " : capacite ? capacite.nom.toUpperCase() + " " : "") + (tete ? "◎" : moi === "info" ? "" : "▸");
     const b = document.createElement("span"); b.textContent = victime;
     if (couleurs) b.style.color = couleurs[1];
     ligne.append(a, icone, b);
@@ -308,21 +305,25 @@ export class Hud {
       if (j.porteSpike) { const d = document.createElement("div"); d.className = "emplacement spike"; d.textContent = "◆ SPIKE"; el.appendChild(d); }
     }
 
-    // Compétences
-    this.ecrire("cf", this.el.capFumee.querySelector(".charges"), "•".repeat(j.fumees));
-    this.ecrire("cq", this.el.capFlash.querySelector(".charges"), "•".repeat(j.flashs));
-    this.classe("cf", this.el.capFumee, "vide", j.fumees <= 0);
-    this.classe("cq", this.el.capFlash, "vide", j.flashs <= 0);
-    const recharge = CAPACITES[j.agentDef.signature].recharge;
-    const pret = j.signatureT <= 0;
-    this.classe("cs", this.el.capSignature, "prete", pret);
-    const k = pret ? 1 : 1 - j.signatureT / recharge;
-    const kr = Math.round(k * 50) / 50;
-    if (this.cache.sigK !== kr) { this.cache.sigK = kr; this.el.capSignature.querySelector(".remplir").style.transform = `scaleY(${kr})`; }
+    // Capacités : charges, recharge, points d'ultime, blocage par une IEM
+    const etat = j.capacites;
+    const bloque = j.empT > 0;
+    for (const slot of ["c", "q", "e"]) {
+      const e = etat[slot], el = this.slots[slot];
+      this.ecrire("ch" + slot, el.querySelector(".charges"), e.max > 1 || slot !== "e" ? "•".repeat(e.charges) : "");
+      this.classe("v" + slot, el, "vide", e.charges <= 0);
+      this.classe("p" + slot, el, "prete", e.charges > 0 && slot === "e");
+      this.classe("b" + slot, el, "bloquee", bloque);
+      const enRecharge = e.charges < e.max && (!etat.economie || slot === "e");
+      const k = enRecharge ? Math.min(1, e.t / (CAPACITES[e.id].recharge || 30)) : 0;
+      const kr = Math.round(k * 40) / 40;
+      if (this.cache["r" + slot] !== kr) { this.cache["r" + slot] = kr; el.querySelector(".remplir").style.transform = `scaleY(${kr})`; }
+    }
+    this.classe("bx", this.el.capUltime, "bloquee", bloque);
     if (this.cache.ult !== j.ultime) {
       this.cache.ult = j.ultime;
       [...this.el.capUltime.querySelectorAll(".points i")].forEach((p, i) => p.classList.toggle("plein", i < j.ultime));
-      this.el.capUltime.classList.toggle("prete", j.ultime >= POINTS_ULTIME);
+      this.el.capUltime.classList.toggle("prete", j.ultime >= etat.x.points);
     }
 
     // Score, chrono, équipes

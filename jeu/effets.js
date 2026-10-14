@@ -81,6 +81,66 @@ export class Effets {
     scene.add(this.boule);
     this.bouleT = 1;
     this._a = new THREE.Vector3();
+
+    // Effets des capacités : petites explosions, ondes au sol, colonnes d'apparition (réserves réutilisées)
+    const geoBoule = new THREE.SphereGeometry(1, 16, 12);
+    this.boules = [];
+    for (let i = 0; i < 6; i++) {
+      const m = new THREE.Mesh(geoBoule, new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+      m.visible = false;
+      scene.add(m);
+      this.boules.push({ obj: m, t: 1, duree: 0.5, rayon: 1 });
+    }
+    const geoAnneau = new THREE.RingGeometry(0.9, 1, 48).rotateX(-Math.PI / 2);
+    this.anneaux = [];
+    for (let i = 0; i < 10; i++) {
+      const m = new THREE.Mesh(geoAnneau, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+      m.visible = false;
+      scene.add(m);
+      this.anneaux.push({ obj: m, t: 1, duree: 0.6, rayon: 1 });
+    }
+    const geoColonne = new THREE.CylinderGeometry(0.55, 0.55, 3, 20, 1, true).translate(0, 1.5, 0);
+    this.colonnes = [];
+    for (let i = 0; i < 4; i++) {
+      const m = new THREE.Mesh(geoColonne, new THREE.MeshBasicMaterial({ color: 0x7cffd4, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+      m.visible = false;
+      scene.add(m);
+      this.colonnes.push({ obj: m, t: 1 });
+    }
+  }
+
+  // Explosion d'une capacité (grenade, obus...) : boule de feu à la taille du rayon d'effet
+  petiteExplosion(p, rayon = 4, couleur = 0xffa040) {
+    const b = this.boules.find((x) => x.t >= 1) || this.boules[0];
+    b.obj.position.set(p.x, p.y + 0.4, p.z);
+    b.obj.material.color.setHex(couleur);
+    b.obj.visible = true;
+    b.t = 0; b.duree = 0.45; b.rayon = rayon * 0.75;
+    this.lumiere.color.setHex(couleur);
+    this.lumiere.position.set(p.x, p.y + 1, p.z);
+    this.lumiere.intensity = 40;
+    this.etincellesEn(p, { x: 0, y: 1.6, z: 0 }, couleur, 22);
+    this.etincellesEn(p, { x: 0, y: 1.2, z: 0 }, 0xffe08a, 14);
+  }
+
+  // Onde circulaire au sol qui s'agrandit (sonar, commotion, IEM, séisme...)
+  anneau(p, rayon, couleur = 0xffffff, duree = 0.6, hauteur = 0.06) {
+    const a = this.anneaux.find((x) => x.t >= 1) || this.anneaux[0];
+    a.obj.position.set(p.x, (p.y || 0) + hauteur, p.z);
+    a.obj.material.color.setHex(couleur);
+    a.obj.visible = true;
+    a.t = 0; a.duree = duree; a.rayon = rayon;
+    a.obj.scale.setScalar(0.2);
+  }
+
+  // Colonne de lumière (apparition, résurrection)
+  apparition(p, couleur = 0x7cffd4) {
+    const c = this.colonnes.find((x) => x.t >= 1) || this.colonnes[0];
+    c.obj.position.set(p.x, p.y || 0, p.z);
+    c.obj.material.color.setHex(couleur);
+    c.obj.visible = true;
+    c.t = 0;
+    this.anneau(p, 1.6, couleur, 0.7);
   }
 
   tracante(a, b, couleur, vie = 0.06) {
@@ -148,6 +208,7 @@ export class Effets {
   vider() {
     for (const m of this.trous) m.visible = false;
     this.boule.visible = false;
+    for (const x of [...this.boules, ...this.anneaux, ...this.colonnes]) { x.t = 1; x.obj.visible = false; }
   }
 
   maj(dt) {
@@ -178,6 +239,28 @@ export class Effets {
       f.obj.scale.setScalar(0.15 + (0.6 - f.vie) * 0.9);
       f.obj.material.opacity = Math.max(0, f.vie / 0.6) * 0.6;
       if (f.vie <= 0) f.obj.visible = false;
+    }
+    for (const b of this.boules) {
+      if (b.t >= 1) continue;
+      b.t = Math.min(1, b.t + dt / b.duree);
+      const e = 1 - (1 - b.t) * (1 - b.t);
+      b.obj.scale.setScalar(0.3 + e * b.rayon);
+      b.obj.material.opacity = (1 - b.t) * 0.85;
+      if (b.t >= 1) b.obj.visible = false;
+    }
+    for (const a of this.anneaux) {
+      if (a.t >= 1) continue;
+      a.t = Math.min(1, a.t + dt / a.duree);
+      a.obj.scale.setScalar(0.2 + a.t * a.rayon);
+      a.obj.material.opacity = (1 - a.t) * 0.9;
+      if (a.t >= 1) a.obj.visible = false;
+    }
+    for (const c of this.colonnes) {
+      if (c.t >= 1) continue;
+      c.t = Math.min(1, c.t + dt / 0.9);
+      c.obj.scale.set(1 - c.t * 0.6, 0.3 + c.t * 0.9, 1 - c.t * 0.6);
+      c.obj.material.opacity = Math.sin(c.t * Math.PI) * 0.55;
+      if (c.t >= 1) c.obj.visible = false;
     }
     this.lumiere.intensity *= Math.exp(-(this.bouleT < 1 ? 5 : 35) * dt);
     if (this.bouleT < 1) {

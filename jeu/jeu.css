@@ -379,3 +379,68 @@ kbd { font-family: var(--titre); font-size: 12px; padding: 4px 9px; border: 1px 
 #compte-formulaires .choix { margin-top: 4px; }
 #compte-message { min-height: 1.4em; color: var(--jaune); }
 #compte-connecte strong { color: var(--cyan); }
+
+/* ===== Personnages : écran de sélection ===== */
+.ecran.ecran-heros { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 12px; padding: 14px 20px 18px; background: radial-gradient(ellipse at 30% 35%, #1a2747, #03060e 70%); }
+.ecran-heros { --cat: var(--cyan); }
+.heros-entete { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.heros-entete h2 { font-family: var(--titre); letter-spacing: 6px; font-size: 22px; }
+.heros-filtres { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.heros-filtres button { padding: 6px 12px; border-radius: 20px; border: 1px solid rgba(148, 167, 201, 0.35); background: rgba(6, 12, 26, 0.6); cursor: pointer; font-weight: 700; letter-spacing: 1px; font-size: 13px; color: var(--doux); }
+.heros-filtres button[aria-pressed="true"] { color: #071018; background: var(--couleur, var(--cyan)); border-color: transparent; }
+.heros-corps { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(280px, 1.1fr) minmax(300px, 1fr); gap: 18px; }
+.heros-scene { position: relative; min-height: 360px; border-radius: 14px; overflow: hidden; background: linear-gradient(180deg, rgba(8, 14, 28, 0.2), rgba(8, 14, 28, 0.75)), radial-gradient(circle at 50% 70%, color-mix(in srgb, var(--cat) 28%, transparent), transparent 62%); border: 1px solid color-mix(in srgb, var(--cat) 40%, transparent); }
+.heros-scene .vitrine-canvas { position: absolute; inset: 0; display: block; cursor: grab; touch-action: none; }
+.heros-titre { position: absolute; left: 18px; top: 14px; z-index: 1; pointer-events: none; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8); }
+.heros-titre h3 { font-family: var(--titre); font-size: 40px; letter-spacing: 6px; color: var(--texte); margin: 4px 0 0; }
+.heros-titre p { font-size: 16px; font-weight: 700; letter-spacing: 3px; color: var(--cat); text-transform: uppercase; }
+.heros-categorie { display: inline-block; padding: 3px 10px; border-radius: 4px; background: var(--cat); color: #071018; font-weight: 800; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+.heros-difficulte { margin-top: 6px; font-size: 13px; color: var(--doux); letter-spacing: 1px; }
+.heros-difficulte b { color: var(--jaune); font-size: 16px; letter-spacing: 2px; }
+.heros-aide { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--doux); opacity: 0.7; pointer-events: none; }
+.heros-infos { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; padding: 16px 18px; background: var(--panneau); border: 1px solid var(--bord); border-radius: 14px; }
+.heros-histoire { font-size: 16px; line-height: 1.4; }
+.heros-perso, .heros-arme { font-size: 15px; color: var(--doux); }
+.heros-perso b, .heros-arme b { color: var(--texte); }
+.heros-capacites { display: flex; flex-direction: column; gap: 8px; }
+.cap-ligne { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: start; padding: 8px; border-radius: 10px; background: rgba(6, 12, 26, 0.6); border: 1px solid rgba(148, 167, 201, 0.18); }
+.cap-ligne .ico { position: relative; width: 44px; height: 44px; border-radius: 8px; border: 2px solid var(--cat); display: grid; place-items: center; color: var(--cat); background: rgba(6, 12, 26, 0.8); }
+.cap-ligne.ultime .ico { border-color: var(--jaune); color: var(--jaune); }
+.cap-ligne .ico svg { width: 24px; height: 24px; }
+.cap-ligne .ico kbd { position: absolute; bottom: -8px; right: -8px; min-width: 20px; padding: 1px 4px; border-radius: 4px; background: #0b1426; border: 1px solid var(--bord); font-family: var(--corps); font-size: 11px; font-weight: 700; color: var(--texte); text-align: center; }
+.cap-ligne strong { font-size: 16px; letter-spacing: 1px; }
+.cap-ligne p { font-size: 14px; color: var(--texte); line-height: 1.3; opacity: 0.9; }
+.cap-ligne small { display: block; font-size: 12px; color: var(--doux); margin-top: 2px; }
+#heros-choisir { margin-top: auto; }
+#heros-choisir.deja { background: transparent; border: 2px solid var(--cyan); color: var(--cyan); }
+.heros-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.heros-tuile { position: relative; aspect-ratio: 1 / 1.12; border-radius: 10px; border: 2px solid color-mix(in srgb, var(--c) 55%, transparent); background: linear-gradient(180deg, color-mix(in srgb, var(--c) 30%, #0b1222), #070c18); overflow: hidden; cursor: pointer; padding: 0; transition: transform 0.12s, border-color 0.12s; }
+.heros-tuile:hover { transform: translateY(-2px); border-color: var(--c); }
+.heros-tuile img { position: absolute; inset: 0 0 16px; width: 100%; height: calc(100% - 16px); object-fit: cover; }
+.heros-tuile .initiale { position: absolute; inset: 0 0 16px; display: grid; place-items: center; font-family: var(--titre); font-size: 26px; color: var(--c); opacity: 0.6; }
+.heros-tuile span.nom { position: absolute; left: 0; right: 0; bottom: 0; height: 18px; line-height: 18px; text-align: center; font-family: var(--titre); font-size: 10px; letter-spacing: 1px; background: rgba(4, 8, 16, 0.85); color: var(--texte); }
+.heros-tuile.actif { border-color: var(--c); box-shadow: 0 0 0 2px var(--c), 0 0 18px color-mix(in srgb, var(--c) 60%, transparent); }
+.heros-tuile.choisi::after { content: "✓"; position: absolute; top: 4px; right: 6px; font-weight: 800; color: var(--c); text-shadow: 0 0 6px #000; }
+.heros-tuile .bande { position: absolute; left: 0; top: 0; width: 100%; height: 3px; background: var(--c); }
+@media (max-width: 860px) {
+  .ecran.ecran-heros { padding: 10px 16px 16px; }
+  .heros-corps { grid-template-columns: 1fr; }
+  .heros-scene { min-height: 300px; }
+  .heros-titre h3 { font-size: 28px; }
+  .heros-filtres { margin-left: 0; }
+}
+
+/* Portrait du personnage dans le HUD */
+.ligne-heros { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+#hud-portrait { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--couleur-heros, var(--cyan)); background: rgba(6, 12, 26, 0.85); object-fit: cover; }
+#hud-portrait:not([src]) { display: none; }
+.capacite .remplir { position: absolute; inset: 0; background: rgba(124, 255, 212, 0.18); transform-origin: bottom; transform: scaleY(0); }
+.capacite.bloquee { border-color: var(--rouge) !important; color: var(--rouge) !important; opacity: 0.6; }
+.capacite.bloquee::after { content: "IEM"; position: absolute; bottom: 1px; left: 0; right: 0; text-align: center; font-size: 9px; font-weight: 800; color: var(--rouge); }
+
+/* Aperçu 3D de l'Arsenal */
+.arsenal-apercu { position: relative; height: 190px; border-radius: 12px; overflow: hidden; background: radial-gradient(circle at 50% 60%, rgba(124, 255, 212, 0.16), rgba(6, 12, 26, 0.85) 70%); border: 1px solid var(--bord); }
+.arsenal-apercu .vitrine-canvas { position: absolute; inset: 0; display: block; cursor: grab; touch-action: none; }
+.arsenal-apercu span { position: absolute; left: 12px; top: 8px; z-index: 1; font-family: var(--titre); font-size: 13px; letter-spacing: 2px; color: var(--cyan); pointer-events: none; }
+.ligne-arsenal strong { cursor: pointer; }
+.ligne-arsenal.vue strong { color: var(--cyan); }

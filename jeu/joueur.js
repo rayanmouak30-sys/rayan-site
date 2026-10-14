@@ -3,7 +3,11 @@
 import * as THREE from "three";
 import { RAYON_PERSO } from "./physique.js";
 import { ARMES, LogiqueArme, facteurDistance } from "./armes.js";
-import { AGENTS, CAPACITES, POINTS_ULTIME } from "./competences.js";
+import { CAPACITES, nouvelEtatCapacites, majRecharges } from "./capacites.js";
+import { HEROS } from "./heros.js";
+
+// Touches de capacité -> emplacement
+const EMPLACEMENT_ACTION = { fumee: "c", flash: "q", signature: "e", ultime: "x" };
 
 const DEG = Math.PI / 180;
 
@@ -32,9 +36,11 @@ export class Joueur {
     this.armePrecedente = "couteau";
     this.equipeT = 0;
     this.couteau = new LogiqueArme("couteau");
-    this.agent = "volt";
-    this.fumees = 0; this.flashs = 0; this.signatureT = 0; this.ultime = 0;
-    this.surchargeT = 0; this.soinT = 0;
+    this.heros = "kael";
+    this.capacites = nouvelEtatCapacites("kael", true);
+    this.ultime = 0;
+    this.chargeT = 0; this.chargeDir = new THREE.Vector3(); this.touchesCharge = new Set(); this.chargeDef = null;
+    this.rueeDuree = 0.27; this.rueeVitesse = 30;
     this.aveugleT = 0; this.aveugleMax = 1;
     this.porteSpike = false; this.verrou = false;
     this.credits = 800;
@@ -55,14 +61,22 @@ export class Joueur {
   get vz() { return this.vel.z; }
   get logique() { return this.armeActive === "couteau" ? this.couteau : this.logiques[this.armeActive]; }
   get def() { return ARMES[this.armeActive]; }
-  get agentDef() { return AGENTS[this.agent] || AGENTS.volt; }
+  get herosDef() { return HEROS[this.heros] || HEROS.kael; }
+
+  // Choix du personnage (début de partie) : capacités neuves
+  choisirHeros(id, economie) {
+    this.heros = HEROS[id] ? id : "kael";
+    this.capacites = nouvelEtatCapacites(this.heros, economie);
+    this.ultime = 0;
+  }
 
   // Remise en jeu (début de manche, réapparition)
   placer(x, z, lacet = 0) {
     this.pos.set(x, 0, z);
     this.precedente.copy(this.pos);
     this.vel.set(0, 0, 0);
-    Object.assign(this, { lacet, tangage: 0, vie: 100, vivant: true, auSol: true, accroupi: false, hauteurYeux: 1.62, rueeT: 0, sursaut: 0, chute: 0, aveugleT: 0, surchargeT: 0, soinT: 0, verrou: false });
+    Object.assign(this, { lacet, tangage: 0, vie: 100, vivant: true, auSol: true, accroupi: false, hauteurYeux: 1.62, rueeT: 0, chargeT: 0, sursaut: 0, chute: 0, aveugleT: 0, verrou: false });
+    this.jeu.competences.reinitialiserStatuts(this);
     for (const l of Object.values(this.logiques)) { l.rechargeT = 0; l.serie = 0; l.reculPitch = l.reculYaw = 0; l.cibleRecul = [0, 0]; }
     this.equiper(this.inventaire.principale || this.inventaire.secondaire || "couteau", true);
   }
@@ -139,15 +153,28 @@ export class Joueur {
     let wx = -s * avant + c * cote, wz = -c * avant - s * cote;
     const n = Math.hypot(wx, wz);
     this.sprint = cmd.sprint && avant > 0.3 && !this.accroupi && !this.visee;
-    const base = (def.vitesse || 5) * (this.surchargeT > 0 ? 1.15 : 1);
+    const base = (def.vitesse || 5) * jeu.competences.facteurVitesse(this);
     const vitesseMax = this.accroupi ? 2.0 : this.visee ? base * (def.lunette ? 0.55 : 0.72) : this.sprint ? base * 1.3 : base;
     if (n > 0) { const k = Math.min(1, n); wx = wx / n * vitesseMax * k; wz = wz / n * vitesseMax * k; }
 
     if (this.rueeT > 0) {
       this.rueeT -= dt;
-      const k = Math.max(0, this.rueeT / 0.2);
-      this.vel.x = this.rueeDir.x * (8 + 12 * k);
-      this.vel.z = this.rueeDir.z * (8 + 12 * k);
+      const k = Math.max(0, this.rueeT / this.rueeDuree);
+      this.vel.x = this.rueeDir.x * this.rueeVitesse * (0.45 + 0.55 * k);
+      this.vel.z = this.rueeDir.z * this.rueeVitesse * (0.45 + 0.55 * k);
+    } else if (this.chargeT > 0) {
+      // Charge du bélier : course droite qui percute les ennemis sur le passage
+      this.chargeT -= dt;
+      const d = this.chargeDef;
+      this.vel.x = this.chargeDir.x * d.vitesse;
+      this.vel.z = this.chargeDir.z * d.vitesse;
+      for (const c of jeu.competences.ennemis(this)) {
+        if (this.touchesCharge.has(c) || Math.hypot(c.x - this.pos.x, c.z - this.pos.z) > 1.15) continue;
+        this.touchesCharge.add(c);
+        c.commotionT = Math.max(c.commotionT || 0, d.commotion || 1.5);
+        jeu.competences.degats(c, d.degats || 45, this, "brax_belier");
+        jeu.audio.capacite("commotion", { x: c.x, y: 1, z: c.z });
+      }
     } else {
       const k = 1 - Math.exp(-(this.auSol ? (n > 0 ? 12 : 16) : 2) * dt);
       this.vel.x += (wx - this.vel.x) * k;
@@ -199,14 +226,14 @@ export class Joueur {
   }
 
   etatTir() {
-    return { vitesse: Math.hypot(this.vel.x, this.vel.z), enLAir: !this.auSol, accroupi: this.accroupi, vise: this.visee };
+    return { vitesse: Math.hypot(this.vel.x, this.vel.z), enLAir: !this.auSol, accroupi: this.accroupi, vise: this.visee, commotion: this.commotionT > 0 };
   }
 
   // ----- Armes (pas fixe) -----
   armes(dt, temps, cmd, peutTirer) {
     const jeu = this.jeu;
     this.equipeT = Math.max(0, this.equipeT - dt);
-    for (const l of Object.values(this.logiques)) l.maj(dt, temps);
+    for (const l of Object.values(this.logiques)) l.maj(this.rechargeRapideT > 0 && l.rechargeT > 0 ? dt * 2 : dt, temps);
     this.couteau.maj(dt, temps);
     const L = this.logique;
     const def = L.def;
@@ -214,7 +241,7 @@ export class Joueur {
     const lourdNeuf = cmd.viser && !this.viserPrecedent;
     this.gachettePrecedente = cmd.tir;
     this.viserPrecedent = cmd.viser;
-    if (!this.vivant || !peutTirer || this.rueeT > 0 || this.equipeT > 0 || this.verrou) return;
+    if (!this.vivant || !peutTirer || this.rueeT > 0 || this.chargeT > 0 || this.equipeT > 0 || this.verrou) return;
 
     if (def.type === "melee") {
       if (cmd.tir && L.peutTirer(temps)) this.coupCouteau(temps, false);
@@ -222,7 +249,8 @@ export class Joueur {
       return;
     }
     if (cmd.tir) {
-      if (this.surchargeT > 0 && L.prochainTir > temps) L.prochainTir -= def.cadence * 0.2 * dt / def.cadence;
+      const kc = jeu.competences.facteurCadence(this);
+      if (kc > 1 && L.prochainTir > temps) L.prochainTir -= (kc - 1) * dt;
       let coups = 0;
       while (L.peutTirer(temps, gachetteNeuve && coups === 0) && coups++ < 2) this.tirer(temps);
       if (L.mun <= 0 && L.reserve <= 0 && !this.videJoue && gachetteNeuve) { jeu.audio.vide(); this.videJoue = true; }
@@ -258,6 +286,7 @@ export class Joueur {
     const jeu = this.jeu, L = this.logique, def = L.def;
     const decalages = L.tirer(temps, this.etatTir());
     this.stats.tirs++;
+    if (this.camoT > 0) this.camoRevelT = 0.6;
     const oeil = _oeil.set(this.pos.x, this.yeux, this.pos.z);
     this.positionBouche(_bouche);
     jeu.effets.flashTir(_bouche, def.couleurFlash);
@@ -285,7 +314,7 @@ export class Joueur {
         jeu.effets.etincellesEn(_fin, _n, cible.partie === "tete" ? 0xffb070 : 0xff6a5a, cible.partie === "tete" ? 12 : def.plombs ? 2 : 7);
       } else if (mur) {
         _n.set(mur.nx, mur.ny, mur.nz);
-        if (mur.boite.competence) jeu.competences.degatsMur(mur.boite.competence, def.degats.corps);
+        if (mur.boite.competence) jeu.competences.degatsObjet(mur.boite.competence, def.degats.corps);
         else jeu.effets.trou(_fin, _n);
         if (i < 4) { jeu.effets.etincellesEn(_fin, _n, def.energie ? def.couleurTrace : 0xffc27a, def.plombs ? 2 : 6); jeu.effets.poussiere(_fin, _n); }
         if (i === 0) jeu.audio.impact(_fin);
@@ -329,65 +358,92 @@ export class Joueur {
   }
 
   // ----- Compétences -----
-  ruee(cmd) {
+  ruee(cmd, def) {
     const avant = cmd.avant, cote = cmd.cote;
     const s = Math.sin(this.lacet), c = Math.cos(this.lacet);
     const a = Math.abs(avant) > 0.2 || Math.abs(cote) > 0.2 ? avant : 1;
     const dx = -s * a + c * cote, dz = -c * a - s * cote;
     const n = Math.hypot(dx, dz) || 1;
     this.rueeDir.set(dx / n, 0, dz / n);
-    this.rueeT = 0.2;
+    this.rueeDuree = def.duree || 0.27;
+    this.rueeVitesse = def.vitesse || 30;
+    this.rueeT = this.rueeDuree;
     this.jeu.audio.ruee();
   }
 
-  // nom : "fumee" | "flash" | "signature" | "ultime". Retourne true si la compétence a été utilisée.
+  // Téléportation : point libre le plus loin possible devant (jamais à travers un mur)
+  teleporter(def) {
+    const monde = this.jeu.carte.monde;
+    const s = Math.sin(this.lacet), c = Math.cos(this.lacet);
+    const dx = -s, dz = -c;
+    let meilleur = 0;
+    for (let d = 0.5; d <= (def.portee || 8); d += 0.25) {
+      const x = this.pos.x + dx * d, z = this.pos.z + dz * d;
+      if (!monde.ligneLibre(this.pos.x, this.pos.y + 1, this.pos.z, x, this.pos.y + 1, z)) break;
+      if (!monde.bloque(x, z, this.pos.y, RAYON_PERSO, 1.8)) meilleur = d;
+    }
+    if (meilleur < 1.5) return false;
+    const depart = { x: this.pos.x, y: this.pos.y, z: this.pos.z };
+    this.pos.x += dx * meilleur;
+    this.pos.z += dz * meilleur;
+    this.precedente.copy(this.pos);
+    this.jeu.effets.apparition(depart, 0xb07cff);
+    this.jeu.effets.apparition({ x: this.pos.x, y: this.pos.y, z: this.pos.z }, 0xd0b0ff);
+    this.jeu.audio.capacite("teleport");
+    return true;
+  }
+
+  // nom : action "fumee" (C), "flash" (A/Q), "signature" (E) ou "ultime" (X). Retourne true si la capacité a servi.
   utiliser(nom, cmd, enCombat) {
     const jeu = this.jeu;
     if (!this.vivant || this.verrou) return false;
-    this.directionVue(_dir);
-    if (nom === "fumee") {
-      if (this.fumees <= 0) return false;
-      this.fumees--;
-      jeu.competences.lancer("fumee", this, null, _dir.clone());
-      return true;
+    if (this.empT > 0) return false;
+    const slot = EMPLACEMENT_ACTION[nom];
+    if (!slot) return false;
+    const etat = this.capacites[slot];
+    const id = etat.id, def = CAPACITES[id];
+    if (slot === "x") { if (this.ultime < etat.points) return false; }
+    else if (etat.charges <= 0) return false;
+    let ok = false;
+    switch (def.famille) {
+      case "ruee": ok = enCombat; if (ok) this.ruee(cmd, def); break;
+      case "saut":
+        ok = this.auSol || this.pos.y < 0.4;
+        if (ok) { this.vel.y = def.impulsion || 8.5; this.auSol = false; jeu.audio.capacite("saut"); jeu.effets.anneau({ x: this.pos.x, y: this.pos.y, z: this.pos.z }, 1.3, 0xff3fa0, 0.4); }
+        break;
+      case "blink": ok = this.teleporter(def); break;
+      case "charge": {
+        const s = Math.sin(this.lacet), c = Math.cos(this.lacet);
+        this.chargeDir.set(-s, 0, -c);
+        this.chargeDef = def;
+        this.chargeT = def.duree || 0.45;
+        this.touchesCharge.clear();
+        jeu.audio.ruee();
+        ok = true;
+        break;
+      }
+      default:
+        this.directionVue(_dir);
+        ok = jeu.competences.executer(this, id, { dir: _dir.clone() });
     }
-    if (nom === "flash") {
-      if (this.flashs <= 0) return false;
-      this.flashs--;
-      jeu.competences.lancer("flash", this, null, _dir.clone());
-      return true;
-    }
-    const agent = this.agentDef;
-    if (nom === "signature") {
-      if (this.signatureT > 0) return false;
-      const id = agent.signature;
-      if (id === "ruee") { if (!enCombat) return false; this.ruee(cmd); }
-      else if (id === "mur") { if (!jeu.competences.poserMur(this, new THREE.Vector3(-Math.sin(this.lacet), 0, -Math.cos(this.lacet)))) return false; }
-      else if (id === "drone") jeu.competences.lancerDrone(this, new THREE.Vector3(-Math.sin(this.lacet), 0, -Math.cos(this.lacet)));
-      else if (id === "soin") { if (this.vie >= 100) return false; this.soinT = 2.5; jeu.audio.soin(); }
-      this.signatureT = CAPACITES[id].recharge;
-      return true;
-    }
-    if (nom === "ultime") {
-      if (this.ultime < POINTS_ULTIME) return false;
-      this.ultime = 0;
-      jeu.ultime(this, agent.ultime);
-      return true;
-    }
-    return false;
+    if (!ok) return false;
+    if (slot === "x") this.ultime = 0;
+    else etat.charges--;
+    return true;
   }
 
   majEffets(dt) {
-    this.signatureT = Math.max(0, this.signatureT - dt);
-    this.surchargeT = Math.max(0, this.surchargeT - dt);
+    this.jeu.competences.majStatuts(this, dt);
+    majRecharges(this.capacites, dt);
     this.aveugleT = Math.max(0, this.aveugleT - dt);
-    if (this.soinT > 0 && this.vivant) {
-      this.soinT -= dt;
-      this.vie = Math.min(100, this.vie + 20 * dt);
-    }
   }
 
-  gagnerUltime(n = 1) { this.ultime = Math.min(POINTS_ULTIME, this.ultime + n); }
+  // Après une élimination pendant Frénésie : soin et signature rechargée
+  remplirMunitions() {
+    for (const l of Object.values(this.logiques)) { l.reserve = l.def.reserve ?? l.reserve; if (l.rechargeT <= 0) l.mun = l.def.chargeur ?? l.mun; }
+  }
+
+  gagnerUltime(n = 1) { this.ultime = Math.min(this.capacites.x.points, this.ultime + n); }
 }
 
 const _oeil = new THREE.Vector3(), _dir = new THREE.Vector3(), _fin = new THREE.Vector3(), _bouche = new THREE.Vector3(), _n = new THREE.Vector3();
