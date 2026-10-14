@@ -51,6 +51,21 @@ func construire() -> void:
 	_apparitions()
 	site("A", Vector3(-31, 0, -24), 7.0)
 	site("B", Vector3(31, 0, -22), 7.0)
+	# Points tactiques pour les bots : entrées des sites, postes de défense, points de regroupement des attaquants
+	entrees = {
+		"A": [Vector3(-38, 0, -8), Vector3(-19, 0, -14), Vector3(-26, 0, -38)],
+		"B": [Vector3(42, 0, -6), Vector3(18, 0, -16), Vector3(36, 0, -36)],
+	}
+	postes = {
+		"A": [Vector3(-40, 2.7, -35), Vector3(-42, 0, -20), Vector3(-26, 0, -30), Vector3(-30, 0, -14), Vector3(-36, 0, -26)],
+		"B": [Vector3(30, 1.3, -26), Vector3(40, 0, -30), Vector3(24, 0, -12), Vector3(36, 0, -18), Vector3(22, 0, -26)],
+		"milieu": [Vector3(0, 0, -26), Vector3(-3, 0, -16), Vector3(3, 0, -18)],
+	}
+	regroupements = {
+		"A": [Vector3(-38, 0, 14), Vector3(-14, 0, 34), Vector3(0, 0, 12)],
+		"B": [Vector3(42, 0, 10), Vector3(34, 0, 31), Vector3(0, 0, 12)],
+	}
+	zones_spawn = {"attaque": AABB(Vector3(-14, -1, 40), Vector3(28, 10, 14)), "defense": AABB(Vector3(-14, -1, -54), Vector3(28, 10, 12))}
 	for z in ZONES:
 		var r := _rect(z[1], z[2], z[3], z[4])
 		zone(z[0], Vector3(r.position.x + r.size.x / 2, 4, r.position.y + r.size.y / 2), Vector3(r.size.x, 14, r.size.y))

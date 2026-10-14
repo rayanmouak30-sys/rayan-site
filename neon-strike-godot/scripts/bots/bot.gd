@@ -39,6 +39,7 @@ var strafe_t := 0.0
 var accroupi := false
 var couvert := Vector3.ZERO
 var couvert_t := 0.0
+var repli_t := 0.0               # délai avant un nouveau repli à couvert
 var percep_t := 0.0
 var bloque_t := 0.0
 var horloge := 0.0
@@ -230,7 +231,8 @@ func _decider(dt: float) -> void:
 	var vois := cible != null and plus_vu < 0.15
 	if vois:
 		vu_depuis += dt
-	var besoin_couvert := (vie < 35.0 and armure <= 0.0) or (arme and arme.mun == 0 and arme.type != "melee")
+	repli_t -= dt
+	var besoin_couvert := repli_t <= 0.0 and ((vie < 35.0 and armure <= 0.0) or (arme and arme.mun == 0 and arme.type != "melee"))
 	match etat:
 		"objectif":
 			if vois:
@@ -243,7 +245,7 @@ func _decider(dt: float) -> void:
 			elif not vois:
 				etat = "chercher" if cible else "objectif"
 		"couvert":
-			if couvert_t <= 0.0 or (not arme.en_recharge() and vie >= 35.0) or global_position.distance_to(couvert) < 0.8 and not arme.en_recharge():
+			if couvert_t <= 0.0 or (not arme.en_recharge() and vie >= 35.0) or (global_position.distance_to(couvert) < 1.5 and not arme.en_recharge()):
 				etat = "chercher" if cible else "objectif"
 		"chercher":
 			if vois:
@@ -288,9 +290,10 @@ func _chercher_couvert() -> void:
 		if d < meilleur_d:
 			meilleur_d = d
 			meilleur = p
+	repli_t = 12.0
 	if meilleur != Vector3.ZERO:
 		couvert = meilleur
-		couvert_t = 6.0
+		couvert_t = 5.0
 		etat = "couvert"
 		if arme.mun < int(arme.def.get("chargeur", 1)) and not arme.en_recharge():
 			_recharger()

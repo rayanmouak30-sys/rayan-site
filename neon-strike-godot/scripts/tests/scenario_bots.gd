@@ -19,6 +19,8 @@ func executer() -> void:
 	j.set_physics_process(false)
 	p.vue.visible = false
 	var duree := float(Test.arguments.get("duree", "40"))
+	Engine.time_scale = float(Test.arguments.get("vitesse", "1"))
+	var sans_captures := Test.arguments.has("sans_captures")
 	var t := 0.0
 	var i := 0
 	while t < duree:
@@ -32,10 +34,13 @@ func executer() -> void:
 			j.tete.position = Vector3(0, 0.8, 0)
 			j.cam.look_at(b.global_position + Vector3(0, 1.3, 0))
 			await Test.attendre_images(2)
-			await Test.capture("bots_%d" % i)
+			if not sans_captures:
+				await Test.capture("bots_%d" % i)
 			Test.mesure("bot_%d" % i, "%s etat=%s vie=%d cible=%s" % [b.nom_affiche, b.etat, int(b.vie), b.cible.nom_affiche if b.cible else "-"])
 		i += 1
 	Test.mesure("score", p.mode.score)
+	if p.mode.get("manche") != null:
+		Test.mesure("manche", p.mode.get("manche"))
 	var kills := 0
 	for c in p.combattants:
 		kills += c.kills

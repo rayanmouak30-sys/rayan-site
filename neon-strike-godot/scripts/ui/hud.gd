@@ -39,6 +39,9 @@ var cases_capacites := {}   # emplacement -> {fond, nom, touche, charges, rechar
 var ultime_box: Control
 var mort_panneau: Control
 var l_mort: Label
+var barre_action: Control
+var barre_action_k: ColorRect
+var l_action: Label
 var vivants_bleu: HBoxContainer
 var vivants_rouge: HBoxContainer
 
@@ -71,6 +74,7 @@ func _ready() -> void:
 	_fil()
 	_annonces()
 	_ecran_mort()
+	_barre_action()
 	l_fps = Style.etiquette("", 14, Style.TEXTE2, false, 500)
 	l_fps.position = Vector2(8, 4)
 	add_child(l_fps)
@@ -419,6 +423,38 @@ func _ecran_mort() -> void:
 	l_mort.offset_top = -260
 	l_mort.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mort_panneau.add_child(l_mort)
+
+
+func _barre_action() -> void:
+	barre_action = VBoxContainer.new()
+	barre_action.anchor_left = 0.5
+	barre_action.anchor_right = 0.5
+	barre_action.anchor_top = 0.5
+	barre_action.anchor_bottom = 0.5
+	barre_action.offset_left = -160
+	barre_action.offset_right = 160
+	barre_action.offset_top = 70
+	barre_action.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	barre_action.visible = false
+	add_child(barre_action)
+	l_action = Style.ombre(Style.etiquette("", 16, Style.TEXTE, true, 700))
+	l_action.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	barre_action.add_child(l_action)
+	var fond := ColorRect.new()
+	fond.custom_minimum_size = Vector2(320, 8)
+	fond.color = Color(0, 0, 0, 0.55)
+	barre_action.add_child(fond)
+	barre_action_k = ColorRect.new()
+	barre_action_k.size = Vector2(0, 8)
+	barre_action_k.color = Style.ACCENT2
+	fond.add_child(barre_action_k)
+
+
+## Barre de progression centrale (pose / désamorçage du Spike) ; texte vide = masquée
+func progression(texte: String, k: float) -> void:
+	barre_action.visible = texte != ""
+	l_action.text = texte
+	barre_action_k.size.x = 320.0 * clampf(k, 0.0, 1.0)
 
 
 func montrer_mort(texte: String) -> void:

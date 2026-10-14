@@ -2,15 +2,23 @@ extends Node
 
 
 func executer() -> void:
-	Jeu.config["mode"] = "stand"
+	Jeu.config["mode"] = "spike"
+	Jeu.config["camp"] = "defense"
+	Jeu.config["carte"] = "citadelle"
 	get_tree().change_scene_to_file("res://scenes/partie.tscn")
-	await Test.attendre(1.0)
-	var v: VueArme = Jeu.partie.vue
-	var ap: AnimationPlayer = v.actuel["ap"]
-	var sk: Skeleton3D = v.actuel["racine"].find_child("*", true, false) as Skeleton3D
-	sk = v.actuel["racine"].find_children("*", "Skeleton3D", true, false)[0]
-	var b: Node3D = v.actuel["bouche"]
-	for i in 12:
-		var id := sk.find_bone("arme")
-		print("t=%.2f anim=%s pos=%.2f/%.2f loop=%d boucheY=%.3f osY=%.3f" % [Time.get_ticks_msec() / 1000.0, ap.current_animation, ap.current_animation_position, ap.current_animation_length, ap.get_animation(ap.current_animation).loop_mode if ap.current_animation != "" else -1, (v.cam.global_transform.affine_inverse() * b.global_position).y, (sk.get_bone_global_pose(id).origin).y])
-		await Test.attendre(0.4)
+	await Test.attendre(2.0)
+	var p: Partie = Jeu.partie
+	var j := p.joueur
+	j.set_physics_process(false)
+	j.vivant = false
+	j.global_position = Vector3(0, 40, 0)
+	Engine.time_scale = 4.0
+	for k in 14:
+		await Test.attendre(2.5)
+		var m = p.mode
+		var txt := "t=%.0f phase=%s site=%s spike=%s" % [m.combat_t, m.phase, m.site_attaque, m.spike.etat]
+		print(txt)
+		for c in p.combattants:
+			if c is Bot:
+				var b := c as Bot
+				print("   %s %s %s pos=%s obj=%s etat=%s vie=%d porteur=%s nav=%s" % [b.equipe, m.cote[b.equipe], b.nom_affiche, str(b.global_position.round()), str(b.objectif.round()), b.etat, int(b.vie), str(m.spike.porteur == b), str(b.agent.is_navigation_finished())])

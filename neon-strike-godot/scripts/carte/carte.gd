@@ -8,6 +8,10 @@ var apparitions := {"bleu": [], "rouge": []}   # Array[Transform3D]
 var sites := {}                                # "A" -> {centre: Vector3, rayon: float}
 var zones := []                                # noms de zones pour l'interface (callouts) : [nom, AABB]
 var points_couvert: Array[Vector3] = []        # positions abritées utilisées par les bots
+var entrees := {}          # site -> entrées (les défenseurs les surveillent)
+var postes := {}           # site / "milieu" -> positions de défense
+var regroupements := {}    # site -> points de passage des attaquants avant l'assaut
+var zones_spawn := {}      # "attaque" / "defense" -> AABB (bloqués pendant la phase d'achat)
 var env: Environment
 var soleil: DirectionalLight3D
 var ambiance_vue := Color(0.62, 0.68, 0.78)    # lumière des bras en vue FPS
