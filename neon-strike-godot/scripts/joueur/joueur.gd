@@ -160,6 +160,13 @@ func _touches_action() -> void:
 		choisir_emplacement(3)
 	if Input.is_action_just_pressed("recharger"):
 		_recharger()
+	for empl in ["c", "q", "e", "x"]:
+		var action: String = DonneesCapacites.ACTIONS[empl]
+		if Input.is_action_just_pressed(action) and Jeu.partie:
+			var dir := cam.global_transform.basis * Vector3.FORWARD
+			if Jeu.partie.utiliser_capacite(self, empl, dir):
+				if vue:
+					vue.geste_capacite()
 	if Input.is_action_just_pressed("inspecter"):
 		if vue and pret_t <= 0.0 and not arme.en_recharge():
 			vue.inspecter()
@@ -261,6 +268,11 @@ func _deplacer(dt: float, actif: bool) -> void:
 		vmax *= 0.55
 	set_meta("sprint", sprint and vitesse_horizontale() > 1.0)
 	var horiz := Vector3(velocity.x, 0, velocity.z)
+	if Jeu.partie and Jeu.partie.capacites and Jeu.partie.capacites.maj_deplacement(self, dt):
+		if not is_on_floor():
+			velocity.y -= GRAVITE * dt
+		move_and_slide()
+		return
 	if is_on_floor():
 		# Frottement puis accélération vers la vitesse voulue
 		var v := horiz.length()
@@ -332,6 +344,8 @@ func _pas(force: float, atterrir: bool) -> void:
 func _armes(dt: float, actif: bool) -> void:
 	if not arme:
 		return
+	arme.bonus_cadence = bonus_cadence
+	arme.recharge_rapide = statut("recharge_rapide") > 0.0
 	arme.maj(dt, horloge)
 	pret_t = maxf(0.0, pret_t - dt)
 	sprint_bloque = maxf(0.0, sprint_bloque - dt)
@@ -423,7 +437,10 @@ func _tirer() -> void:
 		if not r.is_empty():
 			fin = r["position"]
 			var c: Object = r["collider"]
-			if c is Area3D and c.has_meta("combattant"):
+			if c.has_meta("objet_capacite") and Jeu.partie:
+				Jeu.partie.capacites.degats_objet(c.get_meta("objet_capacite"), float(def["degats"]["corps"]))
+				effets.impact(fin, r["normal"], "metal", couleur, false)
+			elif c is Area3D and c.has_meta("combattant"):
 				var victime: Combattant = c.get_meta("combattant")
 				var partie: String = c.get_meta("partie")
 				var deg: float = float(def["degats"][partie]) * DonneesArmes.facteur_distance(def, origine.distance_to(fin))
@@ -492,6 +509,15 @@ func _coup_couteau(lourd: bool) -> void:
 			effets.impact(r["position"], r["normal"], Combattant.matiere_de(c), Color(1, 0.8, 0.5), false)
 			Sons.jouer_3d("couteau_mur", r["position"], -4.0)
 		return
+
+
+## Remplit le chargeur et la réserve (bonus d'équipe "munitions")
+func remplir_munitions() -> void:
+	for l in logiques.values():
+		var la: LogiqueArme = l
+		if la.type != "melee":
+			la.mun = int(la.def["chargeur"])
+			la.reserve = maxi(la.reserve, int(la.def.get("reserve", 0)))
 
 
 func mourir() -> void:

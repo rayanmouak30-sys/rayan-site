@@ -323,6 +323,13 @@ func tir(lourd := false) -> void:
 				_ejecter())
 
 
+## Petit geste quand on lance une capacité (l'arme s'abaisse un instant)
+func geste_capacite() -> void:
+	ressort_y.impulsion(-2.5)
+	ressort_rx.impulsion(-6.0)
+	ressort_rz.impulsion(4.0)
+
+
 func recharger(vide: bool, duree: float) -> void:
 	jouer("rechargement_vide" if vide else "rechargement", duree, 0.1)
 

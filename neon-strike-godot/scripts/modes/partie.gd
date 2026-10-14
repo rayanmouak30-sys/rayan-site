@@ -13,6 +13,8 @@ var hud: Hud
 var couche_ui: CanvasLayer
 var mode: Mode
 var combattants: Array[Combattant] = []
+var capacites: SystemeCapacites
+var economie := false
 var en_pause := false
 var menu_pause: Control
 
@@ -30,6 +32,9 @@ func _ready() -> void:
 	add_child(carte)
 	effets = Effets.new()
 	add_child(effets)
+	capacites = SystemeCapacites.new()
+	capacites.partie = self
+	add_child(capacites)
 	couche_ui = CanvasLayer.new()
 	couche_ui.layer = 1
 	add_child(couche_ui)
@@ -70,6 +75,45 @@ func _ready() -> void:
 func ajouter_combattant(c: Combattant) -> void:
 	if not combattants.has(c):
 		combattants.append(c)
+	if not (c is Cible) and c.etat_cap == null:
+		c.etat_cap = EtatCapacites.new(c.heros, economie)
+		if c == joueur:
+			_preparer_hud_capacites()
+
+
+func _preparer_hud_capacites() -> void:
+	var liste := []
+	var noms := {"c": "capacite_c", "q": "capacite_q", "e": "capacite_e", "x": "ultime"}
+	var couleur := DonneesHeros.couleur_categorie(String(DonneesHeros.heros(joueur.heros).get("categorie", "assaut")))
+	for empl in ["c", "q", "e", "x"]:
+		if joueur.etat_cap.ids.has(empl):
+			var d := joueur.etat_cap.def(empl)
+			liste.append({"emplacement": empl, "icone": d.get("icone", "soin"), "couleur": couleur, "touche": Reglages.touche(noms[empl])})
+	hud.preparer_capacites(liste)
+
+
+## Utilisation d'une capacité (C, Q, E ou X) par un combattant
+func utiliser_capacite(c: Combattant, empl: String, dir: Vector3, cible := Vector3.INF) -> bool:
+	if not c.vivant or c.etat_cap == null or not c.etat_cap.disponible(empl):
+		return false
+	if c.statut("emp") > 0.0:
+		if c == joueur:
+			hud.afficher_message("CAPACITÉS BROUILLÉES", 1.0)
+			Sons.jouer("ui_refus", -6.0)
+		return false
+	var id: String = c.etat_cap.ids[empl]
+	if not capacites.executer(c, id, dir, cible):
+		if c == joueur:
+			Sons.jouer("ui_refus", -8.0)
+		return false
+	c.etat_cap.consommer(empl)
+	if c.statut("camo") > 0.0 and empl != "e":
+		c.statuts["camo"] = 0.0
+	if empl == "x":
+		Sons.jouer_3d("ultime", c.global_position, 0.0)
+		if c != joueur:
+			hud.afficher_message("%s : %s" % [c.nom_affiche, String(DonneesCapacites.capacite(id).get("nom", ""))], 2.0)
+	return true
 
 
 ## Dégâts d'un combattant sur un autre. Renvoie vrai si la victime est éliminée.
@@ -141,6 +185,9 @@ func eliminer(victime: Combattant, tueur: Combattant, tete: bool, arme: String) 
 				tueur.tetes += 1
 		if tueur == joueur:
 			Sons.jouer("elimination", -2.0)
+		if tueur.etat_cap and tueur.etat_cap.ajouter_point() and tueur == joueur:
+			Sons.jouer("ultime_pret", -2.0)
+			hud.afficher_message("ULTIME PRÊTE", 2.0)
 	if victime is Cible:
 		(victime as Cible).tomber(victime.global_position - tueur.global_position)
 	elif victime == joueur:
@@ -154,6 +201,23 @@ func eliminer(victime: Combattant, tueur: Combattant, tete: bool, arme: String) 
 	victime.elimine.emit(victime, tueur, tete, arme)
 	combattant_elimine.emit(victime, tueur, tete, arme)
 	mode.sur_elimination(victime, tueur, tete, arme)
+
+
+## Résurrection d'un allié à l'endroit où il est tombé
+func ressusciter(victime: Combattant, _par: Combattant, vie_rendue: float) -> void:
+	var t := Transform3D(Basis(Vector3.UP, victime.rotation.y), victime.global_position + Vector3(0, 0.2, 0))
+	if victime is Bot:
+		(victime as Bot).reapparaitre(t)
+	elif victime is Joueur:
+		(victime as Joueur).reapparaitre(t)
+	victime.vie = vie_rendue
+	if mode.has_method("sur_resurrection"):
+		mode.call("sur_resurrection", victime)
+
+
+func _process(_dt: float) -> void:
+	if is_instance_valid(joueur) and joueur.etat_cap:
+		hud.maj_capacites(joueur.etat_cap.etat_hud())
 
 
 func _unhandled_input(event: InputEvent) -> void:

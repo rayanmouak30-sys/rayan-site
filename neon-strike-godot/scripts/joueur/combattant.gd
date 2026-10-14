@@ -30,7 +30,7 @@ var assists := 0
 var degats_infliges := 0.0
 var credits := 800
 var ultime := 0
-var capacites := {}               # état des capacités (charges, recharges)
+var etat_cap: EtatCapacites      # charges, recharges, points d'ultime
 
 # Statuts appliqués par les capacités (temps restant en secondes)
 var statuts := {}
@@ -171,7 +171,43 @@ func appliquer_statut(nom: String, duree: float) -> void:
 	statuts[nom] = maxf(statut(nom), duree)
 
 
+func _process(_dt: float) -> void:
+	_maj_visuels_statuts()
+
+
+## Camouflage (modèle presque invisible) et marqueur au-dessus des ennemis révélés
+var _marqueur: Sprite3D
+func _maj_visuels_statuts() -> void:
+	if modele == null:
+		return
+	var p: Node = Jeu.partie
+	var local_equipe := "bleu"
+	if p and p.get("joueur"):
+		local_equipe = (p.joueur as Combattant).equipe
+	var trans := 0.0
+	if invisible():
+		trans = 0.5 if equipe == local_equipe else 0.93
+	for mi in modele.find_children("*", "MeshInstance3D", true, false):
+		(mi as GeometryInstance3D).transparency = trans
+	var montrer := revele > 0.0 and vivant and equipe != local_equipe
+	if montrer and _marqueur == null:
+		_marqueur = Sprite3D.new()
+		_marqueur.texture = Icones.texture("sonar", 64)
+		_marqueur.modulate = Color(1.0, 0.27, 0.33)
+		_marqueur.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_marqueur.no_depth_test = true
+		_marqueur.pixel_size = 0.006
+		_marqueur.render_priority = 10
+		_marqueur.fixed_size = false
+		add_child(_marqueur)
+	if _marqueur:
+		_marqueur.visible = montrer
+		_marqueur.position = Vector3(0, 2.15 * taille + sin(Time.get_ticks_msec() * 0.005) * 0.04, 0)
+
+
 func maj_statuts(dt: float) -> void:
+	if etat_cap:
+		etat_cap.maj(dt)
 	for k in statuts.keys():
 		statuts[k] = maxf(0.0, float(statuts[k]) - dt)
 	if statut("vitesse") <= 0.0:

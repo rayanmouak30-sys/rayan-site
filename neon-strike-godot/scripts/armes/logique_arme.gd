@@ -15,6 +15,8 @@ var serie := 0.0
 var recul := Vector2.ZERO          # recul courant (degrés : x = tangage, y = lacet)
 var cible_recul := Vector2.ZERO
 var horloge := 0.0
+var bonus_cadence := 0.0         # bonus de cadence de tir (capacités), 0.25 = 25 % plus rapide
+var recharge_rapide := false
 
 
 func _init(id_arme: String) -> void:
@@ -69,7 +71,7 @@ func lancer_rechargement() -> bool:
 	if type == "melee" or recharge_t > 0.0 or mun >= int(def["chargeur"]) or reserve <= 0:
 		return false
 	recharge_vide = mun == 0
-	duree_recharge = def["rechargement_vide"] if recharge_vide else def["rechargement"]
+	duree_recharge = (def["rechargement_vide"] if recharge_vide else def["rechargement"]) * (0.6 if recharge_rapide else 1.0)
 	recharge_t = duree_recharge
 	serie = 0.0
 	return true
@@ -106,7 +108,7 @@ func tirer(temps: float, ecart_deg: float, vise: bool, lourd := false) -> Array[
 		prochain_tir = temps + (def["cadence_lourde"] if lourd else def["cadence"])
 		return resultat
 	mun -= 1
-	var cadence: float = def["cadence"]
+	var cadence: float = float(def["cadence"]) / (1.0 + bonus_cadence)
 	if type == "auto" and temps - prochain_tir < cadence:
 		prochain_tir += cadence
 	else:

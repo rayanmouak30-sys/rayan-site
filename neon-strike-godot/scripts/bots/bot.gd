@@ -89,6 +89,7 @@ func reapparaitre(t: Transform3D) -> void:
 	activer_zones(true)
 	reinitialiser_statuts()
 	etat = "objectif"
+	objectif = global_position
 	cible = null
 	plus_vu = 99.0
 	if modele:
@@ -122,7 +123,11 @@ func _physics_process(dt: float) -> void:
 		move_and_slide()
 		return
 	if arme:
+		arme.bonus_cadence = bonus_cadence
+		arme.recharge_rapide = statut("recharge_rapide") > 0.0
 		arme.maj(dt, horloge)
+	if actif:
+		_capacites(dt)
 	if actif:
 		percep_t -= dt
 		if percep_t <= 0.0:
@@ -154,8 +159,11 @@ func voit(c: Combattant) -> bool:
 		return false
 	var depuis := yeux()
 	var vers := c.global_position + Vector3(0, 1.2 * c.taille, 0)
-	var q := PhysicsRayQueryParameters3D.create(depuis, vers, COUCHE_MONDE)
-	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
+	var q := PhysicsRayQueryParameters3D.create(depuis, vers, COUCHE_MONDE | COUCHE_OBJETS)
+	if not get_world_3d().direct_space_state.intersect_ray(q).is_empty():
+		return false
+	var p: Partie = Jeu.partie
+	return p == null or not p.capacites.fumee_bloque(depuis, vers)
 
 
 func _percevoir() -> void:
@@ -291,13 +299,11 @@ func _chercher_couvert() -> void:
 # --- Déplacement -------------------------------------------------------------
 
 func _deplacer(dt: float) -> void:
-	var but := global_position
+	var but := global_position if not actif else objectif
 	var vitesse := 5.3 * (1.0 + bonus_vitesse)
 	var direct := Vector3.ZERO
 	accroupi = false
-	match etat:
-		"objectif":
-			but = objectif
+	match etat if actif else "":
 		"chercher":
 			but = derniere_pos
 			vitesse *= 0.75
@@ -342,6 +348,12 @@ func _deplacer(dt: float) -> void:
 		vitesse *= 0.5
 	capsule.height = 1.25 if accroupi else 1.8
 	forme.position.y = capsule.height * 0.5
+	var p_cap: Partie = Jeu.partie
+	if p_cap and p_cap.capacites.maj_deplacement(self, dt):
+		if not is_on_floor():
+			velocity.y -= GRAVITE * dt
+		move_and_slide()
+		return
 	var cible_v := dir * vitesse
 	var h := Vector3(velocity.x, 0, velocity.z).move_toward(cible_v, 40.0 * dt)
 	velocity.x = h.x
@@ -361,6 +373,89 @@ func _deplacer(dt: float) -> void:
 			strafe = -strafe
 	else:
 		bloque_t = 0.0
+
+
+# --- Capacités ---------------------------------------------------------------
+
+var cap_t := 3.0
+
+
+func _capacites(dt: float) -> void:
+	cap_t -= dt
+	if cap_t > 0.0 or etat_cap == null or statut("emp") > 0.0:
+		return
+	cap_t = randf_range(0.7, 1.5)
+	for empl in ["x", "e", "c", "q"]:
+		if not etat_cap.disponible(empl):
+			continue
+		var cible_point := _envie_capacite(etat_cap.def(empl), empl)
+		if cible_point == Vector3.INF:
+			continue
+		var p: Partie = Jeu.partie
+		var dir := (cible_point - yeux()).normalized() if cible_point != Vector3.ZERO else Vector3(-sin(lacet), 0, -cos(lacet))
+		var famille: String = etat_cap.def(empl).get("famille", "")
+		var passe := cible_point if famille in ["grenade", "cible"] and cible_point != Vector3.ZERO else Vector3.INF
+		if p.utiliser_capacite(self, empl, dir, passe):
+			if modele:
+				modele.action("equiper")
+			cap_t = randf_range(1.5, 3.0)
+			return
+
+
+## Renvoie le point visé si le bot veut utiliser cette capacité maintenant (Vector3.ZERO = devant lui), INF sinon
+func _envie_capacite(def: Dictionary, empl: String) -> Vector3:
+	var famille: String = def.get("famille", "")
+	var effet: String = def.get("effet", "")
+	var en_combat := etat == "combat" and cible != null
+	var dist := global_position.distance_to(derniere_pos) if cible else 99.0
+	var chance := randf()
+	match famille:
+		"grenade", "cible":
+			if effet == "soin":
+				return global_position if vie < 60.0 and chance < 0.7 else Vector3.INF
+			if effet == "fumee" or effet == "brouillard":
+				return derniere_pos.lerp(global_position, 0.35) if (en_combat and (vie < 50.0 or dist > 25.0) and chance < 0.5) else Vector3.INF
+			if cible and plus_vu < 3.0 and dist > 5.0 and dist < 35.0 and chance < (0.6 if empl == "x" else 0.4):
+				return derniere_pos
+		"buff":
+			if (en_combat and chance < 0.5) or (def.get("condition", "") == "blesse" and vie < 60.0):
+				return Vector3.ZERO
+		"equipe":
+			if en_combat and chance < 0.5:
+				return Vector3.ZERO
+		"mur":
+			if (etat == "couvert" or (en_combat and vie < 50.0)) and cible:
+				return derniere_pos
+		"murFumee":
+			if en_combat and dist > 12.0 and chance < 0.4:
+				return derniere_pos
+		"drone", "sonar", "cone":
+			if (etat == "chercher" or etat == "objectif") and chance < 0.25:
+				return derniere_pos if cible else Vector3.ZERO
+		"piege", "tourelle":
+			if etat == "objectif" and Vector3(velocity.x, 0, velocity.z).length() < 1.0 and chance < 0.5:
+				return Vector3.ZERO
+		"camo", "frenesie":
+			if en_combat and chance < 0.5:
+				return Vector3.ZERO
+		"resurrection":
+			var p: Partie = Jeu.partie
+			for c in p.combattants:
+				if c != self and not c.vivant and c.equipe == equipe and not (c is Cible) and c.global_position.distance_to(global_position) < 20.0:
+					return Vector3.ZERO
+		"seisme", "charge":
+			if en_combat and dist < 7.0:
+				return derniere_pos
+		"ruee":
+			if en_combat and chance < 0.25:
+				return Vector3.ZERO
+		"blink":
+			if etat == "couvert" and chance < 0.5:
+				return couvert
+		"saut":
+			if en_combat and chance < 0.1:
+				return Vector3.ZERO
+	return Vector3.INF
 
 
 # --- Visée et tir ------------------------------------------------------------
@@ -449,7 +544,10 @@ func _tirer(dt: float) -> void:
 		if not r.is_empty():
 			fin = r["position"]
 			var c: Object = r["collider"]
-			if c is Area3D and c.has_meta("combattant"):
+			if c.has_meta("objet_capacite"):
+				var pc: Partie = Jeu.partie
+				pc.capacites.degats_objet(c.get_meta("objet_capacite"), float(arme.def["degats"]["corps"]))
+			elif c is Area3D and c.has_meta("combattant"):
 				var v: Combattant = c.get_meta("combattant")
 				var partie_corps: String = c.get_meta("partie")
 				var deg: float = float(arme.def["degats"][partie_corps]) * DonneesArmes.facteur_distance(arme.def, yeux().distance_to(fin))
