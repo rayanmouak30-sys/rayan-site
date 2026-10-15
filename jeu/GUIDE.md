@@ -132,7 +132,14 @@ La qualité est choisie automatiquement selon la carte graphique (« Faible » s
 ## Multijoueur
 
 ### Sur le site (rien à installer)
-Sur https://mou.alwaysdata.net/jeu/ → **En ligne** : un joueur clique *Créer un salon* et donne le code de 4 lettres, les autres le tapent puis *Rejoindre* ; l'hôte lance la partie (combat à mort, jusqu'à 8 joueurs).
+Sur https://mou.alwaysdata.net/jeu/ → **En ligne** : un joueur clique *Créer un salon* et donne le code de 4 lettres, les autres le tapent puis *Rejoindre*. Jusqu'à 8 joueurs et 10 bots.
+
+L'hôte choisit dans le salon :
+- **Mode** : *Coop contre les bots* (tous les joueurs ensemble contre une équipe de bots, première équipe à 50 éliminations), *Équipes* (bleus contre rouges, chaque joueur peut changer d'équipe, les bots complètent les deux équipes, 50 éliminations) ou *Chacun pour soi* (premier à 20 éliminations) ;
+- **Bots** : aucun, 2, 4, 6, 8 ou 10, et leur **difficulté** (facile à expert) ;
+- **Carte**.
+
+Les bots tournent sur le PC de l'hôte (intelligence, tirs, réapparitions) ; les autres les voient et peuvent les éliminer normalement. Si l'hôte quitte, ses bots disparaissent et un autre joueur devient hôte. Pas de tir ami en équipes. Réapparition après 3 secondes.
 Le jeu essaie d'abord le serveur temps réel (WebSocket, voir plus bas) ; s'il n'est pas lancé, il passe automatiquement par le relais PHP du site (`enligne.php`, ~16 échanges par seconde, un peu plus de latence). Les salons sont gardés dans `donnees/` (inaccessible depuis le web) et effacés quand tout le monde est parti.
 
 ### Anti-triche

@@ -61,7 +61,7 @@ export class Reseau {
 }
 
 // Version du protocole (messages horodatés pour l'anti-triche du serveur)
-export const VERSION_PROTOCOLE = 2;
+export const VERSION_PROTOCOLE = 3;
 
 // Relais par requêtes HTTP vers jeu/enligne.php : ~16 échanges par seconde en partie, 2 par seconde dans le salon.
 // Les messages reçus sont exactement ceux du serveur WebSocket.
@@ -174,45 +174,107 @@ export function adresseParDefaut() {
   return (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws";
 }
 
+// Partie en ligne. Modes : "ffa" (chacun pour soi), "equipes" (bleus contre rouges), "coop" (les joueurs contre les bots).
+// Les bots tournent chez l'hôte (intelligence, tirs, réapparitions) ; il envoie leurs positions 10 fois par seconde
+// et les autres joueurs les affichent comme des joueurs distants. Un tir sur un bot est transmis à l'hôte par le serveur.
+const DUREE_REAPPARITION = 3;
+
 export class PartieEnLigne {
   constructor(jeu, reseau) {
     this.jeu = jeu;
     this.reseau = reseau;
     this.distants = new Map();
     this.scores = {};
+    this.scoresEquipes = { bleu: 0, rouge: 0 };
     this.objectif = 20;
+    this.mode = "ffa";
+    this.hote = false;
     this.envoiT = 0;
+    this.botsT = 0;
     this.reapparitionT = -1;
+    this.reapBots = [];
     this.actif = false;
   }
 
   get moi() { return this.reseau.id; }
+  get enEquipes() { return this.mode !== "ffa"; }
+
+  // Bot que je fais tourner (hôte)
+  botLocal(id) { return this.jeu.bots.liste.find((b) => b.botLocal && b.id === id) || null; }
+
+  // Identifiant réseau d'un combattant (moi, un joueur distant, un de mes bots)
+  idDe(c) {
+    if (!c) return null;
+    if (c === this.jeu.joueur) return this.moi;
+    if (c.distantId) return c.distantId;
+    if (c.botLocal) return c.id;
+    return null;
+  }
 
   nom(id) {
     if (id === this.moi) return this.jeu.joueur.nom;
-    const b = this.distants.get(id);
+    const b = this.distants.get(id) || this.botLocal(id);
     return b ? b.nom : "?";
   }
+
+  equipeReseau(id, equipe) { return this.enEquipes ? (equipe === "rouge" ? "rouge" : "bleu") : "net-" + id; }
 
   demarrer(m) {
     const jeu = this.jeu;
     this.actif = true;
+    this.mode = ["ffa", "equipes", "coop"].includes(m.mode) ? m.mode : "ffa";
     this.objectif = m.objectif || 20;
     this.scores = m.scores || {};
+    this.scoresEquipes = m.equipes || { bleu: 0, rouge: 0 };
+    this.hote = m.hote === this.moi;
     this.distants.clear();
+    this.reapBots = [];
     jeu.bots.vider();
     jeu.bots.mode = "deathmatch";
-    jeu.joueur.equipe = "net-" + this.moi;
+    jeu.bots.equipes = this.enEquipes;
+    const moi = (m.joueurs || []).find((p) => p.id === this.moi);
+    jeu.joueur.equipe = this.equipeReseau(this.moi, moi && moi.equipe);
     for (const p of m.joueurs || []) if (p.id !== this.moi) this.ajouter(p);
+    if (this.hote) this.creerBots(m);
     this.reapparaitre();
   }
 
+  // Hôte : crée les bots demandés (équipes équilibrées, rouges en coop), sans capacités (non autorisées en ligne)
+  creerBots(m) {
+    const jeu = this.jeu, n = Math.max(0, Math.min(10, m.bots | 0));
+    const effectifs = { bleu: 0, rouge: 0 };
+    for (const p of m.joueurs || []) effectifs[p.equipe === "rouge" ? "rouge" : "bleu"]++;
+    const pris = new Set((m.joueurs || []).map((p) => p.heros));
+    const heros = Object.keys(HEROS).filter((h) => !pris.has(h)).sort(() => Math.random() - 0.5);
+    for (let i = 0; i < n; i++) {
+      let equipe = "dm" + i;
+      if (this.mode === "coop") equipe = "rouge";
+      else if (this.mode === "equipes") { equipe = effectifs.bleu <= effectifs.rouge ? "bleu" : "rouge"; effectifs[equipe]++; }
+      const h = heros[i % heros.length];
+      const b = jeu.bots.ajouter({ nom: HEROS[h].nom, heros: h, equipe, teinte: this.enEquipes ? equipe : "neutre", arme: jeu.regles.armeHeros(h), economie: false });
+      b.capacites = null;
+      b.botLocal = true;
+      this.placerBot(b);
+    }
+  }
+
+  placerBot(b) {
+    const jeu = this.jeu;
+    const p = jeu.regles.pointReapparition(b);
+    b.arme = jeu.regles.armeHeros(b.heros);
+    jeu.bots.placer(b, p.x, p.z, jeu.regles.lacetVersCentre(p) + Math.PI);
+    jeu.effets.apparition({ x: p.x, y: 0, z: p.z }, 0x7cffd4);
+  }
+
+  // Joueur distant, ou bot de l'hôte vu par les autres
   ajouter(p) {
     if (this.distants.has(p.id) || p.id === this.moi) return;
     const bots = this.jeu.bots;
-    const b = bots.ajouter({ nom: p.nom, equipe: "net-" + p.id, heros: HEROS[p.heros] ? p.heros : "kael", teinte: "neutre", arme: "fusil" });
+    const equipe = this.equipeReseau(p.id, p.equipe);
+    const b = bots.ajouter({ nom: p.nom, equipe, heros: HEROS[p.heros] ? p.heros : "kael", teinte: this.enEquipes ? equipe : "neutre", arme: "fusil" });
     b.distant = true;
     b.distantId = p.id;
+    b.botDistant = !!p.bot;
     b.net = null;
     bots.placer(b, 0, 0, 0);
     b.vivant = false;
@@ -227,11 +289,12 @@ export class PartieEnLigne {
     this.distants.delete(id);
   }
 
+  // Liste des joueurs humains (les bots distants ne sont pas dedans)
   majJoueurs(liste) {
     if (!this.actif) return;
     const ids = new Set(liste.map((p) => p.id));
     for (const p of liste) this.ajouter(p);
-    for (const id of [...this.distants.keys()]) if (!ids.has(id)) this.retirer(id);
+    for (const [id, b] of [...this.distants]) if (!b.botDistant && !ids.has(id)) this.retirer(id);
   }
 
   reapparaitre() {
@@ -244,8 +307,9 @@ export class PartieEnLigne {
     jeu.surReapparition();
   }
 
-  // Message "etat" d'un autre joueur
+  // Message "etat" d'un autre joueur ou d'un bot de l'hôte
   etat(m) {
+    if (!this.distants.has(m.id) && m.n && !this.botLocal(m.id)) this.ajouter({ id: m.id, nom: m.n, heros: m.hr, equipe: m.e, bot: true });
     const b = this.distants.get(m.id);
     if (!b) return;
     b.net = m;
@@ -275,23 +339,36 @@ export class PartieEnLigne {
     if (b && b.modele) b.modele.tir();
   }
 
-  // On a été touché par un autre joueur
+  // Touché par un autre joueur ou un bot ; sur l'hôte, peut viser un de ses bots
   touche(m) {
     const jeu = this.jeu;
-    const auteur = this.distants.get(m.de) || null;
+    const auteur = this.distants.get(m.de) || this.botLocal(m.de) || null;
+    if (m.cible && m.cible !== this.moi) {
+      const b = this.botLocal(m.cible);
+      if (b && b.vivant) jeu.bots.blesser(b, m.degats, auteur, m.tete, m.arme);
+      return;
+    }
     if (!jeu.joueur.vivant) return;
     jeu.blesserJoueur(m.degats, auteur, m.tete, m.arme);
   }
 
   // Notre mort (envoyée au serveur, qui compte les points)
   mortLocale(tueur, tete, arme) {
-    this.reseau.envoyer({ t: "mort", tueur: tueur && tueur.distantId ? tueur.distantId : null, tete, arme });
-    this.reapparitionT = 3;
+    this.reseau.envoyer({ t: "mort", tueur: this.idDe(tueur), tete, arme });
+    this.reapparitionT = DUREE_REAPPARITION;
+  }
+
+  // Hôte : un de ses bots est éliminé
+  surMortBot(victime, tueur, tete, arme) {
+    if (!victime.botLocal) return;
+    this.reseau.envoyer({ t: "mort", bot: victime.id, tueur: this.idDe(tueur), tete, arme });
+    this.reapBots.push({ b: victime, t: DUREE_REAPPARITION });
   }
 
   mort(m) {
     const jeu = this.jeu;
     this.scores = m.scores || this.scores;
+    if (m.equipes) this.scoresEquipes = m.equipes;
     const b = this.distants.get(m.victime);
     if (b && b.vivant) { b.vivant = false; b.mortT = 0; b.modele.mourir(1); }
     const tueur = m.tueur ? this.nom(m.tueur) : "";
@@ -311,16 +388,34 @@ export class PartieEnLigne {
       this.reapparitionT -= dt;
       if (this.reapparitionT <= 0) this.reapparaitre();
     }
+    if (!this.hote) return;
+    // Hôte : réapparition et positions de ses bots
+    for (const r of this.reapBots) { r.t -= dt; if (r.t <= 0) { this.placerBot(r.b); r.fait = true; } }
+    this.reapBots = this.reapBots.filter((r) => !r.fait);
+    this.botsT -= dt;
+    if (this.botsT <= 0) {
+      this.botsT = 0.1;
+      const l = jeu.bots.liste.filter((b) => b.botLocal).map((b) => ({
+        id: b.id, x: +b.x.toFixed(2), y: +(b.y || 0).toFixed(2), z: +b.z.toFixed(2), l: +(b.yaw - Math.PI).toFixed(3), g: +(b.pitch || 0).toFixed(3),
+        a: b.arme, v: b.vivant ? 1 : 0, s: +(b.vitesse || 0).toFixed(1), c: 0, n: b.nom, hr: b.heros, e: this.enEquipes ? b.equipe : "",
+      }));
+      if (l.length) this.reseau.envoyer({ t: "bots", h: Math.round(performance.now()), l });
+    }
   }
 
   classement() {
-    const lignes = [{ id: this.moi, nom: this.jeu.joueur.nom, ...(this.scores[this.moi] || { kills: 0, morts: 0 }), moi: true }];
-    for (const [id, b] of this.distants) lignes.push({ id, nom: b.nom, ...(this.scores[id] || { kills: 0, morts: 0 }) });
+    const j = this.jeu.joueur;
+    const ligne = (id, nom, equipe, moi = false) => ({ id, nom, equipe, moi, ...(this.scores[id] || { kills: 0, morts: 0 }) });
+    const lignes = [ligne(this.moi, j.nom, j.equipe, true)];
+    for (const [id, b] of this.distants) lignes.push(ligne(id, b.nom, b.equipe));
+    for (const b of this.jeu.bots.liste) if (b.botLocal) lignes.push(ligne(b.id, b.nom, b.equipe));
     return lignes.sort((a, b) => b.kills - a.kills);
   }
 
   arreter() {
     this.actif = false;
     for (const id of [...this.distants.keys()]) this.retirer(id);
+    for (const b of [...this.jeu.bots.liste]) if (b.botLocal) this.jeu.bots.retirer(b);
+    this.reapBots = [];
   }
 }

@@ -305,6 +305,9 @@ a { color: var(--bleu); }
 .code-salon strong { font-family: var(--titre); font-size: 30px; letter-spacing: 8px; color: var(--jaune); margin-left: 8px; }
 #salon-joueurs { list-style: none; display: grid; gap: 6px; }
 #salon-joueurs li { background: rgba(6, 12, 26, 0.6); border: 1px solid var(--bord); border-radius: 6px; padding: 8px 12px; font-weight: 700; }
+#salon-joueurs li.equipe-bleu { border-left: 4px solid #5ad8ff; }
+#salon-joueurs li.equipe-rouge { border-left: 4px solid #ff6b78; }
+#salon-config { display: grid; gap: 10px; }
 #enligne-connexion, #enligne-salon { display: flex; flex-direction: column; gap: 12px; }
 
 .liste-liaisons { display: grid; grid-template-columns: 1fr minmax(90px, auto) minmax(90px, auto) minmax(84px, auto); gap: 6px 10px; align-items: center; max-height: 52vh; overflow-y: auto; padding-right: 6px; }

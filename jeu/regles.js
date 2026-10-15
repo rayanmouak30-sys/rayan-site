@@ -85,6 +85,7 @@ export class Regles {
     this.retirerMunitions();
     bots.mode = this.mode;
     bots.diff = jeu.difficulte;
+    bots.equipes = false;
     this.retirerSpike();
     joueur.stats = this.nouvellesStatsJoueur();
     joueur.kills = joueur.morts = joueur.degats = 0;

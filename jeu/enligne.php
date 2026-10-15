@@ -1,12 +1,16 @@
 <?php
 // Mode En ligne de Neon Strike sans serveur Node.js : relais par requêtes HTTP (le jeu interroge ~15 fois par seconde).
-// Mêmes messages que jeu/serveur/serveur.js (salon, joueurs, debut, etat, tir, touche, mort, parti, fin, erreur),
-// donc la partie en ligne fonctionne pareil. Les salons sont des fichiers JSON dans donnees/ (interdit d'accès web).
+// Mêmes messages que jeu/serveur/serveur.js, donc la partie en ligne fonctionne pareil. Les salons sont des fichiers
+// JSON dans donnees/ (interdit d'accès web).
+//
+// Modes : "ffa" (chacun pour soi), "equipes" (bleus contre rouges, complétés par des bots), "coop" (les joueurs
+// ensemble contre des bots). Les bots tournent chez l'hôte (intelligence, tirs) : il envoie leur position ("bots"),
+// leurs tirs et leurs touches, contrôlés par l'anti-triche comme ceux d'un joueur. Les tirs sur un bot sont transmis à l'hôte.
 //
 // POST JSON, en-tête X-Requested-With: neonstrike
-//   {"action":"creer", "nom", "carte", "heros"}                 -> {id, jeton, code, messages}
-//   {"action":"rejoindre", "code", "nom", "heros"}              -> {id, jeton, code, messages} ou {erreur}
-//   {"action":"echange", "code", "id", "jeton", "envois":[...]} -> {messages, etats} ou {ferme: true}
+//   {"action":"creer", "v", "nom", "carte", "heros"}                 -> {id, jeton, code, messages}
+//   {"action":"rejoindre", "v", "code", "nom", "heros"}              -> {id, jeton, code, messages} ou {erreur}
+//   {"action":"echange", "code", "id", "jeton", "envois":[...]}      -> {messages, etats} ou {ferme: true}
 require __DIR__ . "/../comptes.php";
 require __DIR__ . "/anticheat.php";
 
@@ -15,13 +19,16 @@ header("Cache-Control: no-store");
 header("X-Content-Type-Options: nosniff");
 
 const MAX_JOUEURS = 8;
-const OBJECTIF = 20;
+const MAX_BOTS = 10;
+const OBJECTIFS = ["ffa" => 20, "equipes" => 50, "coop" => 50];
+const MODES = ["ffa", "equipes", "coop"];
+const DIFFICULTES = ["facile", "normal", "difficile", "expert"];
 const CARTES = ["nexus", "bazar", "hangar"];
 const LETTRES = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const ABSENCE_MAX = 10.0;      // secondes sans requête : le joueur est retiré du salon
 const FILE_MAX = 300;          // messages en attente par joueur
 const DOSSIER_SALONS = DOSSIER_DONNEES . "/salons_enligne";
-const VERSION_JEU = 2;          // version du protocole exigée (horodatage des messages pour l'anti-triche)
+const VERSION_JEU = 3;         // version du protocole exigée (horodatage anti-triche, bots en ligne)
 
 function repondre(array $donnees, int $code = 200): void {
     http_response_code($code);
@@ -49,6 +56,9 @@ function codeValide($c): string {
     $c = strtoupper(nettoyer($c, 4));
     return preg_match('/^[A-Z2-9]{4}$/', $c) ? $c : "";
 }
+function idBot($b): string {
+    return is_string($b) && preg_match('/^b\d{1,4}$/', $b) ? $b : "";
+}
 
 // ----- Salons (un fichier par salon, verrouillé pendant chaque requête) -----
 function ouvrirSalon(string $code, bool $creer) {
@@ -67,7 +77,7 @@ function lireSalon($f): ?array {
     return is_array($s) && isset($s["joueurs"]) ? $s : null;
 }
 function fermerSalon($f, ?array $s, string $code): void {
-    if ($s === null || !$s["joueurs"]) {
+    if ($s === null || !humains($s)) {
         ftruncate($f, 0);
         flock($f, LOCK_UN);
         fclose($f);
@@ -87,50 +97,94 @@ function nettoyerVieuxSalons(): void {
     }
 }
 
+// Les bots de l'hôte sont rangés avec les joueurs (même anti-triche), marqués "bot"
+function estBot(array $s, string $id): bool { return !empty($s["joueurs"][$id]["bot"]); }
+function humains(array $s): array {
+    return array_values(array_map("strval", array_keys(array_filter($s["joueurs"], fn($j) => empty($j["bot"])))));
+}
+function equipeDe(array $s, string $id): string { return (string) ($s["joueurs"][$id]["equipe"] ?? ""); }
+function config(array $s): array {
+    return ["mode" => $s["mode"], "bots" => $s["nb_bots"], "difficulte" => $s["difficulte"], "carte" => $s["carte"]];
+}
 function listeJoueurs(array $s): array {
     $l = [];
-    foreach ($s["joueurs"] as $id => $j) {
-        $l[] = ["id" => (string) $id, "nom" => $j["nom"], "palette" => $j["palette"], "heros" => $j["heros"], "hote" => (string) $id === $s["hote"]];
+    foreach (humains($s) as $id) {
+        $j = $s["joueurs"][$id];
+        $l[] = ["id" => $id, "nom" => $j["nom"], "palette" => $j["palette"], "heros" => $j["heros"], "hote" => $id === $s["hote"], "equipe" => $j["equipe"]];
     }
     return $l;
 }
 function envoyerA(array &$s, string $id, array $msg): void {
-    if (!isset($s["joueurs"][$id])) { return; }
+    if (!isset($s["joueurs"][$id]) || estBot($s, $id)) { return; }
     $s["joueurs"][$id]["file"][] = $msg;
     if (count($s["joueurs"][$id]["file"]) > FILE_MAX) { array_shift($s["joueurs"][$id]["file"]); }
 }
 function diffuser(array &$s, array $msg, ?string $sauf = null): void {
-    foreach (array_keys($s["joueurs"]) as $id) {
-        if ((string) $id !== $sauf) { envoyerA($s, (string) $id, $msg); }
+    foreach (humains($s) as $id) {
+        if ($id !== $sauf) { envoyerA($s, $id, $msg); }
     }
 }
+function diffuserJoueurs(array &$s): void {
+    diffuser($s, ["t" => "joueurs", "joueurs" => listeJoueurs($s), "config" => config($s)]);
+}
+// Équipe la moins nombreuse (en mode équipes)
+function equipeLibre(array $s): string {
+    $n = ["bleu" => 0, "rouge" => 0];
+    foreach (humains($s) as $id) { if (isset($n[equipeDe($s, $id)])) { $n[equipeDe($s, $id)]++; } }
+    return $n["bleu"] <= $n["rouge"] ? "bleu" : "rouge";
+}
+function scoresEquipes(array $s): array {
+    $t = ["bleu" => 0, "rouge" => 0];
+    foreach ($s["scores"] as $id => $sc) {
+        $e = $s["equipes_partie"][(string) $id] ?? "";
+        if (isset($t[$e])) { $t[$e] += $sc["kills"]; }
+    }
+    return $t;
+}
+function messageDebut(array $s): array {
+    return ["t" => "debut", "carte" => $s["carte"], "mode" => $s["mode"], "bots" => $s["nb_bots"], "difficulte" => $s["difficulte"],
+        "objectif" => OBJECTIFS[$s["mode"]], "hote" => $s["hote"], "scores" => (object) $s["scores"], "equipes" => scoresEquipes($s), "joueurs" => listeJoueurs($s)];
+}
+
 function entrer(array &$s, string $id, string $nom, string $heros): string {
     $prises = array_column($s["joueurs"], "palette");
     $palette = 0;
     foreach ([7, 8, 9, 10, 11, 0, 3, 4] as $p) { if (!in_array($p, $prises, true)) { $palette = $p; break; } }
     $jeton = bin2hex(random_bytes(16));
-    $s["joueurs"][$id] = ["nom" => $nom, "palette" => $palette, "heros" => $heros, "jeton" => hash("sha256", $jeton),
+    $s["joueurs"][$id] = ["nom" => $nom, "palette" => $palette, "heros" => $heros, "jeton" => hash("sha256", $jeton), "equipe" => equipeLibre($s),
         "vu" => microtime(true), "lu" => 0.0, "etat" => null, "etat_t" => 0.0, "file" => [], "ac" => acNouveau(), "empreinte" => acEmpreinte()];
+    if ($s["mode"] === "coop") { $s["joueurs"][$id]["equipe"] = "bleu"; }
     $s["scores"][$id] = $s["scores"][$id] ?? ["kills" => 0, "morts" => 0];
-    envoyerA($s, $id, ["t" => "salon", "code" => $s["code"], "id" => $id, "carte" => $s["carte"], "hote" => $s["hote"] === $id, "joueurs" => listeJoueurs($s)]);
-    diffuser($s, ["t" => "joueurs", "joueurs" => listeJoueurs($s)]);
+    envoyerA($s, $id, ["t" => "salon", "code" => $s["code"], "id" => $id, "carte" => $s["carte"], "hote" => $s["hote"] === $id, "joueurs" => listeJoueurs($s), "config" => config($s)]);
+    diffuserJoueurs($s);
     if ($s["etat"] === "jeu") {
-        envoyerA($s, $id, ["t" => "debut", "carte" => $s["carte"], "objectif" => OBJECTIF, "scores" => (object) $s["scores"], "joueurs" => listeJoueurs($s)]);
+        $s["equipes_partie"][$id] = $s["mode"] === "ffa" ? "" : $s["joueurs"][$id]["equipe"];
+        envoyerA($s, $id, messageDebut($s));
     }
     return $jeton;
 }
+function retirerBots(array &$s, ?string $proprio = null): void {
+    foreach (array_keys($s["joueurs"]) as $b) {
+        $b = (string) $b;
+        if (estBot($s, $b) && ($proprio === null || $s["joueurs"][$b]["proprio"] === $proprio)) {
+            unset($s["joueurs"][$b], $s["scores"][$b]);
+            diffuser($s, ["t" => "parti", "id" => $b]);
+        }
+    }
+}
 function quitter(array &$s, string $id): void {
-    if (!isset($s["joueurs"][$id])) { return; }
+    if (!isset($s["joueurs"][$id]) || estBot($s, $id)) { return; }
     unset($s["joueurs"][$id], $s["scores"][$id]);
-    if (!$s["joueurs"]) { return; }
-    if ($s["hote"] === $id) { $s["hote"] = (string) array_key_first($s["joueurs"]); }
+    retirerBots($s, $id);
+    if (!humains($s)) { return; }
+    if ($s["hote"] === $id) { $s["hote"] = humains($s)[0]; }
     diffuser($s, ["t" => "parti", "id" => $id]);
-    diffuser($s, ["t" => "joueurs", "joueurs" => listeJoueurs($s)]);
+    diffuserJoueurs($s);
 }
 function retirerAbsents(array &$s): void {
     $limite = microtime(true) - ABSENCE_MAX;
-    foreach ($s["joueurs"] as $id => $j) {
-        if ($j["vu"] < $limite) { quitter($s, (string) $id); }
+    foreach (humains($s) as $id) {
+        if ($s["joueurs"][$id]["vu"] < $limite) { quitter($s, $id); }
     }
 }
 function nouvelIdJoueur(array $s): string {
@@ -143,62 +197,138 @@ function reponseEntree(array &$s, string $id, string $jeton): array {
     $s["joueurs"][$id]["file"] = [];
     return ["id" => $id, "jeton" => $jeton, "code" => $s["code"], "messages" => $messages];
 }
+// Qui agit : le joueur lui-même, ou un de ses bots (seul l'hôte en a)
+function acteur(array $s, string $id, array $m): ?string {
+    $b = idBot($m["bot"] ?? null);
+    if ($b === "") { return $id; }
+    return (isset($s["joueurs"][$b]) && estBot($s, $b) && $s["joueurs"][$b]["proprio"] === $id) ? $b : null;
+}
+function proprietaire(array $s, string $id): string {
+    return estBot($s, $id) ? (string) $s["joueurs"][$id]["proprio"] : $id;
+}
+function etatValide(array $m, string $id): array {
+    return [
+        "t" => "etat", "id" => $id, "x" => nombre($m["x"] ?? 0, -200, 200), "y" => nombre($m["y"] ?? 0, -10, 50), "z" => nombre($m["z"] ?? 0, -200, 200),
+        "l" => nombre($m["l"] ?? 0, -1e4, 1e4), "g" => nombre($m["g"] ?? 0, -2, 2), "a" => nettoyer($m["a"] ?? "", 10), "v" => empty($m["v"]) ? 0 : 1,
+        "s" => nombre($m["s"] ?? 0, 0, 30), "c" => empty($m["c"]) ? 0 : 1,
+    ];
+}
 
 // ----- Messages du jeu (mêmes règles que le serveur Node.js) -----
 function traiter(array &$s, string $id, array $m): void {
     $t = $m["t"] ?? "";
+    $hote = $s["hote"] === $id;
     switch ($t) {
-        case "lancer":
-            if ($s["hote"] !== $id) { break; }
+        case "config":
+            if (!$hote || $s["etat"] === "jeu") { break; }
+            if (in_array($m["mode"] ?? "", MODES, true)) { $s["mode"] = $m["mode"]; }
+            if (isset($m["bots"])) { $s["nb_bots"] = (int) nombre($m["bots"], 0, MAX_BOTS); }
+            if (in_array($m["difficulte"] ?? "", DIFFICULTES, true)) { $s["difficulte"] = $m["difficulte"]; }
             if (in_array($m["carte"] ?? "", CARTES, true)) { $s["carte"] = $m["carte"]; }
+            if ($s["mode"] === "coop") { foreach (humains($s) as $k) { $s["joueurs"][$k]["equipe"] = "bleu"; } }
+            diffuserJoueurs($s);
+            break;
+        case "equipe":
+            if ($s["etat"] === "jeu" || $s["mode"] !== "equipes") { break; }
+            $s["joueurs"][$id]["equipe"] = equipeDe($s, $id) === "bleu" ? "rouge" : "bleu";
+            diffuserJoueurs($s);
+            break;
+        case "lancer":
+            if (!$hote) { break; }
+            traiter($s, $id, ["t" => "config"] + $m);
             $s["etat"] = "jeu";
-            foreach (array_keys($s["scores"]) as $k) { $s["scores"][$k] = ["kills" => 0, "morts" => 0]; }
+            retirerBots($s);
+            $s["scores"] = [];
+            $s["equipes_partie"] = [];
             // Nouvelle partie : tout le monde réapparaît, les statistiques de l'anti-triche repartent de zéro (pas les points)
-            foreach (array_keys($s["joueurs"]) as $k) {
+            foreach (humains($s) as $k) {
+                $s["scores"][$k] = ["kills" => 0, "morts" => 0];
+                $s["equipes_partie"][$k] = $s["mode"] === "ffa" ? "" : equipeDe($s, $k);
                 $points = $s["joueurs"][$k]["ac"]["points"] ?? 0;
                 $s["joueurs"][$k]["ac"] = acNouveau();
                 $s["joueurs"][$k]["ac"]["points"] = $points;
                 $s["joueurs"][$k]["etat"] = null;
             }
-            diffuser($s, ["t" => "debut", "carte" => $s["carte"], "objectif" => OBJECTIF, "scores" => (object) $s["scores"], "joueurs" => listeJoueurs($s)]);
+            diffuser($s, messageDebut($s));
             break;
         case "etat":
-            $etat = [
-                "t" => "etat", "id" => $id, "x" => nombre($m["x"] ?? 0, -200, 200), "y" => nombre($m["y"] ?? 0, -10, 50), "z" => nombre($m["z"] ?? 0, -200, 200),
-                "l" => nombre($m["l"] ?? 0, -1e4, 1e4), "g" => nombre($m["g"] ?? 0, -2, 2), "a" => nettoyer($m["a"] ?? "", 10), "v" => empty($m["v"]) ? 0 : 1,
-                "s" => nombre($m["s"] ?? 0, 0, 30), "c" => empty($m["c"]) ? 0 : 1,
-            ];
+            $etat = etatValide($m, $id);
             if (!acEtat($s, $id, $etat, $m["h"] ?? null) || !isset($s["joueurs"][$id])) { break; }
             $s["joueurs"][$id]["etat"] = $etat;
             $s["joueurs"][$id]["etat_t"] = microtime(true);
             break;
+        case "bots":
+            // Positions des bots de l'hôte (même contrôle que la position d'un joueur)
+            if (!$hote || $s["etat"] !== "jeu" || !is_array($m["l"] ?? null)) { break; }
+            foreach (array_slice($m["l"], 0, MAX_BOTS) as $e) {
+                $b = idBot($e["id"] ?? null);
+                if ($b === "" || !is_array($e)) { continue; }
+                if (!isset($s["joueurs"][$b])) {
+                    if (count(array_filter($s["joueurs"], fn($j) => !empty($j["bot"]))) >= MAX_BOTS) { continue; }
+                    $equipe = $s["mode"] === "ffa" ? "" : ((($e["e"] ?? "") === "bleu") ? "bleu" : "rouge");
+                    $s["joueurs"][$b] = ["bot" => true, "proprio" => $id, "nom" => nettoyer($e["n"] ?? "Bot", 16) ?: "Bot", "heros" => herosValide($e["hr"] ?? ""),
+                        "equipe" => $equipe, "etat" => null, "etat_t" => 0.0, "ac" => acNouveau()];
+                    $s["scores"][$b] = $s["scores"][$b] ?? ["kills" => 0, "morts" => 0];
+                    $s["equipes_partie"][$b] = $equipe;
+                } elseif (!estBot($s, $b) || $s["joueurs"][$b]["proprio"] !== $id) {
+                    continue;
+                }
+                $etat = etatValide($e, $b) + ["n" => $s["joueurs"][$b]["nom"], "hr" => $s["joueurs"][$b]["heros"], "e" => $s["joueurs"][$b]["equipe"]];
+                $valide = acEtat($s, $b, $etat, $m["h"] ?? null);
+                if (!isset($s["joueurs"][$id])) { break 2; }      // hôte exclu par l'anti-triche
+                if (!$valide || !isset($s["joueurs"][$b])) { continue; }
+                $s["joueurs"][$b]["etat"] = $etat;
+                $s["joueurs"][$b]["etat_t"] = microtime(true);
+            }
+            break;
         case "tir":
             if (!is_array($m["o"] ?? null) || !is_array($m["f"] ?? null)) { break; }
+            $qui = acteur($s, $id, $m);
+            if ($qui === null) { break; }
             $vec = fn($v) => array_pad(array_map(fn($x) => nombre($x, -300, 300), array_slice(array_values($v), 0, 3)), 3, 0.0);
-            $tir = ["t" => "tir", "id" => $id, "o" => $vec($m["o"]), "f" => $vec($m["f"]), "a" => nettoyer($m["a"] ?? "", 10)];
-            if (!acTir($s, $id, $tir + ["h" => $m["h"] ?? null])) { break; }
+            $tir = ["t" => "tir", "id" => $qui, "o" => $vec($m["o"]), "f" => $vec($m["f"]), "a" => nettoyer($m["a"] ?? "", 10)];
+            if (!acTir($s, $qui, $tir + ["h" => $m["h"] ?? null])) { break; }
             diffuser($s, $tir, $id);
             break;
         case "touche":
+            // Touche d'un joueur ou d'un bot de l'hôte, sur un joueur ou un bot ; transmise au propriétaire de la cible
+            $qui = acteur($s, $id, $m);
             $cible = (string) ($m["cible"] ?? "");
-            if ($cible === $id || !isset($s["joueurs"][$cible])) { break; }
+            if ($qui === null || $cible === $qui || !isset($s["joueurs"][$cible])) { break; }
+            if ($s["mode"] !== "ffa" && equipeDe($s, $qui) !== "" && equipeDe($s, $qui) === equipeDe($s, $cible)) { break; }   // pas de tir ami
             $touche = ["degats" => is_numeric($m["degats"] ?? null) ? max(0.0, (float) $m["degats"]) : 0.0, "tete" => !empty($m["tete"]), "arme" => nettoyer($m["arme"] ?? "", 10), "h" => $m["h"] ?? null];
-            $degats = acTouche($s, $id, $cible, $touche);
-            if ($degats !== null && isset($s["joueurs"][$cible])) {
-                envoyerA($s, $cible, ["t" => "touche", "de" => $id, "degats" => $degats, "tete" => $touche["tete"], "arme" => $touche["arme"]]);
+            $degats = acTouche($s, $qui, $cible, $touche);
+            if ($degats === null || !isset($s["joueurs"][$cible])) { break; }
+            $dest = proprietaire($s, $cible);
+            if ($dest !== $id) {
+                envoyerA($s, $dest, ["t" => "touche", "de" => $qui, "cible" => $cible, "degats" => $degats, "tete" => $touche["tete"], "arme" => $touche["arme"]]);
             }
             break;
         case "mort":
             if ($s["etat"] !== "jeu") { break; }
+            $victime = acteur($s, $id, $m);
+            if ($victime === null) { break; }
             $tueur = (string) ($m["tueur"] ?? "");
-            $tueur = ($tueur !== "" && $tueur !== $id && isset($s["joueurs"][$tueur])) ? $tueur : null;
-            $tueur = acMort($s, $id, $tueur);
-            $s["scores"][$id]["morts"]++;
-            if ($tueur) { $s["scores"][$tueur]["kills"]++; }
-            diffuser($s, ["t" => "mort", "victime" => $id, "tueur" => $tueur, "tete" => !empty($m["tete"]), "arme" => nettoyer($m["arme"] ?? "", 10), "scores" => (object) $s["scores"]]);
-            if ($tueur && $s["scores"][$tueur]["kills"] >= OBJECTIF) {
+            $tueur = ($tueur !== "" && $tueur !== $victime && isset($s["joueurs"][$tueur])) ? $tueur : null;
+            $tueur = acMort($s, $victime, $tueur);
+            if ($tueur !== null && $s["mode"] !== "ffa" && equipeDe($s, $tueur) === equipeDe($s, $victime)) { $tueur = null; }
+            $s["scores"][$victime] = $s["scores"][$victime] ?? ["kills" => 0, "morts" => 0];
+            $s["scores"][$victime]["morts"]++;
+            if ($tueur) {
+                $s["scores"][$tueur] = $s["scores"][$tueur] ?? ["kills" => 0, "morts" => 0];
+                $s["scores"][$tueur]["kills"]++;
+            }
+            $equipes = scoresEquipes($s);
+            diffuser($s, ["t" => "mort", "victime" => $victime, "tueur" => $tueur, "tete" => !empty($m["tete"]), "arme" => nettoyer($m["arme"] ?? "", 10),
+                "scores" => (object) $s["scores"], "equipes" => $equipes]);
+            $objectif = OBJECTIFS[$s["mode"]];
+            $gagnant = null;
+            if ($s["mode"] === "ffa") { if ($tueur && $s["scores"][$tueur]["kills"] >= $objectif) { $gagnant = $tueur; } }
+            else { foreach ($equipes as $e => $n) { if ($n >= $objectif) { $gagnant = $e; } } }
+            if ($gagnant !== null) {
                 $s["etat"] = "attente";
-                diffuser($s, ["t" => "fin", "gagnant" => $tueur, "scores" => (object) $s["scores"]]);
+                diffuser($s, ["t" => "fin", "gagnant" => $gagnant, "scores" => (object) $s["scores"], "equipes" => $equipes]);
+                retirerBots($s);
             }
             break;
         case "quitter":
@@ -230,7 +360,9 @@ if ($action === "creer") {
     }
     $f = ouvrirSalon($code, true);
     if (!$f) { repondre(["erreur" => "Impossible de créer le salon."], 500); }
-    $s = ["code" => $code, "carte" => in_array($m["carte"] ?? "", CARTES, true) ? $m["carte"] : "nexus", "hote" => "", "etat" => "attente", "scores" => [], "joueurs" => []];
+    $s = ["code" => $code, "carte" => in_array($m["carte"] ?? "", CARTES, true) ? $m["carte"] : "nexus", "hote" => "", "etat" => "attente",
+        "mode" => in_array($m["mode"] ?? "", MODES, true) ? $m["mode"] : "ffa", "nb_bots" => (int) nombre($m["bots"] ?? 0, 0, MAX_BOTS),
+        "difficulte" => in_array($m["difficulte"] ?? "", DIFFICULTES, true) ? $m["difficulte"] : "normal", "scores" => [], "equipes_partie" => [], "joueurs" => []];
     $id = nouvelIdJoueur($s);
     $s["hote"] = $id;
     $jeton = entrer($s, $id, $nom, herosValide($m["heros"] ?? ""));
@@ -244,7 +376,7 @@ if ($action === "rejoindre") {
     $f = $code !== "" ? ouvrirSalon($code, false) : null;
     $s = $f ? lireSalon($f) : null;
     if ($s) { retirerAbsents($s); }
-    if (!$s || !$s["joueurs"]) {
+    if (!$s || !humains($s)) {
         if ($f) { fermerSalon($f, $s, $code); }
         repondre(["erreur" => "Aucun salon avec ce code."]);
     }
@@ -252,7 +384,7 @@ if ($action === "rejoindre") {
         fermerSalon($f, $s, $code);
         repondre(["erreur" => "Tu as été exclu de ce salon pour triche."]);
     }
-    if (count($s["joueurs"]) >= MAX_JOUEURS) {
+    if (count(humains($s)) >= MAX_JOUEURS) {
         fermerSalon($f, $s, $code);
         repondre(["erreur" => "Salon complet (8 joueurs)."]);
     }
@@ -269,14 +401,14 @@ if ($action === "echange") {
     $f = $code !== "" ? ouvrirSalon($code, false) : null;
     $s = $f ? lireSalon($f) : null;
     $jetonRecu = hash("sha256", (string) ($m["jeton"] ?? ""));
-    if (!$s || !isset($s["joueurs"][$id]) || !hash_equals($s["joueurs"][$id]["jeton"], $jetonRecu)) {
+    if (!$s || !isset($s["joueurs"][$id]) || estBot($s, $id) || !hash_equals($s["joueurs"][$id]["jeton"], $jetonRecu)) {
         if ($f) { flock($f, LOCK_UN); fclose($f); }
         $exclu = $s["exclus"][$id] ?? null;
         repondre(["ferme" => true] + (is_array($exclu) && hash_equals($exclu["jeton"], $jetonRecu) ? ["exclu" => $exclu["raison"]] : []));
     }
     $maintenant = microtime(true);
     $s["joueurs"][$id]["vu"] = $maintenant;
-    $envois = is_array($m["envois"] ?? null) ? array_slice($m["envois"], 0, 60) : [];
+    $envois = is_array($m["envois"] ?? null) ? array_slice($m["envois"], 0, 80) : [];
     foreach ($envois as $e) {
         if (is_array($e) && isset($s["joueurs"][$id])) { traiter($s, $id, $e); }
     }
@@ -286,11 +418,13 @@ if ($action === "echange") {
         fermerSalon($f, $s, $code);
         repondre(["ferme" => true] + ($exclu ? ["exclu" => $exclu] : []));
     }
-    // Positions des autres joueurs mises à jour depuis ma dernière requête
+    // Positions des autres joueurs et des bots (sauf les miens) mises à jour depuis ma dernière requête
     $lu = $s["joueurs"][$id]["lu"];
     $etats = [];
     foreach ($s["joueurs"] as $autre => $j) {
-        if ((string) $autre !== $id && $j["etat"] !== null && $j["etat_t"] > $lu) { $etats[] = $j["etat"]; }
+        $autre = (string) $autre;
+        if ($autre === $id || ($j["proprio"] ?? "") === $id) { continue; }
+        if ($j["etat"] !== null && $j["etat_t"] > $lu) { $etats[] = $j["etat"]; }
     }
     $s["joueurs"][$id]["lu"] = $maintenant;
     $messages = $s["joueurs"][$id]["file"];

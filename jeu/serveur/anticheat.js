@@ -40,7 +40,10 @@ const banni = (emp) => (bans.get(emp) || 0) > maintenant();
 
 // ctx : { salon, client, exclure(client, raison) } ; retourne vrai si le joueur a été exclu
 function signaler(ctx, raison, points, detail = "") {
-  const c = ctx.client, ac = c.ac, t = maintenant();
+  let c = ctx.client;
+  // Triche d'un bot : c'est l'hôte qui le fait tourner, c'est lui qui est sanctionné
+  if (c.bot) { detail = `bot ${c.nom} : ${detail}`; c = c.proprio; if (!c || !c.salon) return true; }
+  const ac = c.ac, t = maintenant();
   if (!ac || c.exclu) return true;
   if (points < 3 && ac.derniers[raison] && t - ac.derniers[raison] < 3000) return false;
   ac.derniers[raison] = t;
@@ -118,7 +121,8 @@ function tir(ctx, m) {
   if (!cadence(ac, m.a, m.h)) { signaler(ctx, "cadence", 2, `${m.a} : ${ac.tirs[m.a].length} tirs en ${R.fenetre_cadence_s} s`); return false; }
   ac.tirArme = m.a;
   ac.tirH = m.h;
-  ac.credit = def.cibles_par_tir || 1;
+  // Les bots envoient une touche par plomb, les joueurs une par cible
+  ac.credit = ctx.client.bot ? def.plombs || 1 : def.cibles_par_tir || 1;
   return true;
 }
 
@@ -140,7 +144,7 @@ function touche(ctx, cible, m) {
     ac.credit--;
     if (distance > R.portee_max) { signaler(ctx, "portee", 1, `touche à ${Math.round(distance)} m`); return null; }
   }
-  if (!def.melee && m.arme !== "pompe" && m.arme !== "sniper") {
+  if (!def.melee && m.arme !== "pompe" && m.arme !== "sniper" && !ctx.client.bot) {
     const v = R.visee;
     ac.touches++;
     if (m.tete) {

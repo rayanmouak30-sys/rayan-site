@@ -62,6 +62,12 @@ function acJournal(array $entree): void {
 // Signale une triche : points, journal ; exclusion du salon à partir de points_exclusion
 function acSignaler(array &$s, string $id, string $raison, int $points, string $detail = ""): void {
     if (!isset($s["joueurs"][$id])) { return; }
+    // Triche d'un bot : c'est l'hôte qui le fait tourner, c'est lui qui est sanctionné
+    if (!empty($s["joueurs"][$id]["bot"])) {
+        $detail = "bot " . $s["joueurs"][$id]["nom"] . " : " . $detail;
+        $id = (string) $s["joueurs"][$id]["proprio"];
+        if (!isset($s["joueurs"][$id])) { return; }
+    }
     $ac = &$s["joueurs"][$id]["ac"];
     $now = acMaintenant();
     // Une même raison ne compte qu'une fois toutes les 3 secondes (sauf les tricheries certaines)
@@ -184,7 +190,8 @@ function acTir(array &$s, string $id, array $m): bool {
     }
     $ac["tir_arme"] = $arme;
     $ac["tir_h"] = $h;
-    $ac["credit"] = (int) ($def["cibles_par_tir"] ?? 1);
+    // Les bots envoient une touche par plomb, les joueurs une par cible
+    $ac["credit"] = !empty($s["joueurs"][$id]["bot"]) ? (int) ($def["plombs"] ?? 1) : (int) ($def["cibles_par_tir"] ?? 1);
     return true;
 }
 
@@ -229,7 +236,7 @@ function acTouche(array &$s, string $id, string $cible, array $m): ?float {
         }
     }
     // Statistiques de visée (armes à balles, hors pompe et précision)
-    if (empty($def["melee"]) && $arme !== "pompe" && $arme !== "sniper") {
+    if (empty($def["melee"]) && $arme !== "pompe" && $arme !== "sniper" && empty($s["joueurs"][$id]["bot"])) {
         $v = $r["visee"];
         $ac["touches"]++;
         if ($tete) {

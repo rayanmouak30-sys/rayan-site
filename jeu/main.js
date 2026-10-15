@@ -36,7 +36,7 @@ const TEST = new URLSearchParams(location.search).has("test");
 const DEFAUTS = {
   sensibilite: 1, sensibiliteManette: 1, fov: 103, volume: 0.7, musique: 0.45, ambiance: 0.5, annonceur: true, bob: 1,
   qualite: "auto", resolutionDynamique: true, luminosite: 1, fps: false,
-  difficulte: "normal", mode: "spike", carte: "nexus", heure: "jour", meteo: "clair", allies: true, defi: "libre", serveur: "", carteEnLigne: "nexus",
+  difficulte: "normal", mode: "spike", carte: "nexus", heure: "jour", meteo: "clair", allies: true, defi: "libre", serveur: "", carteEnLigne: "nexus", modeEnLigne: "coop", botsEnLigne: 4, difficulteEnLigne: "normal",
 };
 const reglages = { ...DEFAUTS };
 try { Object.assign(reglages, JSON.parse(localStorage.getItem("neonstrike-reglages") || "{}")); } catch (e) { /* stockage indisponible */ }
@@ -298,9 +298,14 @@ jeu.infliger = (c, degats, auteur, tete, arme) => {
     if (auteur === joueur) { hud.touche(false, false); audio.touche(false); }
     return;
   }
+  const botAuteur = auteur && auteur.botLocal ? auteur.id : undefined;
+  // En ligne, l'hôte applique lui-même les dégâts sur lui et ses bots : le serveur doit les connaître (anti-triche, éliminations)
+  if (partie.mode === "enligne" && !c.distant && (c.estJoueur || c.botLocal) && (auteur === joueur || botAuteur) && !(c.estJoueur && auteur === joueur)) {
+    reseau.envoyer({ t: "touche", h: Math.round(performance.now()), cible: c.estJoueur ? reseau.id : c.id, bot: botAuteur, degats: Math.round(degats), tete, arme });
+  }
   if (c.estJoueur) { jeu.blesserJoueur(degats, auteur, tete, arme); return; }
   if (c.distant) {
-    reseau.envoyer({ t: "touche", h: Math.round(performance.now()), cible: c.distantId, degats: Math.round(degats), tete, arme });
+    reseau.envoyer({ t: "touche", h: Math.round(performance.now()), cible: c.distantId, bot: botAuteur, degats: Math.round(degats), tete, arme });
     if (auteur === joueur) { hud.touche(tete, false); audio.touche(tete); joueur.stats.degats += degats; }
     return;
   }
@@ -346,6 +351,7 @@ function mortJoueur(tueur, tete, arme) {
 }
 
 bots.surMort = (victime, tueur, tete, arme) => {
+  if (partie.mode === "enligne") { enLigne.surMortBot(victime, tueur, tete, arme); return; }
   if (tueur === joueur) {
     joueur.stats.kills++;
     if (tete) joueur.stats.tetes++;
@@ -368,6 +374,9 @@ bots.surMort = (victime, tueur, tete, arme) => {
 
 const _n = new THREE.Vector3();
 bots.surTir = (bot, depart, arrivee, touche, mur, plomb) => {
+  if (partie.mode === "enligne" && bot.botLocal && !plomb) {
+    reseau.envoyer({ t: "tir", bot: bot.id, h: Math.round(performance.now()), o: [+depart.x.toFixed(2), +depart.y.toFixed(2), +depart.z.toFixed(2)], f: [+arrivee.x.toFixed(2), +arrivee.y.toFixed(2), +arrivee.z.toFixed(2)], a: bot.arme });
+  }
   if (!plomb || Math.random() < 0.25) effets.tracante(depart, arrivee, 0xff8a70, 0.05);
   if (mur) {
     _n.set(mur.nx, mur.ny, mur.nz);
@@ -514,9 +523,15 @@ jeu.finPartie = () => {
     titre = victoire ? "VICTOIRE" : "DÉFAITE";
     sous = `Tu as fait ${joueur.kills} élimination${joueur.kills > 1 ? "s" : ""} · meilleur adversaire : ${meilleur}`;
   } else if (mode === "enligne") {
-    victoire = enLigne.gagnant === reseau.id;
+    if (enLigne.enEquipes) {
+      victoire = enLigne.gagnant === joueur.equipe;
+      const e = enLigne.scoresEquipes;
+      sous = `${enLigne.gagnant === "bleu" ? "Les bleus" : "Les rouges"} gagnent · ${e.bleu} à ${e.rouge}` + (enLigne.mode === "coop" ? (victoire ? " contre les bots" : " : les bots ont gagné") : "");
+    } else {
+      victoire = enLigne.gagnant === reseau.id;
+      sous = `Gagnant : ${enLigne.nom(enLigne.gagnant)}`;
+    }
     titre = victoire ? "VICTOIRE" : "DÉFAITE";
-    sous = `Gagnant : ${enLigne.nom(enLigne.gagnant)}`;
   } else {
     victoire = regles.scores.bleu > regles.scores.rouge;
     titre = victoire ? "VICTOIRE" : "DÉFAITE";
@@ -853,7 +868,7 @@ function majReperes(actif) {
 
 // ===== Interface (à chaque image) =====
 function textePhase() {
-  if (partie.mode === "enligne") return `PREMIER À ${enLigne.objectif}`;
+  if (partie.mode === "enligne") return enLigne.mode === "coop" ? `COOP · ${enLigne.objectif} ÉLIMINATIONS` : enLigne.enEquipes ? `ÉQUIPES · ${enLigne.objectif} ÉLIMINATIONS` : `PREMIER À ${enLigne.objectif}`;
   const r = regles;
   if (r.mode === "deathmatch") return `PREMIER À ${OBJECTIF_DM}`;
   if (r.mode === "stand") return DEFIS[r.defi.id].nom.toUpperCase();
@@ -905,8 +920,13 @@ function majVisuels(dt, alpha) {
   const ennemis = enEquipe ? bots.liste.filter((b) => b.equipe !== joueur.equipe && !b.mannequin) : [];
   let scoreMoi = 0, scoreTete = 0;
   if (partie.mode === "enligne") {
-    scoreMoi = (enLigne.scores[reseau.id] || { kills: 0 }).kills;
-    scoreTete = Math.max(0, ...enLigne.classement().filter((l) => !l.moi).map((l) => l.kills));
+    if (enLigne.enEquipes) {
+      scoreMoi = enLigne.scoresEquipes[joueur.equipe] || 0;
+      scoreTete = enLigne.scoresEquipes[joueur.equipe === "bleu" ? "rouge" : "bleu"] || 0;
+    } else {
+      scoreMoi = (enLigne.scores[reseau.id] || { kills: 0 }).kills;
+      scoreTete = Math.max(0, ...enLigne.classement().filter((l) => !l.moi).map((l) => l.kills));
+    }
   } else if (regles.mode === "deathmatch") {
     scoreMoi = joueur.kills;
     scoreTete = Math.max(0, ...bots.liste.map((b) => b.kills || 0));
@@ -946,7 +966,10 @@ function majVisuels(dt, alpha) {
 }
 
 function donneesTableau() {
-  if (partie.mode === "enligne") return [`EN LIGNE · ${salon ? salon.code : ""}`, enLigne.classement().map((l) => ({ nom: l.nom, kills: l.kills, morts: l.morts, joueur: l.moi, equipe: l.moi ? "moi" : "eux" }))];
+  if (partie.mode === "enligne") {
+    const titre = `EN LIGNE · ${salon ? salon.code : ""}` + (enLigne.enEquipes ? ` · BLEUS ${enLigne.scoresEquipes.bleu} – ${enLigne.scoresEquipes.rouge} ROUGES` : "");
+    return [titre, enLigne.classement().map((l) => ({ nom: l.nom, kills: l.kills, morts: l.morts, joueur: l.moi, equipe: l.moi || (enLigne.enEquipes && l.equipe === joueur.equipe) ? "moi" : "eux" }))];
+  }
   if (regles.mode === "deathmatch") {
     const lignes = [{ nom: joueur.nom, kills: joueur.kills, morts: joueur.morts, joueur: true, equipe: "moi", vivant: joueur.vivant }, ...bots.liste.map((b) => ({ nom: b.nom, kills: b.kills, morts: b.morts, equipe: "eux", vivant: b.vivant }))];
     return ["DEATHMATCH", lignes.sort((a, b) => b.kills - a.kills)];
@@ -1851,22 +1874,43 @@ function preparerEnLigne() {
   choix("enligne-carte", CARTES_JOUABLES.map((id) => [id, CARTES[id].nom]), reglages.carteEnLigne, (v) => { reglages.carteEnLigne = v; sauverReglages(); });
   afficherSalon();
 }
+const MODES_EN_LIGNE = [["coop", "Coop contre les bots"], ["equipes", "Équipes"], ["ffa", "Chacun pour soi"]];
+const NOMS_MODES_EN_LIGNE = Object.fromEntries(MODES_EN_LIGNE);
+// Réglages du salon : l'hôte les choisit (envoyés au serveur), les autres les voient
+function envoyerConfigSalon() {
+  reseau.envoyer({ t: "config", mode: reglages.modeEnLigne, bots: reglages.botsEnLigne, difficulte: reglages.difficulteEnLigne, carte: reglages.carteEnLigne });
+}
 function afficherSalon() {
   $("enligne-connexion").hidden = !!salon;
   $("enligne-salon").hidden = !salon;
   if (!salon) return;
   $("salon-code").textContent = salon.code;
+  const cfg = salon.config || {};
+  const enEquipes = cfg.mode === "equipes" || cfg.mode === "coop";
   const ul = $("salon-joueurs");
   ul.innerHTML = "";
   for (const p of salon.joueurs) {
     const li = document.createElement("li");
-    li.textContent = p.nom + (p.hote ? " (hôte)" : "") + (p.id === reseau.id ? " — toi" : "");
+    li.textContent = p.nom + (p.hote ? " (hôte)" : "") + (p.id === reseau.id ? " — toi" : "") + (enEquipes ? (p.equipe === "rouge" ? " · rouges" : " · bleus") : "");
+    if (enEquipes) li.className = p.equipe === "rouge" ? "equipe-rouge" : "equipe-bleu";
     ul.appendChild(li);
   }
   const hote = salon.joueurs.find((p) => p.hote);
   const suisHote = hote && hote.id === reseau.id;
   $("salon-lancer").hidden = !suisHote;
-  statut(suisHote ? "Donne le code à tes amis puis lance la partie." : "En attente du lancement par l'hôte…");
+  $("salon-config").hidden = !suisHote;
+  $("salon-equipe").hidden = cfg.mode !== "equipes";
+  const nbBots = cfg.bots | 0;
+  $("salon-resume").textContent = `${NOMS_MODES_EN_LIGNE[cfg.mode] || "Chacun pour soi"} · ${nbBots ? nbBots + " bot" + (nbBots > 1 ? "s" : "") + " (" + ((DIFFICULTES[cfg.difficulte] || DIFFICULTES.normal).nom.toLowerCase()) + ")" : "sans bots"} · ${CARTES[cfg.carte] ? CARTES[cfg.carte].nom : ""}`;
+  if (suisHote && !salon.choixFaits) {
+    salon.choixFaits = true;
+    const maj = (cle) => (v) => { reglages[cle] = v; sauverReglages(); envoyerConfigSalon(); };
+    choix("salon-mode", MODES_EN_LIGNE, reglages.modeEnLigne, maj("modeEnLigne"));
+    choix("salon-bots", [0, 2, 4, 6, 8, 10].map((n) => [n, n ? String(n) : "Aucun"]), reglages.botsEnLigne, maj("botsEnLigne"));
+    choix("salon-difficulte", Object.entries(DIFFICULTES).map(([id, d]) => [id, d.nom]), reglages.difficulteEnLigne, maj("difficulteEnLigne"));
+    choix("salon-carte", CARTES_JOUABLES.map((id) => [id, CARTES[id].nom]), reglages.carteEnLigne, maj("carteEnLigne"));
+  }
+  statut(suisHote ? "Choisis le mode et les bots, donne le code à tes amis, puis lance la partie." : "En attente du lancement par l'hôte…");
 }
 async function connecter() {
   const url = $("enligne-serveur").value.trim();
@@ -1882,7 +1926,7 @@ async function connecter() {
 }
 $("enligne-creer").addEventListener("click", async () => {
   audio.demarrer(); musique.demarrer();
-  try { const nom = await connecter(); reseau.envoyer({ t: "creer", v: VERSION_PROTOCOLE, nom, carte: reglages.carteEnLigne, heros: herosValide(profilJ.d.agent) }); }
+  try { const nom = await connecter(); reseau.envoyer({ t: "creer", v: VERSION_PROTOCOLE, nom, carte: reglages.carteEnLigne, mode: reglages.modeEnLigne, bots: reglages.botsEnLigne, difficulte: reglages.difficulteEnLigne, heros: herosValide(profilJ.d.agent) }); }
   catch (e) { statut(e.message + " Le serveur multijoueur doit être lancé (voir le guide)."); }
 });
 $("enligne-rejoindre").addEventListener("click", async () => {
@@ -1892,7 +1936,8 @@ $("enligne-rejoindre").addEventListener("click", async () => {
   try { const nom = await connecter(); reseau.envoyer({ t: "rejoindre", v: VERSION_PROTOCOLE, code, nom, heros: herosValide(profilJ.d.agent) }); }
   catch (e) { statut(e.message + " Le serveur multijoueur doit être lancé (voir le guide)."); }
 });
-$("salon-lancer").addEventListener("click", () => { audio.clic(); reseau.envoyer({ t: "lancer", carte: reglages.carteEnLigne }); });
+$("salon-lancer").addEventListener("click", () => { audio.clic(); reseau.envoyer({ t: "lancer", mode: reglages.modeEnLigne, bots: reglages.botsEnLigne, difficulte: reglages.difficulteEnLigne, carte: reglages.carteEnLigne }); });
+$("salon-equipe").addEventListener("click", () => { audio.clic(); reseau.envoyer({ t: "equipe" }); });
 $("salon-quitter").addEventListener("click", () => { audio.clic(); quitterEnLigne(); afficherSalon(); statut(""); });
 function quitterEnLigne() {
   reseau.envoyer({ t: "quitter" });
@@ -1900,8 +1945,17 @@ function quitterEnLigne() {
   reseau.fermer();
   salon = null;
 }
-reseau.on("salon", (m) => { reseau.id = m.id; salon = { code: m.code, joueurs: m.joueurs }; afficherSalon(); });
-reseau.on("joueurs", (m) => { if (salon) { salon.joueurs = m.joueurs; afficherSalon(); } enLigne.majJoueurs(m.joueurs); });
+reseau.on("salon", (m) => {
+  reseau.id = m.id;
+  salon = { code: m.code, joueurs: m.joueurs, config: m.config || {} };
+  afficherSalon();
+  // Le créateur du salon envoie ses réglages (mode, bots) au cas où le serveur ne les aurait pas reçus
+  if (m.hote) envoyerConfigSalon();
+});
+reseau.on("joueurs", (m) => {
+  if (salon) { salon.joueurs = m.joueurs; if (m.config) salon.config = m.config; afficherSalon(); }
+  enLigne.majJoueurs(m.joueurs);
+});
 reseau.on("erreur", (m) => statut(m.texte));
 reseau.on("debut", async (m) => {
   $("texte-chargement").textContent = `Chargement de ${CARTES[m.carte] ? CARTES[m.carte].nom : "la carte"}…`;
@@ -1921,10 +1975,14 @@ reseau.on("debut", async (m) => {
   joueur.choisirHeros(joueur.heros, false);
   regles.mode = "deathmatch";
   regles.chargementDM = regles.chargementDM || "fusil";
+  jeu.difficulte = DIFFICULTES[m.difficulte] || DIFFICULTES.normal;
+  bots.diff = jeu.difficulte;
   enLigne.gagnant = null;
   enLigne.demarrer(m);
   musique.etat("combat");
-  hud.annonce("EN LIGNE", `Premier à ${enLigne.objectif} éliminations`, "#ffd166", 2.4);
+  const equipeTexte = joueur.equipe === "rouge" ? "Équipe rouge" : "Équipe bleue";
+  hud.annonce(enLigne.mode === "coop" ? "COOP CONTRE LES BOTS" : enLigne.enEquipes ? equipeTexte.toUpperCase() : "EN LIGNE",
+    enLigne.enEquipes ? `Première équipe à ${enLigne.objectif} éliminations` : `Premier à ${enLigne.objectif} éliminations`, enLigne.enEquipes && joueur.equipe === "rouge" ? "#ff6b78" : "#ffd166", 2.6);
   verrouiller();
 });
 reseau.on("etat", (m) => enLigne.etat(m));
@@ -1932,7 +1990,7 @@ reseau.on("tir", (m) => enLigne.tir(m));
 reseau.on("touche", (m) => enLigne.touche(m));
 reseau.on("mort", (m) => enLigne.mort(m));
 reseau.on("parti", (m) => enLigne.retirer(m.id));
-reseau.on("fin", (m) => { enLigne.scores = m.scores; enLigne.gagnant = m.gagnant; if (partie.mode === "enligne" && (partie.etat === "jeu" || partie.etat === "pause")) jeu.finPartie(); });
+reseau.on("fin", (m) => { enLigne.scores = m.scores; if (m.equipes) enLigne.scoresEquipes = m.equipes; enLigne.gagnant = m.gagnant; if (partie.mode === "enligne" && (partie.etat === "jeu" || partie.etat === "pause")) jeu.finPartie(); });
 // Anti-triche : un joueur exclu par le serveur, ou moi
 let raisonExclusion = "";
 reseau.on("exclu", (m) => { raisonExclusion = m.raison || "triche détectée"; });

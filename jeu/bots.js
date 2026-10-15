@@ -138,7 +138,7 @@ export class GestionBots {
 
   estEnnemi(a, c) {
     if (a === c) return false;
-    if (this.mode === "deathmatch") return true;
+    if (this.mode === "deathmatch" && !this.equipes) return true;   // en ligne par équipes : deathmatch entre équipes
     return a.equipe !== c.equipe;
   }
 

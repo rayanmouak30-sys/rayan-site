@@ -3,7 +3,7 @@
   "armes": {
     "couteau": { "max_tete": 150, "max_corps": 150, "cadence": 0.42, "portee": 2.3, "melee": true },
     "pistolet": { "max_tete": 78, "max_corps": 26, "cadence": 0.15 },
-    "pompe": { "max_tete": 360, "max_corps": 168, "cadence": 0.9, "cibles_par_tir": 3 },
+    "pompe": { "max_tete": 360, "max_corps": 168, "cadence": 0.9, "cibles_par_tir": 3, "plombs": 12 },
     "fusil": { "max_tete": 160, "max_corps": 40, "cadence": 0.1 },
     "pulsar": { "max_tete": 150, "max_corps": 38, "cadence": 0.095 },
     "sniper": { "max_tete": 255, "max_corps": 150, "cadence": 1.35 }

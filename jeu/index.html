@@ -261,7 +261,7 @@
 <div id="ecran-enligne" class="ecran">
   <div class="panneau-menu">
     <h2>EN LIGNE</h2>
-    <p class="accroche">Deathmatch entre amis : crée un salon et donne le code, ou rejoins celui d'un ami.</p>
+    <p class="accroche">Joue avec tes potes : chacun pour soi, en équipes, ou tous ensemble contre des bots. Crée un salon et donne le code, ou rejoins celui d'un ami.</p>
     <div id="enligne-connexion">
       <label class="champ">Ton pseudo <input type="text" id="enligne-pseudo" maxlength="16"></label>
       <label class="champ">Serveur <input type="text" id="enligne-serveur" spellcheck="false"></label>
@@ -274,7 +274,15 @@
     </div>
     <div id="enligne-salon" hidden>
       <div class="code-salon">Code du salon : <strong id="salon-code">----</strong></div>
+      <div id="salon-config">
+        <div class="groupe-choix"><span class="etiquette">Mode</span><div class="choix" id="salon-mode"></div></div>
+        <div class="groupe-choix"><span class="etiquette">Bots</span><div class="choix" id="salon-bots"></div></div>
+        <div class="groupe-choix"><span class="etiquette">Difficulté des bots</span><div class="choix" id="salon-difficulte"></div></div>
+        <div class="groupe-choix"><span class="etiquette">Carte</span><div class="choix" id="salon-carte"></div></div>
+      </div>
+      <p class="astuce" id="salon-resume"></p>
       <ul id="salon-joueurs"></ul>
+      <button type="button" class="bouton-secondaire" id="salon-equipe" hidden>Changer d'équipe</button>
       <button type="button" class="bouton-principal petit" id="salon-lancer">LANCER LA PARTIE</button>
       <button type="button" class="bouton-lien" id="salon-quitter">Quitter le salon</button>
     </div>

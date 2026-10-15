@@ -113,9 +113,9 @@ jobs:
           fi
           # Mode En ligne par le site (relais PHP) : création d'un salon, entrée d'un 2e joueur, échange, départ
           api() { curl -s -X POST -H "Content-Type: application/json" -H "X-Requested-With: neonstrike" -d "$1" "$SITE/jeu/enligne.php"; }
-          a=$(api '{"action":"creer","v":2,"nom":"Verif","carte":"nexus","heros":"kael"}')
+          a=$(api '{"action":"creer","v":3,"nom":"Verif","carte":"nexus","heros":"kael"}')
           code=$(echo "$a" | jq -r '.code // empty'); ida=$(echo "$a" | jq -r '.id // empty'); jta=$(echo "$a" | jq -r '.jeton // empty')
-          b=$(api "{\"action\":\"rejoindre\",\"v\":2,\"code\":\"$code\",\"nom\":\"Verif2\",\"heros\":\"brax\"}")
+          b=$(api "{\"action\":\"rejoindre\",\"v\":3,\"code\":\"$code\",\"nom\":\"Verif2\",\"heros\":\"brax\"}")
           idb=$(echo "$b" | jq -r '.id // empty'); jtb=$(echo "$b" | jq -r '.jeton // empty')
           e=$(api "{\"action\":\"echange\",\"code\":\"$code\",\"id\":\"$ida\",\"jeton\":\"$jta\",\"envois\":[]}")
           if [ -n "$code" ] && [ -n "$idb" ] && echo "$e" | jq -e '.messages | map(.t) | index("joueurs")' > /dev/null; then
