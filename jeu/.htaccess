@@ -1,0 +1,7 @@
+# Le navigateur revérifie les fichiers du jeu à chaque visite (réponse 304 rapide s'ils n'ont pas changé) :
+# après une mise à jour, tout le monde a la même version (nécessaire pour jouer en ligne ensemble).
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|html)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
