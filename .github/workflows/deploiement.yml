@@ -111,5 +111,14 @@ jobs:
           else
             echo "OK  jeu/serveur/ protege (code $code)"
           fi
+          # Serveur multijoueur du jeu (site Node.js AlwaysData sur /ws) : information seulement, ne bloque pas
+          ws=$(curl -s -o /dev/null -w "%{http_code}" --http1.1 --max-time 6 \
+            -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Version: 13" \
+            -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" "$SITE/ws" || true)
+          if [ "$ws" = "101" ]; then
+            echo "OK  serveur multijoueur (wss://mou.alwaysdata.net/ws)"
+          else
+            echo "::warning::serveur multijoueur absent sur /ws (code $ws) : le mode En ligne du jeu ne peut pas se connecter"
+          fi
           rm -f page.html
           exit $echec
