@@ -135,6 +135,17 @@ La qualité est choisie automatiquement selon la carte graphique (« Faible » s
 Sur https://mou.alwaysdata.net/jeu/ → **En ligne** : un joueur clique *Créer un salon* et donne le code de 4 lettres, les autres le tapent puis *Rejoindre* ; l'hôte lance la partie (combat à mort, jusqu'à 8 joueurs).
 Le jeu essaie d'abord le serveur temps réel (WebSocket, voir plus bas) ; s'il n'est pas lancé, il passe automatiquement par le relais PHP du site (`enligne.php`, ~16 échanges par seconde, un peu plus de latence). Les salons sont gardés dans `donnees/` (inaccessible depuis le web) et effacés quand tout le monde est parti.
 
+### Anti-triche
+Le serveur (relais PHP `enligne.php` comme serveur temps réel) vérifie chaque message avec les règles du jeu (`serveur/anticheat.json`) et ne transmet que ce qui est possible :
+- **horloge accélérée** (speedhack) : l'heure du jeu ne peut pas avancer plus vite que celle du serveur ;
+- **téléportation et vitesse** : distance parcourue comparée à la vitesse maximale, en tenant compte des ruées et téléportations des capacités ;
+- **dégâts impossibles** (au-delà du maximum de l'arme), **cadence de tir**, **touches sans tir**, **tir depuis une autre position**, **couteau à distance** ;
+- **invincibilité** (encaisser bien plus que sa vie, son armure et ses soins sans mourir) et **élimination offerte** à un complice qui n'a pas tiré ;
+- **statistiques de visée** : taux de tirs à la tête anormal, tirs à la tête juste après un demi-tour instantané (simple suspicion, ne suffit pas seule à exclure).
+
+Un message impossible est ignoré. Chaque triche donne des points ; à 3 points le joueur est exclu du salon (les autres sont prévenus) et bloqué 15 minutes. Le journal est visible dans l'espace admin du site (**Anti-triche**).
+Limite honnête : le serveur ne connaît pas les murs des cartes, il ne peut donc pas détecter un « wallhack » (voir à travers les murs) ni prouver à 100 % une visée automatique très discrète.
+
 ### Avec des amis sur le même Wi-Fi
 1. Sur un PC Windows : lancer `LANCER-NEON-STRIKE.bat` (Node.js installé). Ailleurs : `node serveur/serveur.js` dans le dossier du jeu.
 2. Les autres ouvrent `http://ADRESSE-IP-DU-PC:8080/` (l'adresse IPv4 est affichée dans la fenêtre noire), puis **En ligne**.

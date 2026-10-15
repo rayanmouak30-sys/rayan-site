@@ -60,6 +60,9 @@ export class Reseau {
   }
 }
 
+// Version du protocole (messages horodatés pour l'anti-triche du serveur)
+export const VERSION_PROTOCOLE = 2;
+
 // Relais par requêtes HTTP vers jeu/enligne.php : ~16 échanges par seconde en partie, 2 par seconde dans le salon.
 // Les messages reçus sont exactement ceux du serveur WebSocket.
 class RelaisHttp {
@@ -114,7 +117,7 @@ class RelaisHttp {
       this.enJeu = false;
     }
     try {
-      const r = await this.requete({ action: m.t, nom: m.nom, carte: m.carte, heros: m.heros, code: m.code });
+      const r = await this.requete({ action: m.t, v: VERSION_PROTOCOLE, nom: m.nom, carte: m.carte, heros: m.heros, code: m.code });
       if (r.erreur) { this.reseau.distribuer({ t: "erreur", texte: r.erreur }); return; }
       this.code = r.code;
       this.id = r.id;
@@ -136,7 +139,7 @@ class RelaisHttp {
         const r = await this.requete({ action: "echange", code: this.code, id: this.id, jeton: this.jeton, envois });
         if (!this.actif) return;
         this.echecs = 0;
-        if (r.ferme) { this.couper(); return; }
+        if (r.ferme) { if (r.exclu) this.reseau.distribuer({ t: "exclu", raison: r.exclu }); this.couper(); return; }
         for (const e of r.etats || []) this.reseau.distribuer(e);
         this.recevoir(r.messages);
       } catch (e) {
@@ -302,7 +305,7 @@ export class PartieEnLigne {
     this.envoiT -= dt;
     if (this.envoiT <= 0) {
       this.envoiT = 0.05;
-      this.reseau.envoyer({ t: "etat", x: +j.x.toFixed(2), y: +j.y.toFixed(2), z: +j.z.toFixed(2), l: +j.lacet.toFixed(3), g: +j.tangage.toFixed(3), a: j.armeActive, v: j.vivant ? 1 : 0, s: +Math.hypot(j.vel.x, j.vel.z).toFixed(1), c: j.accroupi ? 1 : 0 });
+      this.reseau.envoyer({ t: "etat", h: Math.round(performance.now()), x: +j.x.toFixed(2), y: +j.y.toFixed(2), z: +j.z.toFixed(2), l: +j.lacet.toFixed(3), g: +j.tangage.toFixed(3), a: j.armeActive, v: j.vivant ? 1 : 0, s: +Math.hypot(j.vel.x, j.vel.z).toFixed(1), c: j.accroupi ? 1 : 0 });
     }
     if (this.reapparitionT > 0) {
       this.reapparitionT -= dt;

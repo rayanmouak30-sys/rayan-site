@@ -6,12 +6,14 @@ const http = require("http");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const AC = require("./anticheat.js");
 
 const PORT = Number(process.env.PORT) || 8080;
 const HOTE = process.env.IP || "0.0.0.0";
 const RACINE = path.join(__dirname, "..");     // dossier jeu/ (servi seulement pour les tests en local)
 const MAX_JOUEURS = 8;
 const OBJECTIF = 20;
+const VERSION_JEU = 2;   // messages horodatés exigés (anti-triche)
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json" };
 
 // ----- Fichiers statiques (pratique pour jouer en réseau local) -----
@@ -36,7 +38,7 @@ serveur.on("upgrade", (req, socket) => {
   const accepte = crypto.createHash("sha1").update(cle + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest("base64");
   socket.write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " + accepte + "\r\n\r\n");
   socket.setNoDelay(true);
-  const client = { id: crypto.randomBytes(4).toString("hex"), nom: "Joueur", socket, salon: null, tampon: Buffer.alloc(0), fragments: [], compteur: 0, fenetre: Date.now(), palette: 0 };
+  const client = { id: crypto.randomBytes(4).toString("hex"), nom: "Joueur", socket, salon: null, tampon: Buffer.alloc(0), fragments: [], compteur: 0, fenetre: Date.now(), palette: 0, empreinte: AC.empreinte(req), ac: null, exclu: false };
   socket.on("data", (d) => lire(client, d));
   socket.on("close", () => quitter(client));
   socket.on("error", () => quitter(client));
@@ -112,6 +114,7 @@ function entrer(client, salon) {
   const prises = new Set([...salon.joueurs.values()].map((c) => c.palette));
   client.palette = [7, 8, 9, 10, 11, 0, 3, 4].find((p) => !prises.has(p)) ?? 0;
   salon.joueurs.set(client.id, client);
+  client.ac = AC.nouveau();
   salon.scores[client.id] = salon.scores[client.id] || { kills: 0, morts: 0 };
   envoyer(client, { t: "salon", code: salon.code, id: client.id, carte: salon.carte, hote: salon.hote === client, joueurs: listeJoueurs(salon) });
   diffuser(salon, { t: "joueurs", joueurs: listeJoueurs(salon) });
@@ -130,6 +133,24 @@ function quitter(client) {
   diffuser(salon, { t: "joueurs", joueurs: listeJoueurs(salon) });
 }
 
+// Anti-triche : exclusion d'un joueur (message, départ du salon, annonce aux autres, fermeture)
+function exclure(client, raison) {
+  const salon = client.salon;
+  envoyer(client, { t: "exclu", raison });
+  const nom = client.nom;
+  quitter(client);
+  if (salon && salon.joueurs.size) diffuser(salon, { t: "triche", nom, raison });
+  envoyerTrame(client, Buffer.alloc(0), 0x8);
+  setTimeout(() => client.socket.destroy(), 200);
+}
+
+function refuserEntree(client, m, s) {
+  if (Number(m.v) < VERSION_JEU || !m.v) { envoyer(client, { t: "erreur", texte: "Ton jeu n'est pas à jour : recharge la page (Ctrl + F5)." }); return true; }
+  if (AC.banni(client.empreinte)) { envoyer(client, { t: "erreur", texte: "Tu es exclu du mode en ligne pendant 15 minutes : triche détectée." }); return true; }
+  if (s && s.bannis.has(client.empreinte)) { envoyer(client, { t: "erreur", texte: "Tu as été exclu de ce salon pour triche." }); return true; }
+  return false;
+}
+
 function recevoir(client, texte) {
   // Anti-abus : 80 messages par seconde au maximum
   const maintenant = Date.now();
@@ -138,13 +159,16 @@ function recevoir(client, texte) {
   let m;
   try { m = JSON.parse(texte); } catch (e) { return; }
   if (!m || typeof m.t !== "string") return;
+  if (client.exclu) return;
   const salon = client.salon;
+  const ctx = salon ? { salon, client, exclure } : null;
   switch (m.t) {
     case "creer": {
+      if (refuserEntree(client, m, null)) break;
       if (salon) quitter(client);
       client.nom = nettoyer(m.nom, 16) || "Joueur";
       client.heros = typeof m.heros === "string" && /^[a-z]{2,12}$/.test(m.heros) ? m.heros : "kael";
-      const s = { code: nouveauCode(), carte: ["nexus", "bazar", "hangar"].includes(m.carte) ? m.carte : "nexus", hote: client, joueurs: new Map(), etat: "attente", scores: {} };
+      const s = { code: nouveauCode(), carte: ["nexus", "bazar", "hangar"].includes(m.carte) ? m.carte : "nexus", hote: client, joueurs: new Map(), etat: "attente", scores: {}, bannis: new Set() };
       salons.set(s.code, s);
       entrer(client, s);
       break;
@@ -152,6 +176,7 @@ function recevoir(client, texte) {
     case "rejoindre": {
       const s = salons.get(nettoyer(m.code, 4).toUpperCase());
       if (!s) { envoyer(client, { t: "erreur", texte: "Aucun salon avec ce code." }); break; }
+      if (refuserEntree(client, m, s)) break;
       if (s.joueurs.size >= MAX_JOUEURS) { envoyer(client, { t: "erreur", texte: "Salon complet (8 joueurs)." }); break; }
       if (salon) quitter(client);
       client.nom = nettoyer(m.nom, 16) || "Joueur";
@@ -164,28 +189,40 @@ function recevoir(client, texte) {
       if (["nexus", "bazar", "hangar"].includes(m.carte)) salon.carte = m.carte;
       salon.etat = "jeu";
       for (const id of Object.keys(salon.scores)) salon.scores[id] = { kills: 0, morts: 0 };
+      // Nouvelle partie : statistiques de l'anti-triche remises à zéro (pas les points)
+      for (const c of salon.joueurs.values()) { const points = c.ac ? c.ac.points : 0; c.ac = AC.nouveau(); c.ac.points = points; }
       diffuser(salon, { t: "debut", carte: salon.carte, objectif: OBJECTIF, scores: salon.scores, joueurs: listeJoueurs(salon) });
       break;
-    case "etat":
+    case "etat": {
       if (!salon) break;
-      diffuser(salon, {
+      const e = {
         t: "etat", id: client.id, x: nombre(m.x, -200, 200), y: nombre(m.y, -10, 50), z: nombre(m.z, -200, 200),
         l: nombre(m.l, -1e4, 1e4), g: nombre(m.g, -2, 2), a: nettoyer(m.a, 10), v: m.v ? 1 : 0, s: nombre(m.s, 0, 30), c: m.c ? 1 : 0,
-      }, client);
+      };
+      if (!AC.etat(ctx, e, m.h) || !client.salon) break;
+      diffuser(salon, e, client);
       break;
-    case "tir":
+    }
+    case "tir": {
       if (!salon || !Array.isArray(m.o) || !Array.isArray(m.f)) break;
-      diffuser(salon, { t: "tir", id: client.id, o: m.o.slice(0, 3).map((v) => nombre(v, -300, 300)), f: m.f.slice(0, 3).map((v) => nombre(v, -300, 300)), a: nettoyer(m.a, 10) }, client);
+      const vec = (v) => [0, 1, 2].map((i) => nombre(v[i], -300, 300));
+      const t = { t: "tir", id: client.id, o: vec(m.o), f: vec(m.f), a: nettoyer(m.a, 10) };
+      if (!AC.tir(ctx, { ...t, h: m.h }) || !client.salon) break;
+      diffuser(salon, t, client);
       break;
+    }
     case "touche": {
       if (!salon) break;
       const cible = salon.joueurs.get(String(m.cible));
-      if (cible) envoyer(cible, { t: "touche", de: client.id, degats: nombre(m.degats, 0, 300), tete: !!m.tete, arme: nettoyer(m.arme, 10) });
+      if (!cible || cible === client) break;
+      const x = { degats: nombre(m.degats, 0, 1000), tete: !!m.tete, arme: nettoyer(m.arme, 10), h: m.h };
+      const degats = AC.touche(ctx, cible, x);
+      if (degats !== null && client.salon) envoyer(cible, { t: "touche", de: client.id, degats, tete: x.tete, arme: x.arme });
       break;
     }
     case "mort": {
       if (!salon || salon.etat !== "jeu") break;
-      const tueur = salon.joueurs.has(String(m.tueur)) && String(m.tueur) !== client.id ? String(m.tueur) : null;
+      const tueur = AC.mort(ctx, salon.joueurs.has(String(m.tueur)) && String(m.tueur) !== client.id ? String(m.tueur) : null);
       salon.scores[client.id].morts++;
       if (tueur) salon.scores[tueur].kills++;
       diffuser(salon, { t: "mort", victime: client.id, tueur, tete: !!m.tete, arme: nettoyer(m.arme, 10), scores: salon.scores });

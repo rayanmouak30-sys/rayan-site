@@ -25,7 +25,7 @@ import { Joueur, nouvellesStats } from "./joueur.js";
 import { Regles, MODES, DEFIS, ARTICLES, OBJECTIF_DM } from "./regles.js";
 import { Profil, SUCCES, NIVEAUX_SKINS, etatCompte, envoyerResultat, classement, connexion, inscription, deconnexion, chargerSauvegarde, envoyerSauvegarde } from "./profil.js";
 import { Controles, ACTIONS } from "./controles.js";
-import { Reseau, PartieEnLigne, adresseParDefaut } from "./reseau.js";
+import { Reseau, PartieEnLigne, adresseParDefaut, VERSION_PROTOCOLE } from "./reseau.js";
 
 const $ = (id) => document.getElementById(id);
 const DEG = Math.PI / 180;
@@ -300,7 +300,7 @@ jeu.infliger = (c, degats, auteur, tete, arme) => {
   }
   if (c.estJoueur) { jeu.blesserJoueur(degats, auteur, tete, arme); return; }
   if (c.distant) {
-    reseau.envoyer({ t: "touche", cible: c.distantId, degats: Math.round(degats), tete, arme });
+    reseau.envoyer({ t: "touche", h: Math.round(performance.now()), cible: c.distantId, degats: Math.round(degats), tete, arme });
     if (auteur === joueur) { hud.touche(tete, false); audio.touche(tete); joueur.stats.degats += degats; }
     return;
   }
@@ -405,7 +405,7 @@ competences.surRevele = (c, duree, equipe) => {
 };
 
 jeu.signalerTir = (c, o, f, arme) => {
-  if (partie.mode === "enligne") reseau.envoyer({ t: "tir", o: [+o.x.toFixed(2), +o.y.toFixed(2), +o.z.toFixed(2)], f: [+f.x.toFixed(2), +f.y.toFixed(2), +f.z.toFixed(2)], a: arme });
+  if (partie.mode === "enligne") reseau.envoyer({ t: "tir", h: Math.round(performance.now()), o: [+o.x.toFixed(2), +o.y.toFixed(2), +o.z.toFixed(2)], f: [+f.x.toFixed(2), +f.y.toFixed(2), +f.z.toFixed(2)], a: arme });
 };
 
 // Ultime du joueur : annonce à l'écran et voix
@@ -1882,14 +1882,14 @@ async function connecter() {
 }
 $("enligne-creer").addEventListener("click", async () => {
   audio.demarrer(); musique.demarrer();
-  try { const nom = await connecter(); reseau.envoyer({ t: "creer", nom, carte: reglages.carteEnLigne, heros: herosValide(profilJ.d.agent) }); }
+  try { const nom = await connecter(); reseau.envoyer({ t: "creer", v: VERSION_PROTOCOLE, nom, carte: reglages.carteEnLigne, heros: herosValide(profilJ.d.agent) }); }
   catch (e) { statut(e.message + " Le serveur multijoueur doit être lancé (voir le guide)."); }
 });
 $("enligne-rejoindre").addEventListener("click", async () => {
   audio.demarrer(); musique.demarrer();
   const code = $("enligne-code").value.trim().toUpperCase();
   if (code.length !== 4) { statut("Le code fait 4 caractères."); return; }
-  try { const nom = await connecter(); reseau.envoyer({ t: "rejoindre", code, nom, heros: herosValide(profilJ.d.agent) }); }
+  try { const nom = await connecter(); reseau.envoyer({ t: "rejoindre", v: VERSION_PROTOCOLE, code, nom, heros: herosValide(profilJ.d.agent) }); }
   catch (e) { statut(e.message + " Le serveur multijoueur doit être lancé (voir le guide)."); }
 });
 $("salon-lancer").addEventListener("click", () => { audio.clic(); reseau.envoyer({ t: "lancer", carte: reglages.carteEnLigne }); });
@@ -1933,12 +1933,21 @@ reseau.on("touche", (m) => enLigne.touche(m));
 reseau.on("mort", (m) => enLigne.mort(m));
 reseau.on("parti", (m) => enLigne.retirer(m.id));
 reseau.on("fin", (m) => { enLigne.scores = m.scores; enLigne.gagnant = m.gagnant; if (partie.mode === "enligne" && (partie.etat === "jeu" || partie.etat === "pause")) jeu.finPartie(); });
+// Anti-triche : un joueur exclu par le serveur, ou moi
+let raisonExclusion = "";
+reseau.on("exclu", (m) => { raisonExclusion = m.raison || "triche détectée"; });
+reseau.on("triche", (m) => {
+  if (partie.mode === "enligne" && partie.etat === "jeu") hud.annonce("TRICHE DÉTECTÉE", `${m.nom} est exclu : ${m.raison}`, "#ff6b78", 3.5);
+  else statut(`${m.nom} a été exclu du salon (triche détectée : ${m.raison}).`);
+});
 reseau.on("ferme", () => {
   const enPartie = partie.mode === "enligne" && (partie.etat === "jeu" || partie.etat === "pause");
   salon = null;
   enLigne.arreter();
   if (enPartie) allerAuMenu();
-  statut("Déconnecté du serveur.");
+  if (enPartie && raisonExclusion) ouvrirEcran("ecran-enligne");
+  statut(raisonExclusion ? `Tu as été exclu : ${raisonExclusion}. Mode en ligne bloqué 15 minutes.` : "Déconnecté du serveur.");
+  raisonExclusion = "";
   afficherSalon();
 });
 

@@ -1,0 +1,29 @@
+{
+  "_note": "Limites de l'anti-triche du mode En ligne, calculées depuis jeu/armes.js, jeu/joueur.js et jeu/capacites.js (capacités autorisées en ligne : ruée, saut, téléportation courte, bonus). À mettre à jour si ces valeurs changent. Lu par jeu/anticheat.php et jeu/serveur/anticheat.js.",
+  "armes": {
+    "couteau": { "max_tete": 150, "max_corps": 150, "cadence": 0.42, "portee": 2.3, "melee": true },
+    "pistolet": { "max_tete": 78, "max_corps": 26, "cadence": 0.15 },
+    "pompe": { "max_tete": 360, "max_corps": 168, "cadence": 0.9, "cibles_par_tir": 3 },
+    "fusil": { "max_tete": 160, "max_corps": 40, "cadence": 0.1 },
+    "pulsar": { "max_tete": 150, "max_corps": 38, "cadence": 0.095 },
+    "sniper": { "max_tete": 255, "max_corps": 150, "cadence": 1.35 }
+  },
+  "bonus_cadence_max": 1.25,
+  "vitesse_max": 9.0,
+  "reserve_deplacement": 20.0,
+  "marge_deplacement": 0.05,
+  "avance_horloge_max_ms": 2000,
+  "calibrage_horloge_ms": 1000,
+  "fenetre_cadence_s": 2.0,
+  "marge_cadence_tirs": 2,
+  "delai_touche_apres_tir_ms": 1500,
+  "ecart_tir_position": 4.5,
+  "marge_portee_melee": 3.7,
+  "portee_max": 260,
+  "degats_vie_max": 400,
+  "delai_invincibilite_ms": 2500,
+  "delai_kill_ms": 6000,
+  "visee": { "touches_min": 40, "ratio_tete_max": 0.8, "snaps_min": 6, "ratio_snap_max": 0.5, "angle_snap": 1.0, "vitesse_snap": 25.0 },
+  "points_exclusion": 3,
+  "bannissement_s": 900
+}
