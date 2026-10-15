@@ -24,7 +24,6 @@ $navAdmin = $navAdmin ?? false;
       <li><a href="admin_cours.php">Cours</a></li>
       <li><a href="admin_tp.php">Évaluations</a></li>
       <li><a href="admin_messages.php">Messages</a></li>
-      <li><a href="admin_anticheat.php">Anti-triche</a></li>
       <li><a href="deconnexion.php">Déconnexion</a></li>
       <?php else: ?>
       <li><a href="documents.php">Documents</a></li>

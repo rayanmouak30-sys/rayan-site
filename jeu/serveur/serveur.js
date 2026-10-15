@@ -6,13 +6,12 @@ const http = require("http");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const AC = require("./anticheat.js");
 
 const PORT = Number(process.env.PORT) || 8080;
 const HOTE = process.env.IP || "0.0.0.0";
 const RACINE = path.join(__dirname, "..");     // dossier jeu/ (servi seulement pour les tests en local)
 const MAX_JOUEURS = 8;
-const VERSION_JEU = 3;   // messages horodatés (anti-triche) et bots en ligne
+const VERSION_JEU = 3;   // bots en ligne
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json" };
 
 // ----- Fichiers statiques (pratique pour jouer en réseau local) -----
@@ -37,7 +36,7 @@ serveur.on("upgrade", (req, socket) => {
   const accepte = crypto.createHash("sha1").update(cle + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest("base64");
   socket.write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " + accepte + "\r\n\r\n");
   socket.setNoDelay(true);
-  const client = { id: "p" + crypto.randomBytes(4).toString("hex"), nom: "Joueur", socket, salon: null, tampon: Buffer.alloc(0), fragments: [], compteur: 0, fenetre: Date.now(), palette: 0, empreinte: AC.empreinte(req), ac: null, exclu: false };
+  const client = { id: "p" + crypto.randomBytes(4).toString("hex"), nom: "Joueur", socket, salon: null, tampon: Buffer.alloc(0), fragments: [], compteur: 0, fenetre: Date.now(), palette: 0 };
   socket.on("data", (d) => lire(client, d));
   socket.on("close", () => quitter(client));
   socket.on("error", () => quitter(client));
@@ -86,7 +85,7 @@ function envoyer(client, objet) { envoyerTrame(client, Buffer.from(JSON.stringif
 
 // ----- Salons -----
 // Modes : "ffa" (chacun pour soi), "equipes" (bleus contre rouges), "coop" (les joueurs contre les bots).
-// Les bots tournent chez l'hôte : il envoie leurs positions ("bots"), tirs et touches, contrôlés par l'anti-triche.
+// Les bots tournent chez l'hôte : il envoie leurs positions ("bots"), tirs et touches.
 const salons = new Map();
 const LETTRES = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const MODES = ["ffa", "equipes", "coop"];
@@ -140,7 +139,6 @@ function entrer(client, salon) {
   client.palette = [7, 8, 9, 10, 11, 0, 3, 4].find((p) => !prises.has(p)) ?? 0;
   client.equipe = salon.mode === "coop" ? "bleu" : equipeLibre(salon);
   salon.joueurs.set(client.id, client);
-  client.ac = AC.nouveau();
   salon.scores[client.id] = salon.scores[client.id] || { kills: 0, morts: 0 };
   envoyer(client, { t: "salon", code: salon.code, id: client.id, carte: salon.carte, hote: salon.hote === client, joueurs: listeJoueurs(salon), config: config(salon) });
   diffuserJoueurs(salon);
@@ -172,24 +170,8 @@ function quitter(client) {
   diffuserJoueurs(salon);
 }
 
-// Anti-triche : exclusion d'un joueur (message, départ du salon, annonce aux autres, fermeture)
-function exclure(client, raison) {
-  const salon = client.salon;
-  envoyer(client, { t: "exclu", raison });
-  const nom = client.nom;
-  quitter(client);
-  if (salon && salon.joueurs.size) diffuser(salon, { t: "triche", nom, raison });
-  envoyerTrame(client, Buffer.alloc(0), 0x8);
-  setTimeout(() => client.socket.destroy(), 200);
-}
-
-// Contexte anti-triche d'un acteur : un joueur, ou un bot (la sanction tombe sur l'hôte qui le fait tourner)
-const contexte = (salon, acteur) => ({ salon, client: acteur, exclure });
-
 function refuserEntree(client, m, s) {
   if (!m.v || Number(m.v) < VERSION_JEU) { envoyer(client, { t: "erreur", texte: "Ton jeu n'est pas à jour : recharge la page (Ctrl + F5)." }); return true; }
-  if (AC.banni(client.empreinte)) { envoyer(client, { t: "erreur", texte: "Tu es exclu du mode en ligne pendant 15 minutes : triche détectée." }); return true; }
-  if (s && s.bannis.has(client.empreinte)) { envoyer(client, { t: "erreur", texte: "Tu as été exclu de ce salon pour triche." }); return true; }
   return false;
 }
 
@@ -222,7 +204,6 @@ function recevoir(client, texte) {
   let m;
   try { m = JSON.parse(texte); } catch (e) { return; }
   if (!m || typeof m.t !== "string") return;
-  if (client.exclu) return;
   const salon = client.salon;
   const hote = salon && salon.hote === client;
   switch (m.t) {
@@ -232,7 +213,7 @@ function recevoir(client, texte) {
       client.nom = nettoyer(m.nom, 16) || "Joueur";
       client.heros = herosValide(m.heros);
       const s = { code: nouveauCode(), carte: "nexus", mode: "ffa", nbBots: 0, difficulte: "normal", hote: client, joueurs: new Map(), bots: new Map(),
-        etat: "attente", scores: {}, equipesPartie: {}, bannis: new Set() };
+        etat: "attente", scores: {}, equipesPartie: {} };
       appliquerConfig(s, m);
       salons.set(s.code, s);
       entrer(client, s);
@@ -266,18 +247,15 @@ function recevoir(client, texte) {
       retirerBots(salon);
       salon.scores = {};
       salon.equipesPartie = {};
-      // Nouvelle partie : statistiques de l'anti-triche remises à zéro (pas les points)
       for (const c of salon.joueurs.values()) {
         salon.scores[c.id] = { kills: 0, morts: 0 };
         salon.equipesPartie[c.id] = salon.mode === "ffa" ? "" : c.equipe;
-        const points = c.ac ? c.ac.points : 0; c.ac = AC.nouveau(); c.ac.points = points;
       }
       diffuser(salon, messageDebut(salon));
       break;
     case "etat": {
       if (!salon) break;
       const e = etatValide(m, client.id);
-      if (!AC.etat(contexte(salon, client), e, m.h) || !client.salon) break;
       diffuser(salon, e, client);
       break;
     }
@@ -291,15 +269,13 @@ function recevoir(client, texte) {
         if (!bot) {
           if (salon.bots.size >= MAX_BOTS) continue;
           const equipe = salon.mode === "ffa" ? "" : e.e === "bleu" ? "bleu" : "rouge";
-          bot = { id, bot: true, proprio: client, nom: nettoyer(e.n, 16) || "Bot", heros: herosValide(e.hr), equipe, ac: AC.nouveau(), exclu: false };
+          bot = { id, bot: true, proprio: client, nom: nettoyer(e.n, 16) || "Bot", heros: herosValide(e.hr), equipe };
           salon.bots.set(id, bot);
           salon.scores[id] = salon.scores[id] || { kills: 0, morts: 0 };
           salon.equipesPartie[id] = equipe;
         } else if (bot.proprio !== client) continue;
         const etat = { ...etatValide(e, id), n: bot.nom, hr: bot.heros, e: bot.equipe };
-        const valide = AC.etat(contexte(salon, bot), etat, m.h);
-        if (!client.salon) break;
-        if (valide && salon.bots.has(id)) diffuser(salon, etat, client);
+        diffuser(salon, etat, client);
       }
       break;
     }
@@ -309,7 +285,6 @@ function recevoir(client, texte) {
       if (!qui) break;
       const vec = (v) => [0, 1, 2].map((i) => nombre(v[i], -300, 300));
       const t = { t: "tir", id: qui.id, o: vec(m.o), f: vec(m.f), a: nettoyer(m.a, 10) };
-      if (!AC.tir(contexte(salon, qui), { ...t, h: m.h }) || !client.salon) break;
       diffuser(salon, t, client);
       break;
     }
@@ -320,9 +295,8 @@ function recevoir(client, texte) {
       const cible = acteurParId(salon, String(m.cible));
       if (!qui || !cible || cible === qui) break;
       if (salon.mode !== "ffa" && qui.equipe && qui.equipe === cible.equipe) break;   // pas de tir ami
-      const x = { degats: nombre(m.degats, 0, 1000), tete: !!m.tete, arme: nettoyer(m.arme, 10), h: m.h };
-      const degats = AC.touche(contexte(salon, qui), cible, x);
-      if (degats === null || !client.salon) break;
+      const x = { tete: !!m.tete, arme: nettoyer(m.arme, 10) };
+      const degats = nombre(m.degats, 0, 400);
       const dest = cible.bot ? cible.proprio : cible;
       if (dest !== client) envoyer(dest, { t: "touche", de: qui.id, cible: cible.id, degats, tete: x.tete, arme: x.arme });
       break;
@@ -332,7 +306,7 @@ function recevoir(client, texte) {
       const victime = acteurDe(salon, client, m);
       if (!victime) break;
       const idTueur = acteurParId(salon, String(m.tueur)) && String(m.tueur) !== victime.id ? String(m.tueur) : null;
-      let tueur = AC.mort(contexte(salon, victime), idTueur);
+      let tueur = idTueur;
       if (tueur && salon.mode !== "ffa" && equipeDe(salon, tueur) === victime.equipe) tueur = null;
       salon.scores[victime.id] = salon.scores[victime.id] || { kills: 0, morts: 0 };
       salon.scores[victime.id].morts++;

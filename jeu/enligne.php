@@ -5,14 +5,13 @@
 //
 // Modes : "ffa" (chacun pour soi), "equipes" (bleus contre rouges, complétés par des bots), "coop" (les joueurs
 // ensemble contre des bots). Les bots tournent chez l'hôte (intelligence, tirs) : il envoie leur position ("bots"),
-// leurs tirs et leurs touches, contrôlés par l'anti-triche comme ceux d'un joueur. Les tirs sur un bot sont transmis à l'hôte.
+// leurs tirs et leurs touches. Les tirs sur un bot sont transmis à l'hôte.
 //
 // POST JSON, en-tête X-Requested-With: neonstrike
 //   {"action":"creer", "v", "nom", "carte", "heros"}                 -> {id, jeton, code, messages}
 //   {"action":"rejoindre", "v", "code", "nom", "heros"}              -> {id, jeton, code, messages} ou {erreur}
 //   {"action":"echange", "code", "id", "jeton", "envois":[...]}      -> {messages, etats} ou {ferme: true}
 require __DIR__ . "/../comptes.php";
-require __DIR__ . "/anticheat.php";
 
 header("Content-Type: application/json; charset=utf-8");
 header("Cache-Control: no-store");
@@ -28,7 +27,7 @@ const LETTRES = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const ABSENCE_MAX = 10.0;      // secondes sans requête : le joueur est retiré du salon
 const FILE_MAX = 300;          // messages en attente par joueur
 const DOSSIER_SALONS = DOSSIER_DONNEES . "/salons_enligne";
-const VERSION_JEU = 3;         // version du protocole exigée (horodatage anti-triche, bots en ligne)
+const VERSION_JEU = 3;         // version du protocole exigée (bots en ligne)
 
 function repondre(array $donnees, int $code = 200): void {
     http_response_code($code);
@@ -97,7 +96,7 @@ function nettoyerVieuxSalons(): void {
     }
 }
 
-// Les bots de l'hôte sont rangés avec les joueurs (même anti-triche), marqués "bot"
+// Les bots de l'hôte sont rangés avec les joueurs, marqués "bot"
 function estBot(array $s, string $id): bool { return !empty($s["joueurs"][$id]["bot"]); }
 function humains(array $s): array {
     return array_values(array_map("strval", array_keys(array_filter($s["joueurs"], fn($j) => empty($j["bot"])))));
@@ -152,7 +151,7 @@ function entrer(array &$s, string $id, string $nom, string $heros): string {
     foreach ([7, 8, 9, 10, 11, 0, 3, 4] as $p) { if (!in_array($p, $prises, true)) { $palette = $p; break; } }
     $jeton = bin2hex(random_bytes(16));
     $s["joueurs"][$id] = ["nom" => $nom, "palette" => $palette, "heros" => $heros, "jeton" => hash("sha256", $jeton), "equipe" => equipeLibre($s),
-        "vu" => microtime(true), "lu" => 0.0, "etat" => null, "etat_t" => 0.0, "file" => [], "ac" => acNouveau(), "empreinte" => acEmpreinte()];
+        "vu" => microtime(true), "lu" => 0.0, "etat" => null, "etat_t" => 0.0, "file" => []];
     if ($s["mode"] === "coop") { $s["joueurs"][$id]["equipe"] = "bleu"; }
     $s["scores"][$id] = $s["scores"][$id] ?? ["kills" => 0, "morts" => 0];
     envoyerA($s, $id, ["t" => "salon", "code" => $s["code"], "id" => $id, "carte" => $s["carte"], "hote" => $s["hote"] === $id, "joueurs" => listeJoueurs($s), "config" => config($s)]);
@@ -240,25 +239,21 @@ function traiter(array &$s, string $id, array $m): void {
             retirerBots($s);
             $s["scores"] = [];
             $s["equipes_partie"] = [];
-            // Nouvelle partie : tout le monde réapparaît, les statistiques de l'anti-triche repartent de zéro (pas les points)
+            // Nouvelle partie : tout le monde réapparaît
             foreach (humains($s) as $k) {
                 $s["scores"][$k] = ["kills" => 0, "morts" => 0];
                 $s["equipes_partie"][$k] = $s["mode"] === "ffa" ? "" : equipeDe($s, $k);
-                $points = $s["joueurs"][$k]["ac"]["points"] ?? 0;
-                $s["joueurs"][$k]["ac"] = acNouveau();
-                $s["joueurs"][$k]["ac"]["points"] = $points;
                 $s["joueurs"][$k]["etat"] = null;
             }
             diffuser($s, messageDebut($s));
             break;
         case "etat":
             $etat = etatValide($m, $id);
-            if (!acEtat($s, $id, $etat, $m["h"] ?? null) || !isset($s["joueurs"][$id])) { break; }
             $s["joueurs"][$id]["etat"] = $etat;
             $s["joueurs"][$id]["etat_t"] = microtime(true);
             break;
         case "bots":
-            // Positions des bots de l'hôte (même contrôle que la position d'un joueur)
+            // Positions des bots de l'hôte
             if (!$hote || $s["etat"] !== "jeu" || !is_array($m["l"] ?? null)) { break; }
             foreach (array_slice($m["l"], 0, MAX_BOTS) as $e) {
                 $b = idBot($e["id"] ?? null);
@@ -267,16 +262,13 @@ function traiter(array &$s, string $id, array $m): void {
                     if (count(array_filter($s["joueurs"], fn($j) => !empty($j["bot"]))) >= MAX_BOTS) { continue; }
                     $equipe = $s["mode"] === "ffa" ? "" : ((($e["e"] ?? "") === "bleu") ? "bleu" : "rouge");
                     $s["joueurs"][$b] = ["bot" => true, "proprio" => $id, "nom" => nettoyer($e["n"] ?? "Bot", 16) ?: "Bot", "heros" => herosValide($e["hr"] ?? ""),
-                        "equipe" => $equipe, "etat" => null, "etat_t" => 0.0, "ac" => acNouveau()];
+                        "equipe" => $equipe, "etat" => null, "etat_t" => 0.0];
                     $s["scores"][$b] = $s["scores"][$b] ?? ["kills" => 0, "morts" => 0];
                     $s["equipes_partie"][$b] = $equipe;
                 } elseif (!estBot($s, $b) || $s["joueurs"][$b]["proprio"] !== $id) {
                     continue;
                 }
                 $etat = etatValide($e, $b) + ["n" => $s["joueurs"][$b]["nom"], "hr" => $s["joueurs"][$b]["heros"], "e" => $s["joueurs"][$b]["equipe"]];
-                $valide = acEtat($s, $b, $etat, $m["h"] ?? null);
-                if (!isset($s["joueurs"][$id])) { break 2; }      // hôte exclu par l'anti-triche
-                if (!$valide || !isset($s["joueurs"][$b])) { continue; }
                 $s["joueurs"][$b]["etat"] = $etat;
                 $s["joueurs"][$b]["etat_t"] = microtime(true);
             }
@@ -287,7 +279,6 @@ function traiter(array &$s, string $id, array $m): void {
             if ($qui === null) { break; }
             $vec = fn($v) => array_pad(array_map(fn($x) => nombre($x, -300, 300), array_slice(array_values($v), 0, 3)), 3, 0.0);
             $tir = ["t" => "tir", "id" => $qui, "o" => $vec($m["o"]), "f" => $vec($m["f"]), "a" => nettoyer($m["a"] ?? "", 10)];
-            if (!acTir($s, $qui, $tir + ["h" => $m["h"] ?? null])) { break; }
             diffuser($s, $tir, $id);
             break;
         case "touche":
@@ -296,9 +287,8 @@ function traiter(array &$s, string $id, array $m): void {
             $cible = (string) ($m["cible"] ?? "");
             if ($qui === null || $cible === $qui || !isset($s["joueurs"][$cible])) { break; }
             if ($s["mode"] !== "ffa" && equipeDe($s, $qui) !== "" && equipeDe($s, $qui) === equipeDe($s, $cible)) { break; }   // pas de tir ami
-            $touche = ["degats" => is_numeric($m["degats"] ?? null) ? max(0.0, (float) $m["degats"]) : 0.0, "tete" => !empty($m["tete"]), "arme" => nettoyer($m["arme"] ?? "", 10), "h" => $m["h"] ?? null];
-            $degats = acTouche($s, $qui, $cible, $touche);
-            if ($degats === null || !isset($s["joueurs"][$cible])) { break; }
+            $touche = ["tete" => !empty($m["tete"]), "arme" => nettoyer($m["arme"] ?? "", 10)];
+            $degats = nombre($m["degats"] ?? 0, 0, 400);
             $dest = proprietaire($s, $cible);
             if ($dest !== $id) {
                 envoyerA($s, $dest, ["t" => "touche", "de" => $qui, "cible" => $cible, "degats" => $degats, "tete" => $touche["tete"], "arme" => $touche["arme"]]);
@@ -310,7 +300,6 @@ function traiter(array &$s, string $id, array $m): void {
             if ($victime === null) { break; }
             $tueur = (string) ($m["tueur"] ?? "");
             $tueur = ($tueur !== "" && $tueur !== $victime && isset($s["joueurs"][$tueur])) ? $tueur : null;
-            $tueur = acMort($s, $victime, $tueur);
             if ($tueur !== null && $s["mode"] !== "ffa" && equipeDe($s, $tueur) === equipeDe($s, $victime)) { $tueur = null; }
             $s["scores"][$victime] = $s["scores"][$victime] ?? ["kills" => 0, "morts" => 0];
             $s["scores"][$victime]["morts"]++;
@@ -343,9 +332,6 @@ $nom = nettoyer($m["nom"] ?? "", 16) ?: "Joueur";
 
 if (($action === "creer" || $action === "rejoindre") && (int) ($m["v"] ?? 0) < VERSION_JEU) {
     repondre(["erreur" => "Ton jeu n'est pas à jour : recharge la page (Ctrl + F5)."]);
-}
-if (($action === "creer" || $action === "rejoindre") && acBanni(acEmpreinte())) {
-    repondre(["erreur" => "Tu es exclu du mode en ligne pendant 15 minutes : triche détectée."]);
 }
 
 if ($action === "creer") {
@@ -380,10 +366,6 @@ if ($action === "rejoindre") {
         if ($f) { fermerSalon($f, $s, $code); }
         repondre(["erreur" => "Aucun salon avec ce code."]);
     }
-    if (isset($s["bannis"][acEmpreinte()])) {
-        fermerSalon($f, $s, $code);
-        repondre(["erreur" => "Tu as été exclu de ce salon pour triche."]);
-    }
     if (count(humains($s)) >= MAX_JOUEURS) {
         fermerSalon($f, $s, $code);
         repondre(["erreur" => "Salon complet (8 joueurs)."]);
@@ -403,8 +385,7 @@ if ($action === "echange") {
     $jetonRecu = hash("sha256", (string) ($m["jeton"] ?? ""));
     if (!$s || !isset($s["joueurs"][$id]) || estBot($s, $id) || !hash_equals($s["joueurs"][$id]["jeton"], $jetonRecu)) {
         if ($f) { flock($f, LOCK_UN); fclose($f); }
-        $exclu = $s["exclus"][$id] ?? null;
-        repondre(["ferme" => true] + (is_array($exclu) && hash_equals($exclu["jeton"], $jetonRecu) ? ["exclu" => $exclu["raison"]] : []));
+        repondre(["ferme" => true]);
     }
     $maintenant = microtime(true);
     $s["joueurs"][$id]["vu"] = $maintenant;
@@ -414,9 +395,8 @@ if ($action === "echange") {
     }
     retirerAbsents($s);
     if (!isset($s["joueurs"][$id])) {
-        $exclu = $s["exclus"][$id]["raison"] ?? null;
         fermerSalon($f, $s, $code);
-        repondre(["ferme" => true] + ($exclu ? ["exclu" => $exclu] : []));
+        repondre(["ferme" => true]);
     }
     // Positions des autres joueurs et des bots (sauf les miens) mises à jour depuis ma dernière requête
     $lu = $s["joueurs"][$id]["lu"];

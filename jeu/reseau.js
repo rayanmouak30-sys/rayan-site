@@ -60,7 +60,7 @@ export class Reseau {
   }
 }
 
-// Version du protocole (messages horodatés pour l'anti-triche du serveur)
+// Version du protocole (doit correspondre à celle du serveur)
 export const VERSION_PROTOCOLE = 3;
 
 // Relais par requêtes HTTP vers jeu/enligne.php : ~16 échanges par seconde en partie, 2 par seconde dans le salon.
@@ -139,7 +139,7 @@ class RelaisHttp {
         const r = await this.requete({ action: "echange", code: this.code, id: this.id, jeton: this.jeton, envois });
         if (!this.actif) return;
         this.echecs = 0;
-        if (r.ferme) { if (r.exclu) this.reseau.distribuer({ t: "exclu", raison: r.exclu }); this.couper(); return; }
+        if (r.ferme) { this.couper(); return; }
         for (const e of r.etats || []) this.reseau.distribuer(e);
         this.recevoir(r.messages);
       } catch (e) {

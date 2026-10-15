@@ -299,10 +299,6 @@ jeu.infliger = (c, degats, auteur, tete, arme) => {
     return;
   }
   const botAuteur = auteur && auteur.botLocal ? auteur.id : undefined;
-  // En ligne, l'hôte applique lui-même les dégâts sur lui et ses bots : le serveur doit les connaître (anti-triche, éliminations)
-  if (partie.mode === "enligne" && !c.distant && (c.estJoueur || c.botLocal) && (auteur === joueur || botAuteur) && !(c.estJoueur && auteur === joueur)) {
-    reseau.envoyer({ t: "touche", h: Math.round(performance.now()), cible: c.estJoueur ? reseau.id : c.id, bot: botAuteur, degats: Math.round(degats), tete, arme });
-  }
   if (c.estJoueur) { jeu.blesserJoueur(degats, auteur, tete, arme); return; }
   if (c.distant) {
     reseau.envoyer({ t: "touche", h: Math.round(performance.now()), cible: c.distantId, bot: botAuteur, degats: Math.round(degats), tete, arme });
@@ -1991,21 +1987,12 @@ reseau.on("touche", (m) => enLigne.touche(m));
 reseau.on("mort", (m) => enLigne.mort(m));
 reseau.on("parti", (m) => enLigne.retirer(m.id));
 reseau.on("fin", (m) => { enLigne.scores = m.scores; if (m.equipes) enLigne.scoresEquipes = m.equipes; enLigne.gagnant = m.gagnant; if (partie.mode === "enligne" && (partie.etat === "jeu" || partie.etat === "pause")) jeu.finPartie(); });
-// Anti-triche : un joueur exclu par le serveur, ou moi
-let raisonExclusion = "";
-reseau.on("exclu", (m) => { raisonExclusion = m.raison || "triche détectée"; });
-reseau.on("triche", (m) => {
-  if (partie.mode === "enligne" && partie.etat === "jeu") hud.annonce("TRICHE DÉTECTÉE", `${m.nom} est exclu : ${m.raison}`, "#ff6b78", 3.5);
-  else statut(`${m.nom} a été exclu du salon (triche détectée : ${m.raison}).`);
-});
 reseau.on("ferme", () => {
   const enPartie = partie.mode === "enligne" && (partie.etat === "jeu" || partie.etat === "pause");
   salon = null;
   enLigne.arreter();
   if (enPartie) allerAuMenu();
-  if (enPartie && raisonExclusion) ouvrirEcran("ecran-enligne");
-  statut(raisonExclusion ? `Tu as été exclu : ${raisonExclusion}. Mode en ligne bloqué 15 minutes.` : "Déconnecté du serveur.");
-  raisonExclusion = "";
+  statut("Déconnecté du serveur.");
   afficherSalon();
 });
 
