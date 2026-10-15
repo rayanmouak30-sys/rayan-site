@@ -111,6 +111,23 @@ jobs:
           else
             echo "OK  jeu/serveur/ protege (code $code)"
           fi
+          # Mode En ligne par le site (relais PHP) : création d'un salon, entrée d'un 2e joueur, échange, départ
+          api() { curl -s -X POST -H "Content-Type: application/json" -H "X-Requested-With: neonstrike" -d "$1" "$SITE/jeu/enligne.php"; }
+          a=$(api '{"action":"creer","nom":"Verif","carte":"nexus","heros":"kael"}')
+          code=$(echo "$a" | jq -r '.code // empty'); ida=$(echo "$a" | jq -r '.id // empty'); jta=$(echo "$a" | jq -r '.jeton // empty')
+          b=$(api "{\"action\":\"rejoindre\",\"code\":\"$code\",\"nom\":\"Verif2\",\"heros\":\"brax\"}")
+          idb=$(echo "$b" | jq -r '.id // empty'); jtb=$(echo "$b" | jq -r '.jeton // empty')
+          e=$(api "{\"action\":\"echange\",\"code\":\"$code\",\"id\":\"$ida\",\"jeton\":\"$jta\",\"envois\":[]}")
+          if [ -n "$code" ] && [ -n "$idb" ] && echo "$e" | jq -e '.messages | map(.t) | index("joueurs")' > /dev/null; then
+            echo "OK  jeu/enligne.php (salon $code créé, rejoint et quitté)"
+          else
+            echo "::error::jeu/enligne.php ne fonctionne pas : $a | $b | $e"; echec=1
+          fi
+          api "{\"action\":\"echange\",\"code\":\"$code\",\"id\":\"$ida\",\"jeton\":\"$jta\",\"envois\":[{\"t\":\"quitter\"}]}" > /dev/null
+          api "{\"action\":\"echange\",\"code\":\"$code\",\"id\":\"$idb\",\"jeton\":\"$jtb\",\"envois\":[{\"t\":\"quitter\"}]}" > /dev/null
+          if curl -s "$SITE/donnees/salons_enligne/" | grep -qi "json"; then
+            echo "::error::donnees/salons_enligne est lisible depuis internet"; echec=1
+          fi
           # Serveur multijoueur du jeu (site Node.js AlwaysData sur /ws) : information seulement, ne bloque pas
           ws=$(curl -s -o /dev/null -w "%{http_code}" --http1.1 --max-time 6 \
             -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Version: 13" \
@@ -118,7 +135,7 @@ jobs:
           if [ "$ws" = "101" ]; then
             echo "OK  serveur multijoueur (wss://mou.alwaysdata.net/ws)"
           else
-            echo "::warning::serveur multijoueur absent sur /ws (code $ws) : le mode En ligne du jeu ne peut pas se connecter"
+            echo "::warning::serveur multijoueur absent sur /ws (code $ws) : le mode En ligne passe par le relais PHP (enligne.php)"
           fi
           rm -f page.html
           exit $echec

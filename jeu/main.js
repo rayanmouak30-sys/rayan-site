@@ -1876,7 +1876,8 @@ async function connecter() {
   if (!(profilJ.compte && profilJ.compte.connecte)) { profilJ.d.pseudo = nom; profilJ.sauver(); }
   if (reseau.connecte) return nom;
   statut("Connexion au serveur…");
-  await reseau.connecter(url);
+  // Sur le site, l'adresse par défaut se replie sur le relais PHP si le serveur temps réel n'est pas lancé
+  await reseau.connecter(url, url === adresseParDefaut() && location.protocol.startsWith("http"));
   return nom;
 }
 $("enligne-creer").addEventListener("click", async () => {

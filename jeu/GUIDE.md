@@ -131,7 +131,9 @@ La qualité est choisie automatiquement selon la carte graphique (« Faible » s
 
 ## Multijoueur
 
-Le jeu se connecte à un petit serveur Node.js (`serveur/serveur.js`, aucune dépendance).
+### Sur le site (rien à installer)
+Sur https://mou.alwaysdata.net/jeu/ → **En ligne** : un joueur clique *Créer un salon* et donne le code de 4 lettres, les autres le tapent puis *Rejoindre* ; l'hôte lance la partie (combat à mort, jusqu'à 8 joueurs).
+Le jeu essaie d'abord le serveur temps réel (WebSocket, voir plus bas) ; s'il n'est pas lancé, il passe automatiquement par le relais PHP du site (`enligne.php`, ~16 échanges par seconde, un peu plus de latence). Les salons sont gardés dans `donnees/` (inaccessible depuis le web) et effacés quand tout le monde est parti.
 
 ### Avec des amis sur le même Wi-Fi
 1. Sur un PC Windows : lancer `LANCER-NEON-STRIKE.bat` (Node.js installé). Ailleurs : `node serveur/serveur.js` dans le dossier du jeu.
@@ -139,7 +141,7 @@ Le jeu se connecte à un petit serveur Node.js (`serveur/serveur.js`, aucune dé
 3. Un joueur crée un salon, les autres tapent le code. Adresse du serveur : `ws://ADRESSE-IP-DU-PC:8080/ws`.
 4. Si le pare-feu Windows demande l'autorisation pour Node.js, accepter « Réseaux privés ».
 
-### Sur internet avec AlwaysData
+### Serveur temps réel sur AlwaysData (facultatif, moins de latence)
 1. Interface d'administration AlwaysData → Web → Sites → Ajouter un site.
 2. Adresse : `mou.alwaysdata.net/ws` · Type : **Node.js** · Commande : `node jeu/serveur/serveur.js` · Répertoire de travail : `www`.
 3. Dans le jeu (En ligne), l'adresse proposée est déjà `wss://mou.alwaysdata.net/ws`.

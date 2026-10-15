@@ -7,37 +7,161 @@ import { ARMES } from "./armes.js";
 export class Reseau {
   constructor() {
     this.ws = null;
+    this.http = null;       // relais PHP du site (quand le serveur WebSocket n'est pas lancé)
     this.ecouteurs = new Map();
     this.id = null;
   }
 
-  get connecte() { return !!this.ws && this.ws.readyState === 1; }
+  get connecte() { return (!!this.ws && this.ws.readyState === 1) || (!!this.http && this.http.actif); }
 
   on(type, fn) { this.ecouteurs.set(type, fn); }
 
-  connecter(url) {
+  distribuer(m) {
+    const f = m && this.ecouteurs.get(m.t);
+    if (f) f(m);
+  }
+
+  // WebSocket d'abord ; sur le site, si le serveur temps réel ne répond pas, relais PHP (jeu/enligne.php)
+  async connecter(url, repliSite = false) {
+    try {
+      await this.connecterWs(url, repliSite ? 3500 : 6000);
+    } catch (e) {
+      if (!repliSite) throw e;
+      this.http = new RelaisHttp(this);
+    }
+  }
+
+  connecterWs(url, delai) {
     return new Promise((ok, ko) => {
       let ws;
       try { ws = new WebSocket(url); } catch (e) { ko(new Error("Adresse du serveur invalide.")); return; }
-      const minuterie = setTimeout(() => { try { ws.close(); } catch (e) { /* déjà fermé */ } ko(new Error("Le serveur ne répond pas.")); }, 6000);
+      const minuterie = setTimeout(() => { try { ws.close(); } catch (e) { /* déjà fermé */ } ko(new Error("Le serveur ne répond pas.")); }, delai);
       ws.onopen = () => { clearTimeout(minuterie); this.ws = ws; ok(); };
       ws.onerror = () => { clearTimeout(minuterie); ko(new Error("Connexion impossible au serveur.")); };
       ws.onclose = () => {
-        if (this.ws === ws) { this.ws = null; const f = this.ecouteurs.get("ferme"); if (f) f(); }
+        if (this.ws === ws) { this.ws = null; this.distribuer({ t: "ferme" }); }
       };
       ws.onmessage = (e) => {
         let m;
         try { m = JSON.parse(e.data); } catch (err) { return; }
-        const f = this.ecouteurs.get(m.t);
-        if (f) f(m);
+        this.distribuer(m);
       };
     });
   }
 
-  envoyer(objet) { if (this.connecte) this.ws.send(JSON.stringify(objet)); }
+  envoyer(objet) {
+    if (this.http && this.http.actif) this.http.envoyer(objet);
+    else if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(objet));
+  }
 
   fermer() {
     if (this.ws) { const ws = this.ws; this.ws = null; try { ws.close(); } catch (e) { /* déjà fermé */ } }
+    if (this.http) { this.http.arreter(); this.http = null; }
+  }
+}
+
+// Relais par requêtes HTTP vers jeu/enligne.php : ~16 échanges par seconde en partie, 2 par seconde dans le salon.
+// Les messages reçus sont exactement ceux du serveur WebSocket.
+class RelaisHttp {
+  constructor(reseau) {
+    this.reseau = reseau;
+    this.actif = true;
+    this.code = null;
+    this.id = null;
+    this.jeton = null;
+    this.file = [];
+    this.etat = null;        // seule la dernière position compte
+    this.enJeu = false;
+    this.echecs = 0;
+    this.boucleLancee = false;
+  }
+
+  async requete(corps) {
+    const r = await fetch(new URL("enligne.php", location.href), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Requested-With": "neonstrike" },
+      body: JSON.stringify(corps),
+      cache: "no-store",
+    });
+    if (!r.ok && r.status !== 503) throw new Error("HTTP " + r.status);
+    return r.json();
+  }
+
+  recevoir(liste) {
+    for (const m of liste || []) {
+      if (m.t === "debut") this.enJeu = true;
+      else if (m.t === "fin") this.enJeu = false;
+      this.reseau.distribuer(m);
+    }
+  }
+
+  envoyer(m) {
+    if (!this.actif) return;
+    if (m.t === "creer" || m.t === "rejoindre") { this.entrer(m); return; }
+    if (!this.code) return;
+    if (m.t === "etat") { this.etat = m; return; }
+    this.file.push(m);
+    if (m.t === "quitter") this.arreter(true);
+  }
+
+  async entrer(m) {
+    if (this.code) {
+      // Changement de salon : on quitte proprement l'ancien
+      this.requete({ action: "echange", code: this.code, id: this.id, jeton: this.jeton, envois: [{ t: "quitter" }] }).catch(() => {});
+      this.code = null;
+      this.file = [];
+      this.etat = null;
+      this.enJeu = false;
+    }
+    try {
+      const r = await this.requete({ action: m.t, nom: m.nom, carte: m.carte, heros: m.heros, code: m.code });
+      if (r.erreur) { this.reseau.distribuer({ t: "erreur", texte: r.erreur }); return; }
+      this.code = r.code;
+      this.id = r.id;
+      this.jeton = r.jeton;
+      this.recevoir(r.messages);
+      if (!this.boucleLancee) { this.boucleLancee = true; this.boucle(); }
+    } catch (e) {
+      this.reseau.distribuer({ t: "erreur", texte: "Le site ne répond pas, réessaie dans un instant." });
+    }
+  }
+
+  async boucle() {
+    while (this.actif) {
+      const debut = performance.now();
+      if (!this.code) { await new Promise((ok) => setTimeout(ok, 200)); continue; }
+      const envois = this.file.splice(0, 60);
+      if (this.etat) { envois.push(this.etat); this.etat = null; }
+      try {
+        const r = await this.requete({ action: "echange", code: this.code, id: this.id, jeton: this.jeton, envois });
+        if (!this.actif) return;
+        this.echecs = 0;
+        if (r.ferme) { this.couper(); return; }
+        for (const e of r.etats || []) this.reseau.distribuer(e);
+        this.recevoir(r.messages);
+      } catch (e) {
+        if (!this.actif) return;
+        // On renvoie les messages perdus (sauf la position, remplacée par la suivante)
+        this.file.unshift(...envois.filter((x) => x.t !== "etat"));
+        if (++this.echecs >= 12) { this.couper(); return; }
+      }
+      const pause = (this.enJeu ? 60 : 500) - (performance.now() - debut);
+      if (pause > 0) await new Promise((ok) => setTimeout(ok, pause));
+    }
+  }
+
+  // Dernier envoi (quitter) puis arrêt
+  arreter(avecEnvoi = false) {
+    if (!this.actif) return;
+    this.actif = false;
+    if (avecEnvoi && this.code) {
+      this.requete({ action: "echange", code: this.code, id: this.id, jeton: this.jeton, envois: this.file.splice(0) }).catch(() => {});
+    }
+  }
+
+  couper() {
+    this.actif = false;
+    if (this.reseau.http === this) { this.reseau.http = null; this.reseau.distribuer({ t: "ferme" }); }
   }
 }
 
