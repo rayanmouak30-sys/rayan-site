@@ -1,5 +1,2 @@
-# Dossier de cache de Godot (recree automatiquement a l'ouverture)
 .godot/
-# Exports (Web, Windows...)
-export/*
-!export/.gdignore
+export/
