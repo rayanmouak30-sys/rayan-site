@@ -1,10 +1,9 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scripts/game_manager.gd" id="1"]
 [ext_resource type="Texture2D" path="res://assets/backgrounds/ville.png" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/Player.tscn" id="3"]
 [ext_resource type="Texture2D" path="res://assets/sprites/particule.png" id="4"]
-[ext_resource type="AudioStream" path="res://assets/sounds/musique.ogg" id="5"]
 [ext_resource type="AudioStream" path="res://assets/sounds/ramasser.wav" id="6"]
 [ext_resource type="AudioStream" path="res://assets/sounds/degat.wav" id="7"]
 [ext_resource type="AudioStream" path="res://assets/sounds/vie_perdue.wav" id="8"]
@@ -161,10 +160,6 @@ autostart = true
 wait_time = 7.0
 autostart = true
 
-[node name="Musique" type="AudioStreamPlayer" parent="."]
-stream = ExtResource("5")
-volume_db = -6.0
-
 [node name="SonRamasser" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("6")
 
@@ -223,33 +218,17 @@ text = "Niveau : 1"
 
 [node name="TexteVie" type="Label" parent="HUD"]
 offset_left = 890.0
-offset_top = 6.0
+offset_top = 18.0
 offset_right = 960.0
-offset_bottom = 30.0
+offset_bottom = 42.0
 text = "Santé"
 
 [node name="BarreVie" type="ProgressBar" parent="HUD"]
 modulate = Color(1, 0.4, 0.4, 1)
 offset_left = 965.0
-offset_top = 8.0
+offset_top = 20.0
 offset_right = 1265.0
-offset_bottom = 28.0
-value = 100.0
-show_percentage = false
-
-[node name="TexteEnergie" type="Label" parent="HUD"]
-offset_left = 890.0
-offset_top = 32.0
-offset_right = 960.0
-offset_bottom = 56.0
-text = "Énergie"
-
-[node name="BarreEnergie" type="ProgressBar" parent="HUD"]
-modulate = Color(0.5, 1, 1, 1)
-offset_left = 965.0
-offset_top = 34.0
-offset_right = 1265.0
-offset_bottom = 54.0
+offset_bottom = 40.0
 value = 100.0
 show_percentage = false
 

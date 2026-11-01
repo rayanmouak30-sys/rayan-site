@@ -1,14 +1,11 @@
 extends CharacterBody2D
-# Script du joueur : déplacement, sprint, santé.
+# Script du joueur : déplacement et santé.
 
 signal sante_change(sante)
-signal energie_change(energie)
 signal mort
 
 var vitesse = 250
-var vitesse_sprint = 400
 var sante = 100
-var energie = 100
 var invincible = 0.0   # temps restant d'invincibilité (en secondes)
 
 
@@ -16,18 +13,8 @@ func _physics_process(delta):
 	# lecture des touches (ZQSD ou flèches)
 	var direction = Input.get_vector("gauche", "droite", "haut", "bas")
 
-	# sprint : utilise l'énergie (ressource à économiser)
-	var v = vitesse
-	if Input.is_action_pressed("sprint") and energie > 0 and direction != Vector2.ZERO:
-		v = vitesse_sprint
-		energie -= 40 * delta
-	elif energie < 100:
-		energie += 15 * delta
-	energie = clamp(energie, 0, 100)
-	energie_change.emit(energie)
-
 	# déplacement fluide
-	velocity = velocity.lerp(direction * v, 0.2)
+	velocity = velocity.lerp(direction * vitesse, 0.2)
 	move_and_slide()
 
 	# animation et orientation du personnage

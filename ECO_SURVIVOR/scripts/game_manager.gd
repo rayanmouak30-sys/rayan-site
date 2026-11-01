@@ -15,11 +15,7 @@ var fini = false
 
 func _ready():
 	$Player.sante_change.connect(_on_sante_change)
-	$Player.energie_change.connect(_on_energie_change)
 	$Player.mort.connect(_on_joueur_mort)
-	$Musique.stream.loop = true
-	$Musique.play()
-	AudioServer.set_bus_volume_db(0, linear_to_db(Global.volume))
 	mettre_a_jour_hud()
 
 
@@ -122,10 +118,6 @@ func _on_sante_change(sante):
 	$HUD/BarreVie.value = sante
 	if not $SonDegat.playing:
 		$SonDegat.play()
-
-
-func _on_energie_change(energie):
-	$HUD/BarreEnergie.value = energie
 
 
 func _on_joueur_mort():

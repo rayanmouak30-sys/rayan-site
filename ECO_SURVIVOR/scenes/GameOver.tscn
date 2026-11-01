@@ -55,21 +55,12 @@ horizontal_alignment = 1
 
 [node name="Recommencer" type="Button" parent="."]
 layout_mode = 0
-offset_left = 360.0
+offset_left = 510.0
 offset_top = 460.0
-offset_right = 620.0
+offset_right = 770.0
 offset_bottom = 520.0
 theme_override_font_sizes/font_size = 24
 text = "RECOMMENCER"
-
-[node name="Menu" type="Button" parent="."]
-layout_mode = 0
-offset_left = 660.0
-offset_top = 460.0
-offset_right = 920.0
-offset_bottom = 520.0
-theme_override_font_sizes/font_size = 24
-text = "RETOUR AU MENU"
 
 [node name="Fondu" type="ColorRect" parent="."]
 layout_mode = 0
@@ -82,4 +73,3 @@ color = Color(0, 0, 0, 1)
 stream = ExtResource("3")
 
 [connection signal="pressed" from="Recommencer" to="." method="_on_recommencer_pressed"]
-[connection signal="pressed" from="Menu" to="." method="_on_menu_pressed"]

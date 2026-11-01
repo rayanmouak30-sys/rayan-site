@@ -13,7 +13,7 @@ Projet STI2D spécialité SIN.
 
 Le joueur doit nettoyer une ville polluée en ramassant les déchets recyclables.
 Il doit éviter les déchets toxiques et les nuages de pollution, et faire attention
-à son énergie (le sprint la consomme : il faut l'économiser).
+à sa santé.
 
 ## Règles
 
@@ -39,14 +39,15 @@ plus de déchets toxiques.
 ## Commandes
 
 - **Z Q S D** ou **flèches** : se déplacer
-- **Maj** ou **Espace** : sprint (utilise l'énergie)
-- Souris : boutons des menus
+- Souris : bouton RECOMMENCER
+
+Le jeu démarre directement quand on le lance (pas de menu).
 
 ## Victoire et défaite
 
 - **Victoire** : on atteint 600 points avant la fin du temps.
 - **Défaite (Game Over)** : le temps est écoulé, ou on a perdu les 3 vies.
-- Les deux écrans ont un bouton **RECOMMENCER** et un bouton **RETOUR AU MENU**.
+- Les deux écrans affichent le score et ont un bouton **RECOMMENCER**.
 
 ## Pourquoi Godot ?
 
@@ -61,8 +62,7 @@ ECO_SURVIVOR/
 ├── export_presets.cfg   (export Web, threads désactivés)
 ├── README.md
 ├── scenes/
-│   ├── MainMenu.tscn    menu principal + panneau options
-│   ├── Main.tscn        la partie (fond, obstacles, joueur, HUD, timers, sons)
+│   ├── Main.tscn        la partie (fond, obstacles, joueur, HUD, timers, sons) : scène de départ
 │   ├── Player.tscn      le joueur (CharacterBody2D)
 │   ├── Collectible.tscn un déchet (Area2D)
 │   ├── Pollution.tscn   un nuage de pollution (Area2D)
@@ -74,12 +74,11 @@ ECO_SURVIVOR/
 │   ├── game_manager.gd
 │   ├── collectible.gd
 │   ├── pollution.gd
-│   ├── menu.gd
 │   └── end_screen.gd    utilisé par Victory et GameOver
 └── assets/
     ├── sprites/         images du joueur, des déchets, du nuage
     ├── backgrounds/     image de la ville
-    └── sounds/          sons et musique
+    └── sounds/          effets sonores
 ```
 
 Collisions : chaque maison, arbre et mur est un **StaticBody2D** avec un **CollisionShape2D**.
@@ -88,8 +87,8 @@ Le joueur est un **CharacterBody2D** et les objets sont des **Area2D**.
 ## Fonctions principales
 
 **player.gd**
-- `_physics_process()` : lit les touches, gère le sprint et l'énergie, déplace le joueur
-  avec `move_and_slide()` et change l'animation (repos / marche).
+- `_physics_process()` : lit les touches, déplace le joueur avec `move_and_slide()`
+  et change l'animation (repos / marche).
 - `prendre_degats()` : enlève de la santé ; à 0, envoie le signal `mort`.
 
 **game_manager.gd**
@@ -109,9 +108,9 @@ le supprime après 8 secondes.
 ## Les signaux utilisés
 
 - `Collectible` → signal `ramasse` → `game_manager` (ajoute les points)
-- `Player` → signaux `sante_change`, `energie_change`, `mort` → `game_manager` (met à jour le HUD et les vies)
+- `Player` → signaux `sante_change`, `mort` → `game_manager` (met à jour la barre de santé et les vies)
 - `Timer` → signal `timeout` → `game_manager` (apparition des objets)
-- Boutons → signal `pressed` → `menu.gd` et `end_screen.gd`
+- Bouton RECOMMENCER → signal `pressed` → `end_screen.gd`
 
 ## Difficultés et solutions
 
@@ -128,7 +127,7 @@ le supprime après 8 secondes.
 - Ajouter des poubelles de tri (bleue, jaune, verte).
 - Ajouter des voitures qui bougent.
 - Plusieurs niveaux avec des cartes différentes.
-- Un menu pause.
+- Un menu principal, un menu pause et une musique.
 
 ## Lancer le jeu
 
