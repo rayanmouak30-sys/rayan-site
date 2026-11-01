@@ -4,11 +4,12 @@ Jeu d'arcade 2D fait avec **Godot 4** en **GDScript**. Projet Terminale STI2D sp
 
 **Jouer en ligne :** https://mou.alwaysdata.net/jeu-dd/
 
-## Auteurs
+## Auteur
 
-- ...................................
-- ...................................
-- Classe : ...........   Année : ...........
+- Nom Prénom : ...................................
+- Classe : Terminale STI2D SIN   Année : ...........
+
+Projet réalisé seul.
 
 ## Thème de développement durable
 
@@ -39,10 +40,10 @@ ne sont pas recyclés. Plus le temps passe, plus la pollution augmente : il faut
 
 ## Moteur choisi et justification
 
-Nous avons choisi **Godot 4** :
+J'ai choisi **Godot 4** :
 - il est **gratuit** et libre (licence MIT), aucun logiciel payant n'est nécessaire ;
 - il est fait pour la **2D** (nœuds CharacterBody2D, Area2D, collisions, Timers…) ;
-- le langage **GDScript** ressemble à Python, que nous connaissons ;
+- le langage **GDScript** ressemble à Python, que je connais ;
 - il permet d'**exporter le jeu pour le Web** (rendu Compatibility, sans Thread Support).
 
 Organisation du projet :
@@ -91,21 +92,18 @@ Le jeu démarre directement quand on l'ouvre.
 
 ## Répartition du travail
 
-| Élève | Travail réalisé |
-|---|---|
-| ........ | ........ (ex : joueur, déplacements, collisions) |
-| ........ | ........ (ex : déchets, score, HUD, écrans de fin) |
-| ........ | ........ (ex : pollution, difficulté, tests, export Web, README) |
+Projet individuel : je suis seul sur ce projet, il n'y a donc pas de répartition entre plusieurs
+élèves. Le code et les ressources ont été réalisés avec l'aide d'une IA (voir les sources).
 
 ## Bug ou difficulté principale
 
-Quand nous avons testé la version Web, la **barre de santé paraissait vide** alors que le joueur
+Quand j'ai testé la version Web, la **barre de santé paraissait vide** alors que le joueur
 avait toute sa santé : on ne voyait pas quand on perdait de la vie.
 
 ## Solution trouvée
 
 La barre était seulement teintée en rouge avec `modulate`, ce qui assombrissait aussi la partie
-pleine. Nous avons donné à la `ProgressBar` deux styles (`StyleBoxFlat`) : un fond gris foncé et
+pleine. J'ai donné à la `ProgressBar` deux styles (`StyleBoxFlat`) : un fond gris foncé et
 un remplissage rouge vif. Maintenant la barre est bien rouge quand la santé est pleine et se vide
 quand on prend des dégâts.
 
@@ -120,3 +118,4 @@ quand on prend des dégâts.
 - **Sons** : créés pour ce projet (générés avec un programme Python). Aucun son pris sur Internet.
 - **Police** : police par défaut de Godot.
 - **Moteur** : Godot Engine 4, gratuit, licence MIT — https://godotengine.org
+- **Aide** : le code, les images et les sons ont été réalisés avec l'aide de l'IA Claude (Anthropic).
