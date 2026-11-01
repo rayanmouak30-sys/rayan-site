@@ -1,7 +1,8 @@
 # ECO SURVIVOR
 
-Jeu d'arcade 2D fait avec **Godot 4** en **GDScript**.
-Projet STI2D spécialité SIN.
+Jeu d'arcade 2D fait avec **Godot 4** en **GDScript**. Projet Terminale STI2D spécialité SIN.
+
+**Jouer en ligne :** https://.................................../jeu-dd/  *(lien à compléter)*
 
 ## Auteurs
 
@@ -9,60 +10,50 @@ Projet STI2D spécialité SIN.
 - ...................................
 - Classe : ...........   Année : ...........
 
-## Thème : le développement durable
+## Thème de développement durable
 
-Le joueur doit nettoyer une ville polluée en ramassant les déchets recyclables.
-Il doit éviter les déchets toxiques et les nuages de pollution, et faire attention
-à sa santé.
+La ville est polluée. Le joueur doit la nettoyer en ramassant les déchets recyclables
+(plastique, papier, verre, électronique) et en évitant la pollution (déchets toxiques et nuages
+de pollution). Les déchets électroniques rapportent le plus, car ce sont les plus polluants s'ils
+ne sont pas recyclés. Plus le temps passe, plus la pollution augmente : il faut agir vite.
 
-## Règles
+## Principe du jeu
 
 - Il faut atteindre **600 points** avant la fin du temps (**90 secondes**).
 - Le joueur a **3 vies** et une **barre de santé**. Quand la santé tombe à 0, il perd une vie.
 
-| Objet | Points |
+| Objet | Effet |
 |---|---|
-| Plastique | +10 |
-| Papier | +15 |
-| Verre | +20 |
-| Électronique | +30 |
+| Plastique | +10 points |
+| Papier | +15 points |
+| Verre | +20 points |
+| Électronique | +30 points |
 | Déchet toxique | −30 points et −25 santé |
 | Nuage de pollution | fait perdre de la santé tant qu'on est dedans |
 
-Les maisons et les arbres sont des obstacles.
-Les objets disparaissent au bout de 8 secondes (ils clignotent avant).
+- Les maisons, les arbres et les bords de l'écran sont des obstacles.
+- Les objets disparaissent au bout de 8 secondes (ils clignotent avant).
+- **Difficulté** : toutes les 20 secondes, le niveau monte (jusqu'au niveau 4) : les objets
+  apparaissent plus vite, il y a plus de nuages de pollution, ils font plus de dégâts et il y a
+  plus de déchets toxiques.
 
-**Difficulté** : toutes les 20 secondes, le niveau monte (jusqu'au niveau 4). Les objets
-apparaissent plus vite, il y a plus de nuages de pollution, ils font plus de dégâts, et il y a
-plus de déchets toxiques.
+## Moteur choisi et justification
 
-## Commandes
+Nous avons choisi **Godot 4** :
+- il est **gratuit** et libre (licence MIT), aucun logiciel payant n'est nécessaire ;
+- il est fait pour la **2D** (nœuds CharacterBody2D, Area2D, collisions, Timers…) ;
+- le langage **GDScript** ressemble à Python, que nous connaissons ;
+- il permet d'**exporter le jeu pour le Web** (rendu Compatibility, sans Thread Support).
 
-- **Z Q S D** ou **flèches** : se déplacer
-- Souris : bouton RECOMMENCER
-
-Le jeu démarre directement quand on le lance (pas de menu).
-
-## Victoire et défaite
-
-- **Victoire** : on atteint 600 points avant la fin du temps.
-- **Défaite (Game Over)** : le temps est écoulé, ou on a perdu les 3 vies.
-- Les deux écrans affichent le score et ont un bouton **RECOMMENCER**.
-
-## Pourquoi Godot ?
-
-Godot est gratuit, léger et fait pour la 2D. Le GDScript ressemble à Python.
-Il permet aussi d'exporter le jeu pour le Web.
-
-## Organisation du projet
+Organisation du projet :
 
 ```
 ECO_SURVIVOR/
-├── project.godot
-├── export_presets.cfg   (export Web, threads désactivés)
+├── project.godot        configuration (scène de départ : Main.tscn)
+├── export_presets.cfg   export Web (Thread Support désactivé)
 ├── README.md
 ├── scenes/
-│   ├── Main.tscn        la partie (fond, obstacles, joueur, HUD, timers, sons) : scène de départ
+│   ├── Main.tscn        la partie (fond, obstacles, joueur, HUD, timers, sons)
 │   ├── Player.tscn      le joueur (CharacterBody2D)
 │   ├── Collectible.tscn un déchet (Area2D)
 │   ├── Pollution.tscn   un nuage de pollution (Area2D)
@@ -70,77 +61,65 @@ ECO_SURVIVOR/
 │   └── GameOver.tscn    écran de défaite
 ├── scripts/
 │   ├── global.gd        (autoload) garde le score entre les scènes
-│   ├── player.gd
-│   ├── game_manager.gd
-│   ├── collectible.gd
-│   ├── pollution.gd
-│   └── end_screen.gd    utilisé par Victory et GameOver
-└── assets/
-    ├── sprites/         images du joueur, des déchets, du nuage
-    ├── backgrounds/     image de la ville
-    └── sounds/          effets sonores
+│   ├── player.gd        déplacement, animation, santé
+│   ├── game_manager.gd  score, temps, vies, apparitions, victoire/défaite
+│   ├── collectible.gd   type et points d'un déchet
+│   ├── pollution.gd     nuage qui fait perdre de la santé
+│   └── end_screen.gd    écrans de fin (Victory et GameOver)
+└── assets/              images (sprites, fond) et sons
 ```
 
-Collisions : chaque maison, arbre et mur est un **StaticBody2D** avec un **CollisionShape2D**.
-Le joueur est un **CharacterBody2D** et les objets sont des **Area2D**.
+Les objets communiquent par des **signaux** :
+- `Collectible` → `ramasse` → `game_manager` (ajoute les points) ;
+- `Player` → `sante_change` et `mort` → `game_manager` (barre de santé, vies) ;
+- `Timer` → `timeout` → `game_manager` (apparition des déchets et des nuages) ;
+- bouton RECOMMENCER → `pressed` → `end_screen.gd`.
 
-## Fonctions principales
+## Commandes
 
-**player.gd**
-- `_physics_process()` : lit les touches, déplace le joueur avec `move_and_slide()`
-  et change l'animation (repos / marche).
-- `prendre_degats()` : enlève de la santé ; à 0, envoie le signal `mort`.
+- **Z Q S D** ou **flèches** : se déplacer
+- Souris : bouton **RECOMMENCER** à la fin de la partie
 
-**game_manager.gd**
-- `_process()` : fait baisser le temps, augmente le niveau, vérifie si le temps est fini.
-- `_on_timer_objets_timeout()` : fait apparaître un déchet au hasard (Timer).
-- `_on_timer_pollution_timeout()` : fait apparaître un nuage de pollution (Timer).
-- `position_libre()` : choisit une position qui n'est pas sur une maison ou un arbre.
-- `_on_objet_ramasse()` : ajoute les points et vérifie la victoire.
-- `_on_joueur_mort()` : enlève une vie.
-- `fin_de_partie()` : ouvre l'écran de victoire ou de Game Over.
+Le jeu démarre directement quand on l'ouvre.
 
-**collectible.gd** : choisit l'image et les points selon le type, fait flotter l'objet,
-le supprime après 8 secondes.
+## Victoire / Défaite
 
-**pollution.gd** : fait apparaître le nuage, le déplace lentement et enlève de la santé au joueur.
+- **Victoire** : on atteint 600 points avant la fin du temps.
+- **Défaite (Game Over)** : le temps est écoulé, ou on a perdu les 3 vies.
+- Les deux écrans affichent le score, le nombre de déchets ramassés, le meilleur score, et un
+  bouton **RECOMMENCER**.
 
-## Les signaux utilisés
+## Répartition du travail
 
-- `Collectible` → signal `ramasse` → `game_manager` (ajoute les points)
-- `Player` → signaux `sante_change`, `mort` → `game_manager` (met à jour la barre de santé et les vies)
-- `Timer` → signal `timeout` → `game_manager` (apparition des objets)
-- Bouton RECOMMENCER → signal `pressed` → `end_screen.gd`
+| Élève | Travail réalisé |
+|---|---|
+| ........ | ........ (ex : joueur, déplacements, collisions) |
+| ........ | ........ (ex : déchets, score, HUD, écrans de fin) |
+| ........ | ........ (ex : pollution, difficulté, tests, export Web, README) |
 
-## Difficultés et solutions
+## Bug ou difficulté principale
 
-- **Les objets apparaissaient dans les maisons** → la fonction `position_libre()` vérifie la
-  distance avec les obstacles.
-- **Les nuages apparaissaient sur le joueur** → on choisit une autre position s'il est trop près,
-  et le nuage ne fait pas de dégâts pendant sa première seconde.
-- **Le joueur perdait plusieurs vies d'un coup** → 2 secondes d'invincibilité après une vie perdue
-  (le joueur clignote).
-- **Le son de dégât se répétait en boucle dans le nuage** → on ne le relance que s'il est fini.
+Les déchets apparaissaient parfois **à l'intérieur des maisons ou des arbres** : le joueur ne
+pouvait pas les ramasser. De plus, les nuages de pollution pouvaient apparaître **directement sur
+le joueur**, qui perdait de la vie sans pouvoir réagir.
 
-## Améliorations possibles
+## Solution trouvée
 
-- Ajouter des poubelles de tri (bleue, jaune, verte).
-- Ajouter des voitures qui bougent.
-- Plusieurs niveaux avec des cartes différentes.
-- Un menu principal, un menu pause et une musique.
+- La fonction `position_libre()` de `game_manager.gd` tire une position au hasard et vérifie
+  qu'elle est assez loin de chaque obstacle (maison ou arbre). Sinon, elle recommence.
+- Pour les nuages, on choisit une autre position s'ils sont à moins de 150 pixels du joueur, et un
+  nuage ne fait aucun dégât pendant sa première seconde (il apparaît en fondu).
 
-## Lancer le jeu
+## Amélioration après le test croisé
 
-1. Installer Godot 4 (version 4.3 ou plus récente) : https://godotengine.org
-2. Dans Godot : **Importer** → choisir `project.godot`.
-3. Appuyer sur **F5**.
+*(À compléter avec ce que vos testeurs ont dit et ce que vous avez changé.)*
+Exemple : « Les testeurs perdaient leurs 3 vies d'un coup dans un nuage. Nous avons ajouté
+2 secondes d'invincibilité après la perte d'une vie (le joueur clignote). »
 
-**Export Web** : Projet → Exporter → préréglage **Web** (déjà réglé, Thread Support désactivé).
-La première fois, Godot demande d'installer les modèles d'exportation.
+## Sources des médias et ressources
 
-## Sources des ressources
-
-- Images et sons : créés pour ce projet (dessinés et générés avec des programmes Python).
-  Aucune image ni aucun son pris sur Internet.
-- Police : police par défaut de Godot.
-- Moteur : Godot Engine (gratuit, licence MIT).
+- **Images** (joueur, déchets, ville, nuage) : créées pour ce projet (dessinées avec un programme
+  Python). Aucune image prise sur Internet.
+- **Sons** : créés pour ce projet (générés avec un programme Python). Aucun son pris sur Internet.
+- **Police** : police par défaut de Godot.
+- **Moteur** : Godot Engine 4, gratuit, licence MIT — https://godotengine.org

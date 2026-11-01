@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scripts/game_manager.gd" id="1"]
 [ext_resource type="Texture2D" path="res://assets/backgrounds/ville.png" id="2"]
@@ -34,6 +34,12 @@ size = Vector2(40, 800)
 
 [sub_resource type="RectangleShape2D" id="s9"]
 size = Vector2(40, 800)
+
+[sub_resource type="StyleBoxFlat" id="fond_barre"]
+bg_color = Color(0.2, 0.2, 0.2, 1)
+
+[sub_resource type="StyleBoxFlat" id="rouge_barre"]
+bg_color = Color(0.9, 0.2, 0.2, 1)
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1")
@@ -224,11 +230,12 @@ offset_bottom = 42.0
 text = "Santé"
 
 [node name="BarreVie" type="ProgressBar" parent="HUD"]
-modulate = Color(1, 0.4, 0.4, 1)
 offset_left = 965.0
 offset_top = 20.0
 offset_right = 1265.0
 offset_bottom = 40.0
+theme_override_styles/background = SubResource("fond_barre")
+theme_override_styles/fill = SubResource("rouge_barre")
 value = 100.0
 show_percentage = false
 
