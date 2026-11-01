@@ -7,8 +7,8 @@ Projet de Terminale STI2D, spécialité SIN.
 
 ## Auteurs
 
-- Nom Prénom : ...................................
-- Classe : Terminale STI2D SIN   Année : ...........
+- Rayan MOUAK
+- Classe : Terminale STI2D SIN   Année scolaire : 2026-2027
 
 Projet individuel.
 
@@ -152,7 +152,11 @@ Pendant la création du jeu, plusieurs problèmes simples sont apparus :
 
 ## Amélioration après le test croisé
 
-*(À compléter avec ce que le testeur a dit et ce qui a été changé.)*
+*(À compléter après avoir fait jouer quelqu'un au jeu.)*
+
+- Testeur : ………………
+- Ce qu'il a remarqué : ………………
+- Ce que j'ai changé (ou ce que je changerais) : ………………
 
 ## Sources des médias et ressources
 
