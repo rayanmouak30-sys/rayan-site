@@ -31,6 +31,7 @@ $dossier = "uploads_cours/";
       <li><a href="tp.php">Évaluations</a></li>
       <li><a href="contact.php">Contact</a></li>
       <li><a href="jeu/">Jeu</a></li>
+      <li><a href="jeu-dd/">Jeu DD</a></li>
     </ul>
   </div>
 </nav>
