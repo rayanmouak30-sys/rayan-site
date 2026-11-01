@@ -1,0 +1,287 @@
+[gd_scene load_steps=15 format=3]
+
+[ext_resource type="Script" path="res://scripts/menu.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/backgrounds/city_ground.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/ui/logo.png" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/OptionsPanel.tscn" id="4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/fx/leaf.png" id="5"]
+[ext_resource type="Texture2D" path="res://assets/ui/trophy.png" id="6"]
+[ext_resource type="Texture2D" path="res://assets/sprites/items/plastic.png" id="7"]
+[ext_resource type="Texture2D" path="res://assets/sprites/items/paper.png" id="8"]
+[ext_resource type="Texture2D" path="res://assets/sprites/items/glass.png" id="9"]
+[ext_resource type="Texture2D" path="res://assets/sprites/items/ewaste.png" id="10"]
+[ext_resource type="Texture2D" path="res://assets/sprites/items/toxic_barrel.png" id="11"]
+
+[sub_resource type="Gradient" id="shade"]
+colors = PackedColorArray(0.02, 0.06, 0.08, 0.97, 0.02, 0.06, 0.08, 0.75, 0.02, 0.06, 0.08, 0.25)
+offsets = PackedFloat32Array(0, 0.45, 1)
+
+[sub_resource type="GradientTexture2D" id="shade_tex"]
+gradient = SubResource("shade")
+fill_to = Vector2(1, 0)
+
+[sub_resource type="Gradient" id="leaf_colors"]
+colors = PackedColorArray(0.65, 1, 0.3, 0, 0.5, 0.9, 0.4, 0.8, 0.3, 0.8, 0.5, 0)
+offsets = PackedFloat32Array(0, 0.2, 1)
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = -500.0
+offset_top = -300.0
+offset_right = 2060.0
+offset_bottom = 1300.0
+texture = ExtResource("2")
+
+[node name="Shade" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("shade_tex")
+expand_mode = 1
+
+[node name="Leaves" type="CPUParticles2D" parent="."]
+position = Vector2(900, -30)
+amount = 28
+lifetime = 9.0
+preprocess = 9.0
+texture = ExtResource("5")
+emission_shape = 3
+emission_rect_extents = Vector2(900, 10)
+direction = Vector2(-0.3, 1)
+spread = 20.0
+gravity = Vector2(-8, 25)
+initial_velocity_min = 30.0
+initial_velocity_max = 60.0
+angular_velocity_min = -90.0
+angular_velocity_max = 90.0
+scale_amount_min = 0.6
+scale_amount_max = 1.2
+color_ramp = SubResource("leaf_colors")
+
+[node name="MainBox" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 80.0
+offset_top = -290.0
+offset_right = 620.0
+offset_bottom = 290.0
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="Logo" type="TextureRect" parent="MainBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(540, 80)
+layout_mode = 2
+texture = ExtResource("3")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Tagline" type="Label" parent="MainBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 1, 0.3, 1)
+theme_override_font_sizes/font_size = 22
+text = "Nettoie la ville. Sauve la planète."
+
+[node name="Spacer" type="Control" parent="MainBox"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+
+[node name="Buttons" type="VBoxContainer" parent="MainBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_constants/separation = 14
+
+[node name="PlayButton" type="Button" parent="MainBox/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "JOUER"
+
+[node name="HowToButton" type="Button" parent="MainBox/Buttons"]
+layout_mode = 2
+text = "COMMENT JOUER"
+
+[node name="OptionsButton" type="Button" parent="MainBox/Buttons"]
+layout_mode = 2
+text = "OPTIONS"
+
+[node name="QuitButton" type="Button" parent="MainBox/Buttons"]
+layout_mode = 2
+text = "QUITTER"
+
+[node name="QuitMessage" type="Label" parent="MainBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
+autowrap_mode = 3
+
+[node name="BestRow" type="HBoxContainer" parent="MainBox"]
+layout_mode = 2
+
+[node name="Trophy" type="TextureRect" parent="MainBox/BestRow"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+texture = ExtResource("6")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BestLabel" type="Label" parent="MainBox/BestRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
+theme_override_font_sizes/font_size = 20
+text = "RECORD : 0"
+
+[node name="Footer" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 80.0
+offset_top = -40.0
+offset_right = 760.0
+offset_bottom = -14.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.6, 0.75, 0.75, 0.8)
+theme_override_font_sizes/font_size = 14
+text = "Projet Terminale STI2D SIN  ·  Godot 4  ·  v1.0"
+
+[node name="HowToPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -330.0
+offset_top = -280.0
+offset_right = 330.0
+offset_bottom = 280.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="HowToPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="HowToPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"Heading"
+text = "COMMENT JOUER"
+horizontal_alignment = 1
+
+[node name="Goal" type="Label" parent="HowToPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+text = "Ramasse un maximum de déchets recyclables pour atteindre l'objectif de points avant la fin du chrono. La pollution augmente toutes les 30 secondes !"
+autowrap_mode = 3
+
+[node name="Items" type="GridContainer" parent="HowToPanel/VBox"]
+layout_mode = 2
+theme_override_constants/h_separation = 10
+columns = 4
+
+[node name="I1" type="TextureRect" parent="HowToPanel/VBox/Items"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("7")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="L1" type="Label" parent="HowToPanel/VBox/Items"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Plastique  +10"
+
+[node name="I2" type="TextureRect" parent="HowToPanel/VBox/Items"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("8")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="L2" type="Label" parent="HowToPanel/VBox/Items"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Papier  +15"
+
+[node name="I3" type="TextureRect" parent="HowToPanel/VBox/Items"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("9")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="L3" type="Label" parent="HowToPanel/VBox/Items"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Verre  +20"
+
+[node name="I4" type="TextureRect" parent="HowToPanel/VBox/Items"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("10")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="L4" type="Label" parent="HowToPanel/VBox/Items"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Électronique  +30"
+
+[node name="Danger" type="HBoxContainer" parent="HowToPanel/VBox"]
+layout_mode = 2
+
+[node name="Icon" type="TextureRect" parent="HowToPanel/VBox/Danger"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("11")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Text" type="Label" parent="HowToPanel/VBox/Danger"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+text = "Évite les déchets toxiques (-50 pts), les nuages de pollution et les voitures : ils font perdre de la santé."
+autowrap_mode = 3
+
+[node name="Controls" type="Label" parent="HowToPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.95, 0.85, 1)
+theme_override_font_sizes/font_size = 16
+text = "ZQSD / Flèches : se déplacer   ·   Maj / Espace : sprint (consomme l'énergie)
+Échap / P : pause   ·   Bonus : cœur = santé, batterie = énergie"
+autowrap_mode = 3
+
+[node name="HowToBack" type="Button" parent="HowToPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "RETOUR"
+
+[node name="OptionsPanel" parent="." instance=ExtResource("4")]
+layout_mode = 1
+
+[connection signal="pressed" from="MainBox/Buttons/PlayButton" to="." method="_on_play_pressed"]
+[connection signal="pressed" from="MainBox/Buttons/HowToButton" to="." method="_on_how_to_pressed"]
+[connection signal="pressed" from="MainBox/Buttons/OptionsButton" to="." method="_on_options_pressed"]
+[connection signal="pressed" from="MainBox/Buttons/QuitButton" to="." method="_on_quit_pressed"]

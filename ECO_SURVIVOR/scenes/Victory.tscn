@@ -1,75 +1,302 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/end_screen.gd" id="1"]
-[ext_resource type="Texture2D" path="res://assets/backgrounds/ville.png" id="2"]
-[ext_resource type="AudioStream" path="res://assets/sounds/victoire.wav" id="3"]
+[ext_resource type="Texture2D" path="res://assets/backgrounds/city_blur.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/fx/leaf.png" id="3"]
+[ext_resource type="Texture2D" path="res://assets/ui/star_empty.png" id="4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/items/plastic.png" id="5"]
+[ext_resource type="Texture2D" path="res://assets/sprites/items/paper.png" id="6"]
+[ext_resource type="Texture2D" path="res://assets/sprites/items/glass.png" id="7"]
+[ext_resource type="Texture2D" path="res://assets/sprites/items/ewaste.png" id="8"]
+
+[sub_resource type="Gradient" id="g"]
+colors = PackedColorArray(0.65, 1, 0.3, 0, 0.6, 1, 0.4, 0.9, 0.3, 0.9, 0.8, 0)
+offsets = PackedFloat32Array(0, 0.2, 1)
 
 [node name="Victory" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1")
+victory = true
 
-[node name="Fond" type="TextureRect" parent="."]
-layout_mode = 0
-offset_right = 1280.0
-offset_bottom = 720.0
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 texture = ExtResource("2")
+expand_mode = 1
+stretch_mode = 6
 
-[node name="Assombrir" type="ColorRect" parent="."]
-layout_mode = 0
-offset_right = 1280.0
-offset_bottom = 720.0
-color = Color(0, 0, 0, 0.65)
+[node name="Tint" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.12, 0.08, 0.72)
 
-[node name="Titre" type="Label" parent="."]
-layout_mode = 0
-offset_top = 110.0
-offset_right = 1280.0
-offset_bottom = 200.0
-theme_override_colors/font_color = Color(0.5, 1, 0.4, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 10
-theme_override_font_sizes/font_size = 70
+[node name="Particles" type="CPUParticles2D" parent="."]
+position = Vector2(640, -30)
+amount = 40
+lifetime = 8.0
+preprocess = 8.0
+texture = ExtResource("3")
+emission_shape = 3
+emission_rect_extents = Vector2(700, 10)
+direction = Vector2(0, 1)
+spread = 25.0
+gravity = Vector2(0, 20)
+initial_velocity_min = 30.0
+initial_velocity_max = 70.0
+angular_velocity_min = -90.0
+angular_velocity_max = 90.0
+scale_amount_min = 0.6
+scale_amount_max = 1.3
+color_ramp = SubResource("g")
+
+[node name="Card" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -330.0
+offset_top = -320.0
+offset_right = 330.0
+offset_bottom = 320.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Card"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Card/VBox"]
+layout_mode = 2
+theme_type_variation = &"TitleLabel"
+theme_override_colors/font_color = Color(0.65, 1, 0.3, 1)
+theme_override_font_sizes/font_size = 58
 text = "VICTOIRE !"
 horizontal_alignment = 1
 
-[node name="Texte" type="Label" parent="."]
-layout_mode = 0
-offset_top = 210.0
-offset_right = 1280.0
-offset_bottom = 245.0
-theme_override_font_sizes/font_size = 24
-text = "Bravo, la ville est propre !"
+[node name="Subtitle" type="Label" parent="Card/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "La ville respire à nouveau grâce à toi !"
 horizontal_alignment = 1
 
-[node name="Infos" type="Label" parent="."]
-layout_mode = 0
-offset_top = 280.0
-offset_right = 1280.0
-offset_bottom = 400.0
+[node name="Stars" type="HBoxContainer" parent="Card/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+alignment = 1
+
+[node name="Star1" type="TextureRect" parent="Card/VBox/Stars"]
+custom_minimum_size = Vector2(72, 72)
+layout_mode = 2
+texture = ExtResource("4")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star2" type="TextureRect" parent="Card/VBox/Stars"]
+custom_minimum_size = Vector2(72, 72)
+layout_mode = 2
+texture = ExtResource("4")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star3" type="TextureRect" parent="Card/VBox/Stars"]
+custom_minimum_size = Vector2(72, 72)
+layout_mode = 2
+texture = ExtResource("4")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Record" type="Label" parent="Card/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
+text = "NOUVEAU RECORD !"
+horizontal_alignment = 1
+
+[node name="Stats" type="GridContainer" parent="Card/VBox"]
+layout_mode = 2
+theme_override_constants/h_separation = 40
+theme_override_constants/v_separation = 6
+columns = 2
+
+[node name="ScoreValueLabel" type="Label" parent="Card/VBox/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Score"
+
+[node name="ScoreValue" type="Label" parent="Card/VBox/Stats"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 28
-text = "Score : 0"
-horizontal_alignment = 1
+text = "0"
+horizontal_alignment = 2
 
-[node name="Recommencer" type="Button" parent="."]
-layout_mode = 0
-offset_left = 510.0
-offset_top = 460.0
-offset_right = 770.0
-offset_bottom = 520.0
-theme_override_font_sizes/font_size = 24
+[node name="TargetValueLabel" type="Label" parent="Card/VBox/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Objectif"
+
+[node name="TargetValue" type="Label" parent="Card/VBox/Stats"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "0"
+horizontal_alignment = 2
+
+[node name="TotalValueLabel" type="Label" parent="Card/VBox/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Déchets récupérés"
+
+[node name="TotalValue" type="Label" parent="Card/VBox/Stats"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "0"
+horizontal_alignment = 2
+
+[node name="TimeValueLabel" type="Label" parent="Card/VBox/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Temps de jeu"
+
+[node name="TimeValue" type="Label" parent="Card/VBox/Stats"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "0"
+horizontal_alignment = 2
+
+[node name="LevelValueLabel" type="Label" parent="Card/VBox/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Pollution atteinte"
+
+[node name="LevelValue" type="Label" parent="Card/VBox/Stats"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "0"
+horizontal_alignment = 2
+
+[node name="BestValueLabel" type="Label" parent="Card/VBox/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Record"
+
+[node name="BestValue" type="Label" parent="Card/VBox/Stats"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Heading"
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "0"
+horizontal_alignment = 2
+
+[node name="Waste" type="HBoxContainer" parent="Card/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="PlasticValueIcon" type="TextureRect" parent="Card/VBox/Waste"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("5")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PlasticValue" type="Label" parent="Card/VBox/Waste"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 0)
+layout_mode = 2
+text = "x0"
+
+[node name="PaperValueIcon" type="TextureRect" parent="Card/VBox/Waste"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("6")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PaperValue" type="Label" parent="Card/VBox/Waste"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 0)
+layout_mode = 2
+text = "x0"
+
+[node name="GlassValueIcon" type="TextureRect" parent="Card/VBox/Waste"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("7")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GlassValue" type="Label" parent="Card/VBox/Waste"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 0)
+layout_mode = 2
+text = "x0"
+
+[node name="EwasteValueIcon" type="TextureRect" parent="Card/VBox/Waste"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("8")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="EwasteValue" type="Label" parent="Card/VBox/Waste"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 0)
+layout_mode = 2
+text = "x0"
+
+[node name="Tip" type="Label" parent="Card/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.95, 0.85, 1)
+theme_override_font_sizes/font_size = 16
+text = "Bravo, tu as protégé l'environnement !"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Card/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="RestartButton" type="Button" parent="Card/VBox/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
 text = "RECOMMENCER"
 
-[node name="Fondu" type="ColorRect" parent="."]
-layout_mode = 0
-offset_right = 1280.0
-offset_bottom = 720.0
-mouse_filter = 2
-color = Color(0, 0, 0, 1)
-
-[node name="Son" type="AudioStreamPlayer" parent="."]
-stream = ExtResource("3")
-
-[connection signal="pressed" from="Recommencer" to="." method="_on_recommencer_pressed"]
+[node name="MenuButton" type="Button" parent="Card/VBox/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "RETOUR AU MENU"
