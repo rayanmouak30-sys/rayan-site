@@ -2,7 +2,7 @@
 
 Jeu d'arcade 2D fait avec **Godot 4** en **GDScript**. Projet Terminale STI2D spécialité SIN.
 
-**Jouer en ligne :** https://.................................../jeu-dd/  *(lien à compléter)*
+**Jouer en ligne :** https://mou.alwaysdata.net/jeu-dd/
 
 ## Auteurs
 
@@ -99,22 +99,19 @@ Le jeu démarre directement quand on l'ouvre.
 
 ## Bug ou difficulté principale
 
-Les déchets apparaissaient parfois **à l'intérieur des maisons ou des arbres** : le joueur ne
-pouvait pas les ramasser. De plus, les nuages de pollution pouvaient apparaître **directement sur
-le joueur**, qui perdait de la vie sans pouvoir réagir.
+Quand nous avons testé la version Web, la **barre de santé paraissait vide** alors que le joueur
+avait toute sa santé : on ne voyait pas quand on perdait de la vie.
 
 ## Solution trouvée
 
-- La fonction `position_libre()` de `game_manager.gd` tire une position au hasard et vérifie
-  qu'elle est assez loin de chaque obstacle (maison ou arbre). Sinon, elle recommence.
-- Pour les nuages, on choisit une autre position s'ils sont à moins de 150 pixels du joueur, et un
-  nuage ne fait aucun dégât pendant sa première seconde (il apparaît en fondu).
+La barre était seulement teintée en rouge avec `modulate`, ce qui assombrissait aussi la partie
+pleine. Nous avons donné à la `ProgressBar` deux styles (`StyleBoxFlat`) : un fond gris foncé et
+un remplissage rouge vif. Maintenant la barre est bien rouge quand la santé est pleine et se vide
+quand on prend des dégâts.
 
 ## Amélioration après le test croisé
 
-*(À compléter avec ce que vos testeurs ont dit et ce que vous avez changé.)*
-Exemple : « Les testeurs perdaient leurs 3 vies d'un coup dans un nuage. Nous avons ajouté
-2 secondes d'invincibilité après la perte d'une vie (le joueur clignote). »
+*(À compléter avec ce que le camarade testeur a dit et ce qui a été changé.)*
 
 ## Sources des médias et ressources
 

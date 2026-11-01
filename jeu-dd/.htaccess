@@ -1,0 +1,3 @@
+# Types des fichiers du jeu Godot (export Web)
+AddType application/wasm .wasm
+AddType application/octet-stream .pck
