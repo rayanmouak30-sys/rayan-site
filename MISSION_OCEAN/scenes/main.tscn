@@ -1,0 +1,566 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/decor.gd" id="2_decor"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="3_hud"]
+[ext_resource type="Script" path="res://scripts/sons.gd" id="4_sons"]
+[ext_resource type="PackedScene" path="res://scenes/joueur.tscn" id="5_joueur"]
+[ext_resource type="Texture2D" path="res://assets/bulle.svg" id="6_bulle"]
+[ext_resource type="Texture2D" path="res://assets/coeur.svg" id="7_coeur"]
+[ext_resource type="Texture2D" path="res://assets/aimant.svg" id="8_aimant"]
+[ext_resource type="Texture2D" path="res://assets/bouteille.svg" id="9_bouteille"]
+[ext_resource type="Texture2D" path="res://assets/canette.svg" id="10_canette"]
+[ext_resource type="Texture2D" path="res://assets/sac.svg" id="11_sac"]
+[ext_resource type="Texture2D" path="res://assets/gobelet.svg" id="12_gobelet"]
+[ext_resource type="Texture2D" path="res://assets/baril.svg" id="13_baril"]
+[ext_resource type="Texture2D" path="res://assets/petrole.svg" id="14_petrole"]
+[ext_resource type="Texture2D" path="res://assets/bonus_vie.svg" id="15_vie"]
+
+[sub_resource type="LabelSettings" id="texte_titre"]
+font_size = 92
+font_color = Color(1, 0.88, 0.4, 1)
+outline_size = 18
+outline_color = Color(0.01, 0.12, 0.3, 1)
+shadow_size = 12
+shadow_color = Color(0, 0, 0, 0.4)
+shadow_offset = Vector2(0, 6)
+
+[sub_resource type="LabelSettings" id="texte_gros"]
+font_size = 54
+outline_size = 14
+outline_color = Color(0.01, 0.12, 0.3, 1)
+
+[sub_resource type="LabelSettings" id="texte_moyen"]
+font_size = 30
+outline_size = 9
+outline_color = Color(0.01, 0.12, 0.3, 1)
+
+[sub_resource type="LabelSettings" id="texte_normal"]
+font_size = 22
+outline_size = 7
+outline_color = Color(0.01, 0.12, 0.3, 1)
+
+[sub_resource type="LabelSettings" id="texte_petit"]
+font_size = 17
+outline_size = 6
+outline_color = Color(0.01, 0.12, 0.3, 1)
+
+[sub_resource type="LabelSettings" id="texte_jaune"]
+font_size = 26
+font_color = Color(1, 0.9, 0.35, 1)
+outline_size = 8
+outline_color = Color(0.01, 0.12, 0.3, 1)
+
+[sub_resource type="StyleBoxFlat" id="style_panneau"]
+bg_color = Color(0.01, 0.1, 0.24, 0.8)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.56, 0.88, 0.96, 0.9)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[node name="Main" type="Node2D"]
+process_mode = 3
+script = ExtResource("1_main")
+
+[node name="Monde" type="Node2D" parent="."]
+process_mode = 1
+
+[node name="Decor" type="Node2D" parent="Monde"]
+script = ExtResource("2_decor")
+
+[node name="BullesFond" type="CPUParticles2D" parent="Monde"]
+position = Vector2(576, 660)
+amount = 28
+lifetime = 10.0
+preprocess = 10.0
+texture = ExtResource("6_bulle")
+emission_shape = 3
+emission_rect_extents = Vector2(576, 4)
+direction = Vector2(0, -1)
+spread = 8.0
+gravity = Vector2(0, -12)
+initial_velocity_min = 25.0
+initial_velocity_max = 55.0
+scale_amount_min = 0.4
+scale_amount_max = 1.3
+color = Color(1, 1, 1, 0.55)
+
+[node name="Objets" type="Node2D" parent="Monde"]
+
+[node name="Joueur" parent="Monde" instance=ExtResource("5_joueur")]
+position = Vector2(200, 324)
+
+[node name="Effets" type="Node2D" parent="Monde"]
+
+[node name="MinuteurObjets" type="Timer" parent="Monde"]
+wait_time = 1.15
+
+[node name="MinuteurAimant" type="Timer" parent="Monde"]
+wait_time = 6.0
+one_shot = true
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(576, 324)
+
+[node name="Sons" type="Node" parent="."]
+script = ExtResource("4_sons")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("3_hud")
+
+[node name="Flash" type="ColorRect" parent="HUD"]
+offset_right = 1152.0
+offset_bottom = 648.0
+mouse_filter = 2
+color = Color(1, 0.1, 0.1, 0)
+
+[node name="Jeu" type="Control" parent="HUD"]
+visible = false
+offset_right = 1152.0
+offset_bottom = 648.0
+mouse_filter = 2
+
+[node name="Score" type="Label" parent="HUD/Jeu"]
+offset_left = 24.0
+offset_top = 8.0
+offset_right = 420.0
+offset_bottom = 50.0
+text = "SCORE : 0"
+label_settings = SubResource("texte_moyen")
+
+[node name="Vies" type="HBoxContainer" parent="HUD/Jeu"]
+offset_left = 24.0
+offset_top = 54.0
+offset_right = 240.0
+offset_bottom = 82.0
+theme_override_constants/separation = 4
+
+[node name="Coeur1" type="TextureRect" parent="HUD/Jeu/Vies"]
+texture = ExtResource("7_coeur")
+
+[node name="Coeur2" type="TextureRect" parent="HUD/Jeu/Vies"]
+texture = ExtResource("7_coeur")
+
+[node name="Coeur3" type="TextureRect" parent="HUD/Jeu/Vies"]
+texture = ExtResource("7_coeur")
+
+[node name="Coeur4" type="TextureRect" parent="HUD/Jeu/Vies"]
+texture = ExtResource("7_coeur")
+
+[node name="Coeur5" type="TextureRect" parent="HUD/Jeu/Vies"]
+texture = ExtResource("7_coeur")
+
+[node name="Combo" type="Label" parent="HUD/Jeu"]
+offset_left = 24.0
+offset_top = 86.0
+offset_right = 420.0
+offset_bottom = 122.0
+text = "COMBO x2"
+label_settings = SubResource("texte_jaune")
+
+[node name="Aimant" type="Control" parent="HUD/Jeu"]
+offset_left = 24.0
+offset_top = 124.0
+offset_right = 220.0
+offset_bottom = 164.0
+mouse_filter = 2
+
+[node name="Icone" type="TextureRect" parent="HUD/Jeu/Aimant"]
+offset_right = 38.0
+offset_bottom = 38.0
+texture = ExtResource("8_aimant")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Fond" type="ColorRect" parent="HUD/Jeu/Aimant"]
+offset_left = 44.0
+offset_top = 12.0
+offset_right = 170.0
+offset_bottom = 26.0
+color = Color(0, 0.05, 0.12, 0.7)
+
+[node name="Barre" type="ColorRect" parent="HUD/Jeu/Aimant"]
+offset_left = 47.0
+offset_top = 15.0
+offset_right = 167.0
+offset_bottom = 23.0
+color = Color(1, 0.4, 0.4, 1)
+
+[node name="Zone" type="Label" parent="HUD/Jeu"]
+offset_left = 326.0
+offset_top = 10.0
+offset_right = 826.0
+offset_bottom = 46.0
+text = "ZONE 1/5 : Lagon"
+label_settings = SubResource("texte_normal")
+horizontal_alignment = 1
+
+[node name="PollutionTexte" type="Label" parent="HUD/Jeu"]
+offset_left = 860.0
+offset_top = 6.0
+offset_right = 1128.0
+offset_bottom = 30.0
+text = "POLLUTION : 40 %"
+label_settings = SubResource("texte_petit")
+
+[node name="PollutionFond" type="ColorRect" parent="HUD/Jeu"]
+offset_left = 860.0
+offset_top = 32.0
+offset_right = 1128.0
+offset_bottom = 52.0
+color = Color(0, 0.05, 0.12, 0.7)
+
+[node name="PollutionBarre" type="ColorRect" parent="HUD/Jeu"]
+offset_left = 863.0
+offset_top = 35.0
+offset_right = 968.0
+offset_bottom = 49.0
+color = Color(0.9, 0.5, 0.2, 1)
+
+[node name="DechetsTexte" type="Label" parent="HUD/Jeu"]
+offset_left = 860.0
+offset_top = 58.0
+offset_right = 1128.0
+offset_bottom = 82.0
+text = "DÉCHETS : 0 / 60"
+label_settings = SubResource("texte_petit")
+
+[node name="DechetsFond" type="ColorRect" parent="HUD/Jeu"]
+offset_left = 860.0
+offset_top = 84.0
+offset_right = 1128.0
+offset_bottom = 104.0
+color = Color(0, 0.05, 0.12, 0.7)
+
+[node name="DechetsBarre" type="ColorRect" parent="HUD/Jeu"]
+offset_left = 863.0
+offset_top = 87.0
+offset_right = 863.0
+offset_bottom = 101.0
+color = Color(0.35, 0.9, 0.5, 1)
+
+[node name="Annonce" type="Label" parent="HUD"]
+modulate = Color(1, 1, 1, 0)
+offset_top = 250.0
+offset_right = 1152.0
+offset_bottom = 340.0
+pivot_offset = Vector2(576, 45)
+label_settings = SubResource("texte_gros")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="EcranTitre" type="Control" parent="HUD"]
+offset_right = 1152.0
+offset_bottom = 648.0
+mouse_filter = 2
+
+[node name="Fond" type="ColorRect" parent="HUD/EcranTitre"]
+offset_right = 1152.0
+offset_bottom = 648.0
+mouse_filter = 2
+color = Color(0, 0.06, 0.16, 0.45)
+
+[node name="Titre" type="Label" parent="HUD/EcranTitre"]
+offset_top = 30.0
+offset_right = 1152.0
+offset_bottom = 150.0
+text = "MISSION OCÉAN"
+label_settings = SubResource("texte_titre")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SousTitre" type="Label" parent="HUD/EcranTitre"]
+offset_top = 154.0
+offset_right = 1152.0
+offset_bottom = 190.0
+text = "Pilote ton drone sous-marin et dépollue l'océan avant qu'il ne soit trop tard !"
+label_settings = SubResource("texte_normal")
+horizontal_alignment = 1
+
+[node name="PanneauRamasse" type="Panel" parent="HUD/EcranTitre"]
+offset_left = 111.0
+offset_top = 212.0
+offset_right = 401.0
+offset_bottom = 412.0
+theme_override_styles/panel = SubResource("style_panneau")
+
+[node name="Titre" type="Label" parent="HUD/EcranTitre/PanneauRamasse"]
+offset_top = 10.0
+offset_right = 290.0
+offset_bottom = 46.0
+text = "RAMASSE"
+label_settings = SubResource("texte_jaune")
+horizontal_alignment = 1
+
+[node name="Image1" type="TextureRect" parent="HUD/EcranTitre/PanneauRamasse"]
+offset_left = 28.0
+offset_top = 56.0
+offset_right = 78.0
+offset_bottom = 126.0
+texture = ExtResource("9_bouteille")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Image2" type="TextureRect" parent="HUD/EcranTitre/PanneauRamasse"]
+offset_left = 90.0
+offset_top = 60.0
+offset_right = 140.0
+offset_bottom = 122.0
+texture = ExtResource("10_canette")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Image3" type="TextureRect" parent="HUD/EcranTitre/PanneauRamasse"]
+offset_left = 150.0
+offset_top = 58.0
+offset_right = 206.0
+offset_bottom = 124.0
+texture = ExtResource("11_sac")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Image4" type="TextureRect" parent="HUD/EcranTitre/PanneauRamasse"]
+offset_left = 216.0
+offset_top = 58.0
+offset_right = 262.0
+offset_bottom = 124.0
+texture = ExtResource("12_gobelet")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Texte" type="Label" parent="HUD/EcranTitre/PanneauRamasse"]
+offset_left = 10.0
+offset_top = 134.0
+offset_right = 280.0
+offset_bottom = 192.0
+text = "Les déchets plastiques
++10 points chacun"
+label_settings = SubResource("texte_petit")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanneauEvite" type="Panel" parent="HUD/EcranTitre"]
+offset_left = 431.0
+offset_top = 212.0
+offset_right = 721.0
+offset_bottom = 412.0
+theme_override_styles/panel = SubResource("style_panneau")
+
+[node name="Titre" type="Label" parent="HUD/EcranTitre/PanneauEvite"]
+offset_top = 10.0
+offset_right = 290.0
+offset_bottom = 46.0
+text = "ÉVITE"
+label_settings = SubResource("texte_jaune")
+horizontal_alignment = 1
+
+[node name="Image1" type="TextureRect" parent="HUD/EcranTitre/PanneauEvite"]
+offset_left = 62.0
+offset_top = 56.0
+offset_right = 122.0
+offset_bottom = 126.0
+texture = ExtResource("13_baril")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Image2" type="TextureRect" parent="HUD/EcranTitre/PanneauEvite"]
+offset_left = 150.0
+offset_top = 62.0
+offset_right = 228.0
+offset_bottom = 120.0
+texture = ExtResource("14_petrole")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Texte" type="Label" parent="HUD/EcranTitre/PanneauEvite"]
+offset_left = 10.0
+offset_top = 134.0
+offset_right = 280.0
+offset_bottom = 192.0
+text = "Barils toxiques et pétrole
+-1 vie"
+label_settings = SubResource("texte_petit")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanneauBonus" type="Panel" parent="HUD/EcranTitre"]
+offset_left = 751.0
+offset_top = 212.0
+offset_right = 1041.0
+offset_bottom = 412.0
+theme_override_styles/panel = SubResource("style_panneau")
+
+[node name="Titre" type="Label" parent="HUD/EcranTitre/PanneauBonus"]
+offset_top = 10.0
+offset_right = 290.0
+offset_bottom = 46.0
+text = "BONUS"
+label_settings = SubResource("texte_jaune")
+horizontal_alignment = 1
+
+[node name="Image1" type="TextureRect" parent="HUD/EcranTitre/PanneauBonus"]
+offset_left = 72.0
+offset_top = 62.0
+offset_right = 130.0
+offset_bottom = 120.0
+texture = ExtResource("15_vie")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Image2" type="TextureRect" parent="HUD/EcranTitre/PanneauBonus"]
+offset_left = 160.0
+offset_top = 62.0
+offset_right = 218.0
+offset_bottom = 120.0
+texture = ExtResource("8_aimant")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Texte" type="Label" parent="HUD/EcranTitre/PanneauBonus"]
+offset_left = 10.0
+offset_top = 134.0
+offset_right = 280.0
+offset_bottom = 192.0
+text = "Coeur : +1 vie
+Aimant : attire les déchets"
+label_settings = SubResource("texte_petit")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Commandes" type="Label" parent="HUD/EcranTitre"]
+offset_top = 428.0
+offset_right = 1152.0
+offset_bottom = 462.0
+text = "Flèches ou ZQSD : se déplacer        P : pause        M : couper le son"
+label_settings = SubResource("texte_normal")
+horizontal_alignment = 1
+
+[node name="Regle" type="Label" parent="HUD/EcranTitre"]
+offset_top = 466.0
+offset_right = 1152.0
+offset_bottom = 494.0
+text = "Chaque déchet qui t'échappe pollue l'océan. Ramasse 60 déchets pour le sauver !"
+label_settings = SubResource("texte_petit")
+horizontal_alignment = 1
+
+[node name="Record" type="Label" parent="HUD/EcranTitre"]
+offset_top = 502.0
+offset_right = 1152.0
+offset_bottom = 536.0
+text = "Record à battre : 0"
+label_settings = SubResource("texte_jaune")
+horizontal_alignment = 1
+
+[node name="Demarrer" type="Label" parent="HUD/EcranTitre"]
+offset_top = 552.0
+offset_right = 1152.0
+offset_bottom = 600.0
+text = "Appuie sur ESPACE pour plonger"
+label_settings = SubResource("texte_moyen")
+horizontal_alignment = 1
+
+[node name="EcranPause" type="Control" parent="HUD"]
+visible = false
+offset_right = 1152.0
+offset_bottom = 648.0
+mouse_filter = 2
+
+[node name="Fond" type="ColorRect" parent="HUD/EcranPause"]
+offset_right = 1152.0
+offset_bottom = 648.0
+mouse_filter = 2
+color = Color(0, 0.05, 0.15, 0.6)
+
+[node name="Texte" type="Label" parent="HUD/EcranPause"]
+offset_top = 220.0
+offset_right = 1152.0
+offset_bottom = 340.0
+text = "PAUSE"
+label_settings = SubResource("texte_titre")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Aide" type="Label" parent="HUD/EcranPause"]
+offset_top = 350.0
+offset_right = 1152.0
+offset_bottom = 386.0
+text = "Appuie sur P pour reprendre"
+label_settings = SubResource("texte_normal")
+horizontal_alignment = 1
+
+[node name="EcranFin" type="Control" parent="HUD"]
+visible = false
+offset_right = 1152.0
+offset_bottom = 648.0
+mouse_filter = 2
+
+[node name="Fond" type="ColorRect" parent="HUD/EcranFin"]
+offset_right = 1152.0
+offset_bottom = 648.0
+mouse_filter = 2
+color = Color(0, 0.05, 0.15, 0.55)
+
+[node name="Titre" type="Label" parent="HUD/EcranFin"]
+offset_top = 30.0
+offset_right = 1152.0
+offset_bottom = 150.0
+text = "OCÉAN SAUVÉ !"
+label_settings = SubResource("texte_titre")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Raison" type="Label" parent="HUD/EcranFin"]
+offset_top = 152.0
+offset_right = 1152.0
+offset_bottom = 188.0
+text = "Bravo !"
+label_settings = SubResource("texte_normal")
+horizontal_alignment = 1
+
+[node name="Resultats" type="Label" parent="HUD/EcranFin"]
+offset_top = 200.0
+offset_right = 1152.0
+offset_bottom = 340.0
+text = "Score : 0"
+label_settings = SubResource("texte_moyen")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PanneauInfo" type="Panel" parent="HUD/EcranFin"]
+offset_left = 176.0
+offset_top = 360.0
+offset_right = 976.0
+offset_bottom = 500.0
+theme_override_styles/panel = SubResource("style_panneau")
+
+[node name="Titre" type="Label" parent="HUD/EcranFin/PanneauInfo"]
+offset_top = 10.0
+offset_right = 800.0
+offset_bottom = 46.0
+text = "LE SAVAIS-TU ?"
+label_settings = SubResource("texte_jaune")
+horizontal_alignment = 1
+
+[node name="Info" type="Label" parent="HUD/EcranFin/PanneauInfo"]
+offset_left = 30.0
+offset_top = 50.0
+offset_right = 770.0
+offset_bottom = 130.0
+text = "..."
+label_settings = SubResource("texte_normal")
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Rejouer" type="Label" parent="HUD/EcranFin"]
+offset_top = 540.0
+offset_right = 1152.0
+offset_bottom = 588.0
+text = "Appuie sur ESPACE pour rejouer"
+label_settings = SubResource("texte_moyen")
+horizontal_alignment = 1

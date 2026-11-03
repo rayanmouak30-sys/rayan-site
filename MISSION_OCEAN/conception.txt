@@ -1,0 +1,55 @@
+MISSION OCÉAN - Fiche de conception
+====================================
+
+Nom du jeu :
+    Mission Océan
+
+Problème de développement durable traité :
+    La pollution des océans par les déchets plastiques
+    (Objectif de développement durable n°14 de l'ONU : vie aquatique).
+
+Ce que contrôle le joueur :
+    Un drone sous-marin de dépollution, qui se déplace dans les 4 directions
+    avec les flèches du clavier ou les touches ZQSD.
+
+Objets utiles :
+    - Déchets (bouteille, canette, sac plastique, gobelet) : +10 points chacun,
+      et la pollution baisse un peu.
+    - Bonus coeur : +1 vie.
+    - Bonus aimant : attire les déchets proches pendant 6 secondes.
+
+Dangers :
+    - Barils toxiques et nappes de pétrole : -1 vie.
+    - Chaque déchet qui s'échappe par la gauche fait monter la pollution.
+
+Score et ressources :
+    - Score : 10 points par déchet, multipliés par le combo (x2 à x5 quand on
+      ramasse plusieurs déchets à la suite sans erreur).
+    - Vies : 3 au départ, 5 au maximum.
+    - Jauge de pollution : 40 % au départ. Plus elle monte, plus l'eau devient
+      trouble, les coraux blanchissent et les poissons disparaissent.
+    - Le meilleur score (record) est enregistré.
+
+Condition de victoire :
+    Ramasser 60 déchets : l'océan est sauvé.
+
+Conditions de défaite :
+    - Plus aucune vie (le drone est détruit).
+    - La pollution atteint 100 % (l'océan est mort).
+
+Principe d'augmentation de la difficulté :
+    Le jeu est découpé en 5 zones (Lagon, Récif corallien, Grand large, Abysses,
+    Continent de plastique). On change de zone tous les 12 déchets. À chaque
+    zone, les objets arrivent plus vite, plus souvent, et il y a plus de dangers.
+
+Organisation du projet Godot :
+    scenes/main.tscn     scène principale (monde, joueur, affichage)
+    scenes/joueur.tscn   le drone (CharacterBody2D)
+    scenes/objet.tscn    un objet qui dérive (Area2D)
+    scripts/main.gd      les règles du jeu
+    scripts/joueur.gd    le déplacement du drone
+    scripts/objet.gd     le mouvement et la collision des objets
+    scripts/decor.gd     le fond marin dessiné par le code
+    scripts/hud.gd       l'affichage (score, vies, jauges, écrans)
+    scripts/sons.gd      les sons fabriqués par le calcul
+    assets/              les images (SVG) dessinées pour le jeu

@@ -63,6 +63,7 @@ jobs:
               -x '^donnees/' \
               -x '^neon-strike-godot/' \
               -x '^ECO_SURVIVOR/' \
+              -x '^MISSION_OCEAN/' \
               ./ /www/
           "
 

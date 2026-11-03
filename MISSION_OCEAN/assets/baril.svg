@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="56" height="70" viewBox="0 0 56 70">
+  <defs>
+    <linearGradient id="fut" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#E0A800"/>
+      <stop offset="0.35" stop-color="#FFE45C"/>
+      <stop offset="1" stop-color="#C98F00"/>
+    </linearGradient>
+  </defs>
+  <!-- fut -->
+  <rect x="6" y="8" width="44" height="58" rx="6" fill="url(#fut)" stroke="#1B263B" stroke-width="3"/>
+  <rect x="4" y="21" width="48" height="5" rx="2" fill="#1B263B"/>
+  <rect x="4" y="52" width="48" height="5" rx="2" fill="#1B263B"/>
+  <!-- panneau danger -->
+  <path d="M28 28 L40 48 L16 48 Z" fill="#1B263B" stroke="#1B263B" stroke-width="3" stroke-linejoin="round"/>
+  <rect x="26.5" y="33" width="3" height="8.5" rx="1.5" fill="#FFE45C"/>
+  <circle cx="28" cy="44.5" r="1.8" fill="#FFE45C"/>
+  <!-- fuite toxique -->
+  <path d="M12 9 C12 3 21 2 23 7 C26 1 35 1 37 7 C40 3 45 5 45 10 L45 15 C45 19 40 19 40 15 L40 13 L35 13 L35 20 C35 25 29 25 29 20 L29 13 L20 13 L20 17 C20 21 14 21 14 17 L14 13 C12 13 12 11 12 9 Z" fill="#70E000" stroke="#1B263B" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

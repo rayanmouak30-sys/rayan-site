@@ -1,0 +1,32 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/joueur.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/sous_marin.svg" id="2_image"]
+[ext_resource type="Texture2D" path="res://assets/bulle.svg" id="3_bulle"]
+
+[sub_resource type="RectangleShape2D" id="forme_joueur"]
+size = Vector2(96, 46)
+
+[node name="Joueur" type="CharacterBody2D"]
+motion_mode = 1
+script = ExtResource("1_script")
+
+[node name="Bulles" type="CPUParticles2D" parent="."]
+position = Vector2(-58, 4)
+amount = 14
+lifetime = 0.9
+texture = ExtResource("3_bulle")
+direction = Vector2(-1, 0)
+spread = 22.0
+gravity = Vector2(0, -90)
+initial_velocity_min = 60.0
+initial_velocity_max = 130.0
+scale_amount_min = 0.4
+scale_amount_max = 0.9
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_image")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(4, 4)
+shape = SubResource("forme_joueur")

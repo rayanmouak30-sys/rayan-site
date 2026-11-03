@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="78" height="58" viewBox="0 0 78 58">
+  <!-- nappe de petrole -->
+  <path d="M13 27 C5 15 19 5 31 11 C39 1 57 3 59 15 C71 13 77 27 67 35 C73 47 57 55 47 47 C39 57 21 55 21 43 C9 45 5 35 13 27 Z" fill="#14121F" stroke="#9D4EDD" stroke-width="3" stroke-linejoin="round"/>
+  <!-- reflets irises -->
+  <path d="M23 21 C29 15 37 15 41 19" stroke="#C77DFF" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M47 27 C53 23 59 25 61 29" stroke="#4CC9F0" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="31" cy="35" r="4.5" fill="#3A3550"/>
+  <circle cx="49" cy="39" r="3" fill="#3A3550"/>
+  <circle cx="39" cy="28" r="2" fill="#3A3550"/>
+</svg>

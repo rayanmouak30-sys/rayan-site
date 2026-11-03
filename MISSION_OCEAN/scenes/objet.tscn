@@ -1,0 +1,16 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/objet.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/bouteille.svg" id="2_image"]
+
+[sub_resource type="CircleShape2D" id="forme_objet"]
+radius = 26.0
+
+[node name="Objet" type="Area2D"]
+script = ExtResource("1_script")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_image")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("forme_objet")

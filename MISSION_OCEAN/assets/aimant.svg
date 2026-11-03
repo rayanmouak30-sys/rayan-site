@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="54" height="54" viewBox="0 0 54 54">
+  <!-- bulle -->
+  <circle cx="27" cy="27" r="24" fill="#FFFFFF" fill-opacity="0.28" stroke="#FFFFFF" stroke-width="3"/>
+  <!-- aimant en U -->
+  <path d="M16 14 L16 28 C16 42 38 42 38 28 L38 14 L31 14 L31 28 C31 33 23 33 23 28 L23 14 Z" fill="#EF233C" stroke="#1B263B" stroke-width="2.5" stroke-linejoin="round"/>
+  <rect x="16" y="14" width="7" height="7" fill="#E9ECEF" stroke="#1B263B" stroke-width="2.5" stroke-linejoin="round"/>
+  <rect x="31" y="14" width="7" height="7" fill="#E9ECEF" stroke="#1B263B" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

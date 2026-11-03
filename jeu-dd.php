@@ -1,11 +1,11 @@
 <?php
-$titrePage = "Jeu DD — Eco Survivor";
+$titrePage = "Jeu DD — Mission Océan";
 include __DIR__ . "/partiel_entete.php";
 ?>
 <section class="premier-plan">
   <canvas class="lightning-canvas" aria-hidden="true"></canvas>
-  <h2>Eco Survivor</h2>
-  <p>Jeu d'arcade 2D sur le développement durable · Godot 4 · DM Terminale STI2D SIN</p>
+  <h2>Mission Océan</h2>
+  <p>Pilote un drone sous-marin et dépollue l'océan · Godot 4 · DM Terminale STI2D SIN</p>
 </section>
 
 <div class="panneau panneau-large">
@@ -13,8 +13,8 @@ include __DIR__ . "/partiel_entete.php";
   <p class="panneau-info">Rayan Mouak · Terminale STI2D SIN · 2026-2027</p>
   <div class="dd-boutons">
     <a class="panneau-bouton" href="jeu-dd/" target="_blank" rel="noopener">▶ Jouer au jeu</a>
-    <a class="panneau-bouton" href="jeu-dd/telechargement/ECO_SURVIVOR.zip" download>⬇ Projet Godot complet (ZIP)</a>
-    <a class="panneau-bouton" href="jeu-dd/telechargement/README_Eco_Survivor.pdf" target="_blank" rel="noopener">📄 README (PDF)</a>
+    <a class="panneau-bouton" href="jeu-dd/telechargement/MISSION_OCEAN.zip" download>⬇ Projet Godot complet (ZIP)</a>
+    <a class="panneau-bouton" href="jeu-dd/telechargement/README_Mission_Ocean.pdf" target="_blank" rel="noopener">📄 README (PDF)</a>
   </div>
   <p class="panneau-lien">Le ZIP s'ouvre dans Godot 4 (Importer → project.godot → F5).</p>
 </div>

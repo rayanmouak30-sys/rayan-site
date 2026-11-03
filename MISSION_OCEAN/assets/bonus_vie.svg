@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="54" height="54" viewBox="0 0 54 54">
+  <!-- bulle -->
+  <circle cx="27" cy="27" r="24" fill="#FFFFFF" fill-opacity="0.28" stroke="#FFFFFF" stroke-width="3"/>
+  <!-- coeur -->
+  <path d="M27 41 C12 30 14 17 21 17 C24.5 17 27 20 27 22.5 C27 20 29.5 17 33 17 C40 17 42 30 27 41 Z" fill="#EF233C" stroke="#1B263B" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- reflet -->
+  <path d="M11 17 C14 11 19 8 25 7" stroke="#FFFFFF" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>
