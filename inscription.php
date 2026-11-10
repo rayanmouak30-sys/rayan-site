@@ -43,7 +43,7 @@ $titrePage = "Créer un compte";
 include __DIR__ . "/partiel_entete.php";
 ?>
 <div class="panneau">
-  <h3>✨ Créer un compte</h3>
+  <h1>Créer un compte</h1>
   <p class="panneau-info">Ton compte sert à m'envoyer des messages et à voir mes réponses. Le reste du site reste accessible sans compte.</p>
   <?php if ($erreur): ?><p class="panneau-erreur"><?= htmlspecialchars($erreur) ?></p><?php endif; ?>
   <form method="post">
@@ -51,9 +51,8 @@ include __DIR__ . "/partiel_entete.php";
     <input type="email" name="email" placeholder="Email" value="<?= htmlspecialchars($email) ?>" required>
     <input type="password" name="mdp" placeholder="Mot de passe (8 caractères min.)" required minlength="8">
     <input type="password" name="confirmation" placeholder="Confirme le mot de passe" required minlength="8">
-    <button type="submit">Créer mon compte</button>
+    <button type="submit" class="bouton bouton-plein">Créer mon compte</button>
   </form>
   <p class="panneau-lien">Déjà un compte ? <a href="compte.php">Se connecter</a></p>
 </div>
-</body>
-</html>
+<?php include __DIR__ . "/partiel_pied.php"; ?>

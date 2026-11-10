@@ -1,38 +1,48 @@
 <?php
-// Attend $titrePage (string) et, optionnellement, $navAdmin (bool) definis avant l'inclusion.
+// En-tete commun a toutes les pages PHP.
+// Attend $titrePage (string). Optionnel : $navAdmin (bool) pour le menu admin, $avecNav (bool, true par defaut).
 $navAdmin = $navAdmin ?? false;
+$avecNav = $avecNav ?? true;
+$pageActuelle = basename($_SERVER["SCRIPT_NAME"] ?? "");
+
+$liens = $navAdmin
+    ? [
+        "admin_documents.php" => "Documents",
+        "admin_cours.php"     => "Cours",
+        "admin_tp.php"        => "Évaluations",
+        "admin_messages.php"  => "Messages",
+        "deconnexion.php"     => "Déconnexion",
+    ]
+    : [
+        "documents.php" => "Documents",
+        "cours.php"     => "Cours",
+        "tp.php"        => "Évaluations",
+        "jeu-dd.php"    => "Jeu DD",
+        "jeu/"          => "Jeu",
+        "contact.php"   => "Contact",
+    ];
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<link rel="stylesheet" href="style.css">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= htmlspecialchars($titrePage) ?> — Mon classeur numérique</title>
 <link rel="icon" href="logo.svg">
+<link rel="stylesheet" href="style.css">
+<?php if ($navAdmin): ?><script src="notif_messages.js" defer></script><?php endif; ?>
 </head>
 <body>
-<div id="veil" aria-hidden="true"></div>
-<script src="transitions.js"></script>
-<?php if ($navAdmin): ?><script src="notif_messages.js" defer></script><?php endif; ?>
-<nav>
-  <h1><a href="index.html">Mon classeur numérique</a></h1>
-  <div class="ligne">
-    <ul>
-      <?php if ($navAdmin): ?>
-      <li><a href="admin_documents.php">Documents</a></li>
-      <li><a href="admin_cours.php">Cours</a></li>
-      <li><a href="admin_tp.php">Évaluations</a></li>
-      <li><a href="admin_messages.php">Messages</a></li>
-      <li><a href="deconnexion.php">Déconnexion</a></li>
-      <?php else: ?>
-      <li><a href="documents.php">Documents</a></li>
-      <li><a href="cours.php">Cours</a></li>
-      <li><a href="tp.php">Évaluations</a></li>
-      <li><a href="contact.php">Contact</a></li>
-      <li><a href="jeu/">Jeu</a></li>
-      <li><a href="jeu-dd.php">Jeu DD</a></li>
-      <?php endif; ?>
+<nav class="barre">
+  <div class="conteneur barre-int">
+    <a class="marque" href="index.html"><img src="logo.svg" alt="" width="22" height="22">Mon classeur numérique</a>
+    <?php if ($avecNav): ?>
+    <ul class="menu">
+      <?php foreach ($liens as $href => $texte): ?>
+      <li><a href="<?= $href ?>"<?= $href === $pageActuelle ? ' aria-current="page"' : '' ?>><?= $texte ?></a></li>
+      <?php endforeach; ?>
     </ul>
+    <?php endif; ?>
   </div>
 </nav>
+<main class="conteneur">

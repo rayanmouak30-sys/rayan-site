@@ -59,13 +59,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["action"])) {
 $fichiers = listerFichiers($dossier);
 $themes = themesDisponibles($fichiers);
 ?>
-<script src="notif_messages.js" defer></script>
-<section id="prestation">
-  <p class="badge">🔒 Espace administrateur</p>
-  <?php if ($message): ?><p class="message"><?= htmlspecialchars($message) ?></p><?php endif; ?>
+<section class="section">
+  <?php if ($message): ?><p class="alerte"><?= htmlspecialchars($message) ?></p><?php endif; ?>
 
-  <div class="ajout">
-    <h3>Ajouter un fichier</h3>
+  <div class="panneau panneau-ajout">
+    <h2>Ajouter un fichier</h2>
     <form method="post" enctype="multipart/form-data">
       <input type="file" name="fichier" accept="application/pdf" required>
       <input type="text" name="theme" list="themes-existants" placeholder="Thème (ex : Bases de données) — facultatif">
@@ -74,17 +72,17 @@ $themes = themesDisponibles($fichiers);
           <option value="<?= htmlspecialchars($t) ?>">
         <?php endif; endforeach; ?>
       </datalist>
-      <button type="submit">Envoyer le PDF</button>
+      <button type="submit" class="bouton">Envoyer le PDF</button>
     </form>
   </div>
 
   <div class="cartes">
     <?php if (empty($fichiers)): ?>
-      <p style="color:#a99fc4;text-align:center;width:100%;">Rien pour l'instant.</p>
+      <p class="vide-texte">Rien pour l'instant.</p>
     <?php else: foreach ($fichiers as $f): ?>
       <div class="carte carte-admin">
         <span class="etiquette-theme"><?= htmlspecialchars($f["theme"]) ?></span>
-        <a class="lien-titre" href="<?= $f["url"] ?>" target="_blank"><h3><?= htmlspecialchars(nomAffiche($f["nom"])) ?></h3></a>
+        <a class="lien-titre" href="<?= $f["url"] ?>" target="_blank" rel="noopener"><h3><?= htmlspecialchars(nomAffiche($f["nom"])) ?></h3></a>
         <p class="date">Ajouté le <?= date("d/m/Y", $f["date"]) ?></p>
         <div class="actions-fichier">
           <form method="post" class="form-renommer">
@@ -92,13 +90,13 @@ $themes = themesDisponibles($fichiers);
             <input type="hidden" name="sous_dossier" value="<?= htmlspecialchars($f["sousDossier"]) ?>">
             <input type="hidden" name="nom" value="<?= htmlspecialchars($f["nom"]) ?>">
             <input type="text" name="nouveau_nom" value="<?= htmlspecialchars(nomAffiche($f["nom"])) ?>" required>
-            <button type="submit" title="Renommer">✎</button>
+            <button type="submit" title="Renommer">Renommer</button>
           </form>
           <form method="post" class="form-supprimer" onsubmit="return confirm('Supprimer « <?= htmlspecialchars(nomAffiche($f["nom"])) ?> » ?');">
             <input type="hidden" name="action" value="supprimer">
             <input type="hidden" name="sous_dossier" value="<?= htmlspecialchars($f["sousDossier"]) ?>">
             <input type="hidden" name="nom" value="<?= htmlspecialchars($f["nom"]) ?>">
-            <button type="submit" class="bouton-danger" title="Supprimer">🗑</button>
+            <button type="submit" class="bouton-danger" title="Supprimer">Supprimer</button>
           </form>
         </div>
       </div>

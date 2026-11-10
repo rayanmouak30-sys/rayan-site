@@ -3,50 +3,15 @@
 $titre   = "Cours";
 $dossier = "uploads_cours/";
 // ==============================
+$titrePage = $titre;
+include __DIR__ . "/partiel_entete.php";
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<link rel="stylesheet" href="style.css">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= $titre ?> — Mon classeur numérique</title>
-<link rel="icon" href="logo.svg">
-</head>
-<body>
-<div id="veil" aria-hidden="true"></div>
-<script src="transitions.js"></script>
-<script src="lightning.js" defer></script>
-<script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/" } }
-</script>
-<script type="module" src="objet3d.js"></script>
 <script src="filtre.js" defer></script>
-<nav>
-  <h1><a href="index.html">Mon classeur numérique</a></h1>
-  <div class="ligne">
-    <ul>
-      <li><a href="documents.php">Documents</a></li>
-      <li><a href="cours.php">Cours</a></li>
-      <li><a href="tp.php">Évaluations</a></li>
-      <li><a href="contact.php">Contact</a></li>
-      <li><a href="jeu/">Jeu</a></li>
-      <li><a href="jeu-dd.php">Jeu DD</a></li>
-    </ul>
-  </div>
-</nav>
-
-<section class="premier-plan">
-  <canvas class="lightning-canvas" aria-hidden="true"></canvas>
-  <h2><?= $titre ?></h2>
+<header class="titre-page">
+  <h1><?= $titre ?></h1>
   <p>Systèmes d'information et numérique</p>
-</section>
+</header>
 
 <?php include __DIR__ . "/partiel_liste_publique.php"; ?>
 
-<footer class="bas-de-page">
-  <div><a href="index.html">Accueil</a></div>
-  <div><a href="#">Mentions légales</a></div>
-</footer>
-</body>
-</html>
+<?php include __DIR__ . "/partiel_pied.php"; ?>

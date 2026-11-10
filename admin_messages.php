@@ -30,7 +30,7 @@ $navAdmin = true;
 include __DIR__ . "/partiel_entete.php";
 ?>
 <div class="panneau panneau-large">
-  <h3>📨 Messages reçus</h3>
+  <h1>Messages reçus</h1>
   <p class="panneau-info"><?= count(lireDonnees("utilisateurs")) ?> compte(s) créé(s) · <?= count($conversations) ?> conversation(s)</p>
 
   <?php if (!$conversations): ?>
@@ -50,7 +50,7 @@ include __DIR__ . "/partiel_entete.php";
   <?php endif; ?>
 
   <?php if ($utilisateurSelection): ?>
-  <h3 class="titre-fil">Conversation avec <?= htmlspecialchars($utilisateurSelection["pseudo"]) ?></h3>
+  <h2 class="titre-fil">Conversation avec <?= htmlspecialchars($utilisateurSelection["pseudo"]) ?></h2>
   <div class="fil-messages">
     <?php foreach (messagesDe($utilisateurSelection["id"]) as $m): ?>
       <div class="bulle-msg <?= $m["auteur"] === "admin" ? "bulle-moi" : "bulle-autre" ?>">
@@ -63,9 +63,8 @@ include __DIR__ . "/partiel_entete.php";
   <form method="post">
     <input type="hidden" name="u" value="<?= htmlspecialchars($utilisateurSelection["id"]) ?>">
     <textarea name="texte" rows="3" maxlength="2000" placeholder="Ta réponse..." required></textarea>
-    <button type="submit">Répondre</button>
+    <button type="submit" class="bouton">Répondre</button>
   </form>
   <?php endif; ?>
 </div>
-</body>
-</html>
+<?php include __DIR__ . "/partiel_pied.php"; ?>

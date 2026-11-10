@@ -21,14 +21,13 @@ $titrePage = "Se connecter";
 include __DIR__ . "/partiel_entete.php";
 ?>
 <div class="panneau">
-  <h3>🔑 Se connecter</h3>
+  <h1>Se connecter</h1>
   <?php if ($erreur): ?><p class="panneau-erreur"><?= htmlspecialchars($erreur) ?></p><?php endif; ?>
   <form method="post">
     <input type="text" name="identifiant" placeholder="Pseudo ou email" value="<?= htmlspecialchars($identifiant) ?>" required autofocus>
     <input type="password" name="mdp" placeholder="Mot de passe" required>
-    <button type="submit">Se connecter</button>
+    <button type="submit" class="bouton bouton-plein">Se connecter</button>
   </form>
   <p class="panneau-lien">Pas encore de compte ? <a href="inscription.php">Créer un compte</a></p>
 </div>
-</body>
-</html>
+<?php include __DIR__ . "/partiel_pied.php"; ?>

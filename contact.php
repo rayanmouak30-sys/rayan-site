@@ -28,14 +28,14 @@ include __DIR__ . "/partiel_entete.php";
 ?>
 <?php if (!$utilisateur): ?>
 <div class="panneau">
-  <h3>✉️ Me contacter</h3>
-  <p class="panneau-info">Pour m'envoyer un message et voir mes réponses, crée un compte gratuit (ça prend 20 secondes).</p>
-  <a class="panneau-bouton" href="inscription.php">Créer un compte</a>
+  <h1>Me contacter</h1>
+  <p class="panneau-info">Pour m'envoyer un message et voir mes réponses, crée un compte gratuit.</p>
+  <a class="bouton" href="inscription.php">Créer un compte</a>
   <p class="panneau-lien">Déjà un compte ? <a href="compte.php">Se connecter</a></p>
 </div>
 <?php else: ?>
 <div class="panneau panneau-large">
-  <h3>✉️ Conversation</h3>
+  <h1>Conversation</h1>
   <p class="panneau-info">Connecté en tant que <strong><?= htmlspecialchars($utilisateur["pseudo"]) ?></strong> · <a href="deconnexion.php">Se déconnecter</a></p>
 
   <div class="fil-messages">
@@ -53,9 +53,8 @@ include __DIR__ . "/partiel_entete.php";
   <?php if ($erreur): ?><p class="panneau-erreur"><?= htmlspecialchars($erreur) ?></p><?php endif; ?>
   <form method="post">
     <textarea name="texte" rows="4" maxlength="1000" placeholder="Ton message..." required></textarea>
-    <button type="submit">Envoyer</button>
+    <button type="submit" class="bouton">Envoyer</button>
   </form>
 </div>
 <?php endif; ?>
-</body>
-</html>
+<?php include __DIR__ . "/partiel_pied.php"; ?>
