@@ -749,3 +749,4 @@ nav h1 a::after {
 /* Page Jeu DD (Eco Survivor) */
 .dd-boutons { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
 .dd-boutons .panneau-bouton { margin: 0; }
+.apercu-fiche { display: block; width: 100%; height: min(80vh, 900px); margin-top: 18px; border: 1px solid var(--border-strong, #444); border-radius: 8px; background: #fff; }
